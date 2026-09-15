@@ -1,6 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import React, { useState } from 'react';
+
+// Ohne cleanup zwischen den Tests bleibt das gerenderte DOM stehen und
+// getByText findet dieselbe Fischart mehrfach (aus vorherigen Renders).
+afterEach(cleanup);
 
 // Mock für Fischarten-Auswahl-Component
 function FishSpeciesSelector({ onSelect }) {
@@ -24,7 +28,7 @@ function FishSpeciesSelector({ onSelect }) {
           {fish}
         </button>
       ))}
-      {selectedSpecies && <p data-testid="selected">{selectedSpecies}</p>}
+      {selectedSpecies && <p data-testid="selected">Ausgewählt: {selectedSpecies}</p>}
     </div>
   );
 }
