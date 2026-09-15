@@ -16,6 +16,7 @@ export function createQueryBuilderMock(result = { data: null, error: null }) {
     delete: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     neq: vi.fn(() => builder),
+    is: vi.fn(() => builder),
     or: vi.fn(() => builder),
     in: vi.fn(() => builder),
     order: vi.fn(() => builder),

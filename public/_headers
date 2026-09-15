@@ -1,0 +1,22 @@
+# Cloudflare Pages Header-Regeln (Aequivalent zu vercel.json > headers).
+# Diese Datei wird von Vite aus public/ nach dist/ kopiert und von Pages
+# ausgewertet. Die SPA-/API-Weiterleitung steht in _redirects; das API-Praefix
+# /api/* wird vom vorgelagerten Cloudflare Worker an das Backend geroutet und
+# erreicht Pages nicht.
+
+# Service Worker: nie cachen, Scope auf Root erlauben.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# Web-App-Manifest: kurz cachen.
+/manifest.json
+  Cache-Control: public, max-age=3600
+
+# Gehashte Build-Assets: ein Jahr, unveraenderlich.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Icons: eine Woche.
+/icons/*
+  Cache-Control: public, max-age=604800

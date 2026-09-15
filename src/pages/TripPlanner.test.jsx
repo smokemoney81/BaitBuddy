@@ -43,10 +43,10 @@ vi.mock('@/components/LiveTrip/TripLiveTicker', () => ({
   default: () => <div data-testid="live-ticker" />,
 }));
 
-vi.mock('@/components/LiveTrip/TripForm', () => ({
+vi.mock('@/components/trip/TripPlannerWizard', () => ({
   default: ({ onClose }) => (
-    <div data-testid="trip-form">
-      Trip-Formular
+    <div data-testid="trip-wizard">
+      Angelausflug planen
       <button type="button" onClick={onClose}>Schliessen</button>
     </div>
   ),
@@ -68,11 +68,11 @@ describe('TripPlanner – Grüne Buttons öffnen das Trip-Formular', () => {
     render(<TripPlanner />);
 
     await waitFor(() => expect(screen.getByText('Noch keine Trips geplant')).toBeInTheDocument());
-    expect(screen.queryByTestId('trip-form')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('trip-wizard')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Ersten Trip planen/i }));
 
-    expect(await screen.findByTestId('trip-form')).toBeInTheDocument();
+    expect(await screen.findByTestId('trip-wizard')).toBeInTheDocument();
   });
 
   it('öffnet das Formular über den "Neuer Trip"-Button oben, wenn noch keine Trips existieren', async () => {
@@ -83,6 +83,6 @@ describe('TripPlanner – Grüne Buttons öffnen das Trip-Formular', () => {
 
     await user.click(screen.getByRole('button', { name: /^Neuer Trip$/i }));
 
-    expect(await screen.findByTestId('trip-form')).toBeInTheDocument();
+    expect(await screen.findByTestId('trip-wizard')).toBeInTheDocument();
   });
 });

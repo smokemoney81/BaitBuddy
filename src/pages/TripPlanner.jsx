@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useLocation } from "@/components/location/LocationManager";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import TripLiveTicker from "@/components/LiveTrip/TripLiveTicker";
-import TripForm from "@/components/LiveTrip/TripForm";
+import TripPlannerWizard from "@/components/trip/TripPlannerWizard";
 import { notifyAction, actionMessages } from "@/lib/actionNotifications";
 
 // spot_info normalisieren (Objekt = neu, String = alte Datensätze).
@@ -228,8 +228,8 @@ function TripPlannerContent() {
 
         {formOpen ? (
           <div className="max-w-2xl mx-auto">
-            <TripForm
-              key={`form-${editingPlan?.id || 'new'}`}
+            <TripPlannerWizard
+              key={`wizard-${editingPlan?.id || 'new'}`}
               onClose={() => setFormOpen(false)}
               onSave={handleSaveTrip}
               plan={editingPlan}

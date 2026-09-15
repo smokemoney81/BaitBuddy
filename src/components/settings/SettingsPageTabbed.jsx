@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Palette, Zap, Volume2, Shield, FileText, BellRing } from 'lucide-react';
+import { Settings, Palette, Zap, Volume2, Shield, FileText, BellRing, Fish } from 'lucide-react';
 import GeneralSettings from './GeneralSettings';
 import AppearanceSettings from './AppearanceSettings';
 import BatterySettings from './BatterySettings';
@@ -13,6 +13,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { useSearchParams } from 'react-router-dom';
 import BuddySettings from './BuddySettings';
 import NavigationSettings from './NavigationSettings';
+import FishingPreferencesSettings from './FishingPreferencesSettings';
 
 export default function SettingsPageTabbed() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,6 +23,7 @@ export default function SettingsPageTabbed() {
 
   const tabs = [
     { id: 'buddy', label: 'KI-Buddy', icon: Volume2, component: BuddySettings },
+    { id: 'fishing', label: 'Angeln', icon: Fish, component: FishingPreferencesSettings },
     { id: 'navigation', label: 'Navigation', icon: Settings, component: NavigationSettings },
     {
       id: 'general',

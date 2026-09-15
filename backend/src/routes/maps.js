@@ -11,6 +11,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data', 'maps');
 const SCRIPT_PATH = path.join(__dirname, '..', '..', 'scripts', 'map_downloader.py');
 
+// Kartendownload/-verwaltung braucht ein beschreibbares Dateisystem und Python.
+// In serverless-Umgebungen mit read-only FS (Vercel) ist das nicht moeglich.
+// Auf einem Cloudflare-Container / Node-Host mit beschreibbarem Volume und dem
+// im backend.Dockerfile installierten Python laeuft es hingegen. Per Env
+// READ_ONLY_FS=1 laesst sich die Sperre auch dort erzwingen; Vercel bleibt aus
+// Rueckwaertskompatibilitaet automatisch erkannt.
+function isReadOnlyFs() {
+  const flag = process.env.READ_ONLY_FS;
+  if (flag === '1' || flag === 'true') return true;
+  if (flag === '0' || flag === 'false') return false;
+  return !!process.env.VERCEL;
+}
+
 // Deckt sich mit den IDs aus /maps/available und /maps/list — Whitelist gegen
 // beliebige sourceId-Werte, die sonst 1:1 als argv an ein Python-Skript bzw.
 // in einen Datei-Praefix-Loesch-Scan wandern wuerden.
@@ -195,8 +208,8 @@ router.get('/maps/available', requireAuth, requireAdmin, (req, res) => {
  */
 router.post('/maps/download', requireAuth, requireAdmin, async (req, res) => {
   try {
-    if (process.env.VERCEL) {
-      return res.status(501).json({ success: false, error: 'Kartendownload ist auf Vercel nicht verfuegbar (Dateisystem ist read-only)' });
+    if (isReadOnlyFs()) {
+      return res.status(501).json({ success: false, error: 'Kartendownload ist in dieser Umgebung nicht verfuegbar (Dateisystem ist read-only)' });
     }
 
     const { sourceId } = req.body;
@@ -234,8 +247,8 @@ router.post('/maps/download', requireAuth, requireAdmin, async (req, res) => {
  */
 router.post('/maps/download-auto', requireAuth, requireAdmin, async (req, res) => {
   try {
-    if (process.env.VERCEL) {
-      return res.status(501).json({ success: false, error: 'Kartendownload ist auf Vercel nicht verfuegbar (Dateisystem ist read-only)' });
+    if (isReadOnlyFs()) {
+      return res.status(501).json({ success: false, error: 'Kartendownload ist in dieser Umgebung nicht verfuegbar (Dateisystem ist read-only)' });
     }
 
     // Run auto-download in background
@@ -264,8 +277,8 @@ router.post('/maps/download-auto', requireAuth, requireAdmin, async (req, res) =
  */
 router.delete('/maps/:sourceId', requireAuth, requireAdmin, async (req, res) => {
   try {
-    if (process.env.VERCEL) {
-      return res.status(501).json({ success: false, error: 'Kartenverwaltung ist auf Vercel nicht verfuegbar (Dateisystem ist read-only)' });
+    if (isReadOnlyFs()) {
+      return res.status(501).json({ success: false, error: 'Kartenverwaltung ist in dieser Umgebung nicht verfuegbar (Dateisystem ist read-only)' });
     }
 
     const { sourceId } = req.params;

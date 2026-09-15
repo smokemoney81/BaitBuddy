@@ -64,6 +64,12 @@ export const BUDDY_TIPS = {
     question: 'Soll ich deinen nächsten Angel-Trip planen?',
     suggestions: ['Trip planen', 'Best Spots in der Region', 'Ausrüstung packen'],
   },
+  AnglerMode: {
+    title: 'Anglermodus',
+    message: 'Du bist am Wasser — ich halte dir den Rücken frei. Sag mir, was beißt, oder frag nach dem besten Zeitfenster.',
+    question: 'Läuft was? Ich kann dir das aktuelle Bissfenster oder einen Köderwechsel vorschlagen.',
+    suggestions: ['Aktuelles Bissfenster', 'Köder wechseln?', 'Fang eintragen'],
+  },
   ARKnotenAssistent: {
     title: 'AR-Knoten-Assistent',
     message: 'Ich kann dir jeden Knoten Schritt-für-Schritt zeigen – mit AR-Unterstützung!',

@@ -3,14 +3,17 @@ import { RedisStore } from 'rate-limit-redis';
 import Redis from 'ioredis';
 import { resolvePlan } from '../lib/planResolver.js';
 
-// Vercel terminiert die Verbindung am Edge-Proxy: ohne 'trust proxy' ist
-// req.ip immer die interne Proxy-Adresse — damit zaehlten ALLE Nutzer in
-// denselben Limit-Topf (20 KI-Requests/Minute global statt pro Nutzer) und
-// express-rate-limit loggte pro Request zwei ValidationErrors
+// Der Edge-Proxy (Cloudflare bzw. frueher Vercel) terminiert die Verbindung:
+// ohne 'trust proxy' ist req.ip immer die interne Proxy-Adresse — damit zaehlten
+// ALLE Nutzer in denselben Limit-Topf (30 KI-Requests/Minute global statt pro
+// Nutzer) und express-rate-limit loggte pro Request zwei ValidationErrors
 // (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR / ERR_ERL_FORWARDED_HEADER). Die echte
-// Client-IP kommt aus den von Vercel gesetzten, vertrauenswuerdigen Headern.
+// Client-IP kommt aus dem vertrauenswuerdigen Header des jeweiligen Edge:
+// Cloudflare setzt 'cf-connecting-ip' (bevorzugt), Vercel 'x-vercel-forwarded-for'
+// (Fallback fuer den Uebergang / Vorschau-Deploys), danach die Standard-Header.
 function clientIp(req) {
-  const fwd = req.headers['x-vercel-forwarded-for']
+  const fwd = req.headers['cf-connecting-ip']
+    || req.headers['x-vercel-forwarded-for']
     || req.headers['x-real-ip']
     || req.headers['x-forwarded-for'];
   if (typeof fwd === 'string' && fwd.length > 0) {

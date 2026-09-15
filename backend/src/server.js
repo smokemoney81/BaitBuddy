@@ -32,6 +32,7 @@ import referralsRoutes from './routes/referrals.js';
 import adminRoutes from './routes/admin.js';
 import { aiRateLimiter, ttsRateLimiter, authRateLimiter } from './middleware/rateLimit.js';
 import { getAnthropicKey } from './lib/llm.js';
+import { getAllowedOrigins } from './lib/allowedOrigins.js';
 
 const app = express();
 initSentry();
@@ -45,11 +46,7 @@ securityMiddleware(app);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-    'http://localhost:5173',
-    'https://bait-buddy.vercel.app',
-    'capacitor://localhost',
-  ],
+  origin: getAllowedOrigins(),
   credentials: true
 }));
 // Stripe's signature is calculated over the original byte stream. This route

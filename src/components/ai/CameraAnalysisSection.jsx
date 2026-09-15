@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Camera, Play, Square, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { User } from "@/entities/User";
+import { ai } from "@/api/frontendClient";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
-import { ai } from "@/api/frontendClient";
 
 import PlanGuard from "@/components/premium/PlanGuard";
 
@@ -116,62 +116,64 @@ function CameraAnalysisSectionInner() {
     }
   };
 
+  // Erfasst das aktuelle Kamerabild und schickt es zur echten Claude-Vision-
+  // Analyse an das Backend (POST /api/ai/vision). Kein Mock, keine erfundenen
+  // Ergebnisse — bei fehlendem Bild/Offline/Fehler wird ein klarer Zustand angezeigt.
   const analyzeFrame = async () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      toast.error("Kamerabild ist noch nicht bereit");
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setError("Keine Internetverbindung — die KI-Analyse benötigt eine Verbindung.");
+      toast.error("Offline: KI-Analyse nicht möglich");
+      return;
+    }
+
     setIsAnalyzing(true);
+    setError(null);
     setAnalysisResult(null);
 
     try {
-      if (!videoRef.current) {
-        throw new Error("Video-Element nicht verfügbar");
-      }
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas-Kontext nicht verfügbar");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Rohes Base64 ohne data-URL-Präfix an das Vision-Endpoint.
+      const imageBase64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      if (!imageBase64) throw new Error("Frame konnte nicht erfasst werden");
 
-      // Capture frame from video stream to canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth || 640;
-      canvas.height = videoRef.current.videoHeight || 480;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error("Canvas-Kontext nicht verfügbar");
-      }
-
-      // Draw frame (mirror horizontally as shown on screen)
-      ctx.scale(-1, 1);
-      ctx.drawImage(videoRef.current, -canvas.width, 0);
-      ctx.scale(-1, 1);
-
-      // Convert canvas to base64 (without data-URL prefix)
-      const imageBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-      if (!imageBase64) {
-        throw new Error("Frame konnte nicht erfasst werden");
-      }
-
-      // Send to AI vision endpoint via frontendClient
       const result = await ai.vision(imageBase64);
-      setAnalysisResult(result.analysis || 'Analyse abgeschlossen');
-      toast.success("Analyse abgeschlossen!");
+      const analysis = typeof result?.analysis === "string" ? result.analysis.trim() : "";
+      if (!analysis) throw new Error("Leere Antwort von der KI");
+
+      setAnalysisResult(analysis);
+      toast.success("Analyse abgeschlossen");
     } catch (err) {
-      console.error("Analysis error:", err);
-      toast.error("Analyse fehlgeschlagen: " + (err.message || "Unbekannter Fehler"));
-      setAnalysisResult(null);
+      console.error("KI-Kamera-Analyse fehlgeschlagen:", err);
+      const tooMany = typeof err?.message === "string" && err.message.includes("429");
+      const msg = tooMany
+        ? "Zu viele Anfragen — bitte kurz warten."
+        : "Analyse fehlgeschlagen. Bitte erneut versuchen.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // Placeholder for freezing the camera feed
+  // Friert das aktuelle Bild ein und startet die Analyse.
   const handleFreeze = () => {
-    console.log("Freezing camera feed...");
     if (isCameraActive && videoRef.current) {
-      // In a real application, you would capture the current frame here (e.g., to a canvas)
-      // and send that image data to your AI for analysis.
       analyzeFrame();
     } else {
       toast.error("Kamera ist nicht aktiv, um einen Frame einzufrieren.");
     }
   };
 
-  // Premium-Check temporär deaktiviert - alle Features frei
   return (
     <Card className="glass-morphism border-gray-800 rounded-2xl">
       <CardHeader>

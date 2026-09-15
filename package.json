@@ -106,7 +106,7 @@
   },
   "devDependencies": {
     "@capacitor/android": "6.2.1",
-    "@capacitor/cli": "^8.5.1",
+    "@capacitor/cli": "6.2.1",
     "@capacitor/core": "6.2.1",
     "@eslint/js": "^9.19.0",
     "@playwright/test": "^1.61.0",
