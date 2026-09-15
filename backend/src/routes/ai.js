@@ -32,6 +32,10 @@ const MAX_CHAT_CONTENT_CHARS = 4000;   // pro Chat-Nachricht
 const MAX_CHAT_MESSAGES = 50;          // Anzahl Chat-Nachrichten
 const MAX_CATCH_DATA_CHARS = 4000;     // serialisierte catch_data
 const MAX_CONTEXT_CHARS = 1000;        // freie Kontext-/Perioden-Strings
+// Vision payloads are base64 encoded and can otherwise turn a single request
+// into an unbounded memory/token cost. The client captures JPEG frames at 0.8
+// quality, so a 5 MiB decoded-image ceiling is comfortably above normal use.
+const MAX_VISION_IMAGE_BASE64_CHARS = 7_000_000;
 
 const router = Router();
 
@@ -859,6 +863,40 @@ router.post('/ai/realtime-session', requireAuth, async (req, res) => {
     return res.json({ ok: true, client_secret: { value: data.value, expires_at: data.expires_at }, model, voice });
   } catch (e) {
     console.error('[Realtime Session Error]', e.message);
+    return sendDbError(res, e);
+  }
+});
+
+router.post('/ai/vision', requireAuth, async (req, res) => {
+  try {
+    const { image_base64 } = req.body;
+    if (typeof image_base64 !== 'string' || image_base64.length === 0) {
+      return res.status(400).json({ error: 'image_base64 erforderlich' });
+    }
+    if (image_base64.length > MAX_VISION_IMAGE_BASE64_CHARS) {
+      return res.status(413).json({ error: 'Bild ist zu groß für die KI-Analyse' });
+    }
+
+    const analysis = await invokeLLM({
+      prompt: `Du bist ein erfahrener Angel-Experte. Analysiere dieses Foto für Angler:
+
+AUFGABE:
+1. Erkenne sichtbare Fischarten im oder aus dem Wasser
+2. Beschreibe die Wasserqualität (Klarheit, Farbe, Pflanzen)
+3. Nenne günstige Köder für erkannte Arten
+4. Gib Tipps zum Angelplatz
+
+ANTWORT-FORMAT (Deutsch, natürlich, hilfreiche Sätze):
+- Beginne mit der Hauptentdeckung
+- Kurze Begründung
+- Praktischer Tipp
+
+Antworte prägnant (3-5 Sätze), als würdest du einem Freund am Wasser helfen.`,
+      imageBase64: image_base64
+    });
+
+    return res.json({ ok: true, analysis });
+  } catch (e) {
     return sendDbError(res, e);
   }
 });
