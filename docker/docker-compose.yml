@@ -309,7 +309,8 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SUPPORT_EMAIL: ${SUPPORT_EMAIL}
+      # support.js liest DEVELOPER_EMAIL, nicht SUPPORT_EMAIL.
+      DEVELOPER_EMAIL: ${DEVELOPER_EMAIL}
       # Monitoring / Rate-Limit-Store
       SENTRY_DSN: ${SENTRY_DSN}
       LOG_LEVEL: ${LOG_LEVEL}

@@ -12,7 +12,10 @@ const MIN_LOG_LEVEL = LOG_LEVELS[process.env.LOG_LEVEL || (
   process.env.NODE_ENV === 'production' ? 'INFO' : 'DEBUG'
 )];
 
-const requestContextMap = new Map();
+// WeakMap, nicht Map: der Kontext haengt am req-Objekt und verschwindet mit ihm.
+// Mit einer starken Map wuerde jeder Request, der nicht ueber res.json()
+// antwortet (Fehler, res.send, res.end), dauerhaft im Speicher bleiben.
+const requestContextMap = new WeakMap();
 
 export function setRequestContext(req, context) {
   requestContextMap.set(req, context);
@@ -104,23 +107,54 @@ export function requestLogger(req, res, next) {
 export function errorLogger(err, req, res, next) {
   const context = getRequestContext(req);
   let statusCode = err.statusCode || 500;
-  
+
   if (err?.timeout || err?.name === 'FetchTimeoutError') statusCode = 504;
 
   logger.error(`${req.method} ${req.path}`, err, { statusCode, requestId: context.requestId });
 
-  if (!res.headersSent) {
-    res.status(statusCode).json({ error: 'Interner Fehler', requestId: context.requestId });
+  clearRequestContext(req);
+
+  // Sind die Header schon raus, kann nur noch Express' Default-Handler die
+  // Verbindung sauber schliessen — dann weiterreichen. Andernfalls antworten
+  // wir hier abschliessend und rufen next() NICHT mehr auf: ein next(err) nach
+  // gesendeter Antwort laesst den Default-Handler den Socket zerstoeren und
+  // liefert auf Vercel abgeschnittene Responses.
+  if (res.headersSent) {
+    return next(err);
   }
 
-  next(err);
+  // 'Interner Fehler' ist die im Backend durchgaengig verwendete generische
+  // Meldung (maps.js, admin.js, sync.js) — die Route-Details bleiben im Log.
+  res.status(statusCode).json({
+    error: statusCode === 504 ? 'Zeitüberschreitung' : 'Interner Fehler',
+    requestId: context.requestId,
+  });
 }
 
-export function initSentry(app) {
-  if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
-    Sentry.init({ dsn: process.env.SENTRY_DSN, environment: 'production', tracesSampleRate: 0.1 });
-    app.use(Sentry.Handlers.requestHandler());
-    app.use(Sentry.Handlers.errorHandler());
+// @sentry/node v10 hat die alten `Sentry.Handlers.*`-Middlewares (v7-Ära)
+// ersatzlos entfernt — ein Zugriff darauf wirft `Cannot read properties of
+// undefined` und haette beim gesetzten SENTRY_DSN den kompletten Server-Boot
+// (server.js ruft initSentry beim Modul-Laden) scheitern lassen. In v10
+// instrumentiert Sentry.init() Express selbst; gemeldet werden Fehler ohnehin
+// explizit ueber logger.error/critical (Sentry.captureException).
+export function initSentry() {
+  if (!process.env.SENTRY_DSN || process.env.NODE_ENV !== 'production') return false;
+  try {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: 'production',
+      tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1),
+    });
+    return true;
+  } catch (e) {
+    // Ein kaputtes Monitoring darf die API nie mitreissen.
+    console.error(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: 'ERROR',
+      message: 'Sentry-Initialisierung fehlgeschlagen',
+      error: { name: e?.name, message: e?.message },
+    }));
+    return false;
   }
 }
 

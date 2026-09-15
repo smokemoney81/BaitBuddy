@@ -50,19 +50,6 @@ export default function NavigationTracker() {
   }, [navigate, location.pathname]);
 
   /**
-   * Notify Base44 platform of URL changes
-   */
-  useEffect(() => {
-    window.parent?.postMessage(
-      { 
-        type: 'app_changed_url', 
-        url: window.location.href 
-      },
-      '*'
-    );
-  }, [location]);
-
-  /**
    * Log app navigation for analytics
    */
   useEffect(() => {

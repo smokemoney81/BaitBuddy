@@ -34,7 +34,7 @@ import { aiRateLimiter, ttsRateLimiter, authRateLimiter } from './middleware/rat
 import { getAnthropicKey } from './lib/llm.js';
 
 const app = express();
-initSentry(app);
+initSentry();
 const PORT = process.env.PORT || 3000;
 
 // Security-Middleware

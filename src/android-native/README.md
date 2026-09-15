@@ -1,7 +1,7 @@
 # Native Android Billing Bridge
 
 Diese Dateien sind **Vorlagen für dein Android-Studio-Projekt** (WebView-Wrapper).
-Sie gehoeren NICHT in das Base44-Web-Projekt - sondern in deine native APK.
+Sie gehoeren NICHT in das Web-Projekt - sondern in deine native APK.
 
 ## Struktur
 
