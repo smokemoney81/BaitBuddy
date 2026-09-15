@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
+import { parseCoordinates } from '../lib/coordinates.js';
 
 const router = Router();
 
@@ -81,9 +82,8 @@ router.get('/water-data', requireAuth, async (req, res) => {
 
 router.post('/water-data', requireAuth, async (req, res) => {
   const { latitude, longitude, spot_id = null, quality = 'med', temperature_profile = null, source = 'manual' } = req.body || {};
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-    return res.status(400).json({ error: 'latitude und longitude erforderlich' });
-  }
+  const coords = parseCoordinates(latitude, longitude);
+  if (!coords.ok) return res.status(400).json({ error: coords.error });
   if (!ALLOWED_QUALITY.has(quality)) {
     return res.status(400).json({ error: `Unbekannte Quality: ${quality}` });
   }
@@ -94,8 +94,8 @@ router.post('/water-data', requireAuth, async (req, res) => {
     .insert({
       created_by: req.user.email,
       spot_id,
-      latitude,
-      longitude,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       quality,
       sample_count,
       size_bytes,
@@ -109,17 +109,16 @@ router.post('/water-data', requireAuth, async (req, res) => {
 
 router.post('/water-data/fetch', requireAuth, async (req, res) => {
   const { latitude, longitude, spot_id = null, quality = 'med' } = req.body || {};
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-    return res.status(400).json({ error: 'latitude und longitude erforderlich' });
-  }
+  const coords = parseCoordinates(latitude, longitude);
+  if (!coords.ok) return res.status(400).json({ error: coords.error });
   if (!ALLOWED_QUALITY.has(quality)) {
     return res.status(400).json({ error: `Unbekannte Quality: ${quality}` });
   }
   const samples = QUALITY_SAMPLES[quality];
   try {
     const [forecast, marine] = await Promise.all([
-      fetchOpenMeteoForecast(latitude, longitude, samples),
-      fetchOpenMeteoMarine(latitude, longitude, samples).catch(() => null),
+      fetchOpenMeteoForecast(coords.latitude, coords.longitude, samples),
+      fetchOpenMeteoMarine(coords.latitude, coords.longitude, samples).catch(() => null),
     ]);
     const profile = buildProfile(forecast, marine, samples);
     const sample_count = profile.series.length;
@@ -129,8 +128,8 @@ router.post('/water-data/fetch', requireAuth, async (req, res) => {
       .insert({
         created_by: req.user.email,
         spot_id,
-        latitude,
-        longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         quality,
         sample_count,
         size_bytes,

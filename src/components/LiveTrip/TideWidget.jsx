@@ -113,7 +113,11 @@ function TideWidget({ latitude, longitude, isActive }) {
               <div key={idx} className="flex justify-between text-xs text-gray-300">
                 <span>{event.type === 'high' ? 'Hochwasser' : 'Niedrigwasser'}</span>
                 <span className="text-gray-400">
-                  {new Date(event.t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                  {/* `event.date` ist bereits korrekt als UTC aufgeloest; `event.t`
+                      direkt an `new Date` zu geben, wuerde den GMT-Zeitstempel als
+                      Lokalzeit lesen und die Uhrzeit verschieben. */}
+                  {(event.date ? new Date(event.date) : new Date(event.t))
+                    .toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ))}

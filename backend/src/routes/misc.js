@@ -8,6 +8,7 @@ import { isInClosedSeason } from '../lib/closedSeason.js';
 import { isAllowedFetchUrl } from '../lib/urlSafety.js';
 import { deleteUserAccount } from '../lib/accountDeletion.js';
 import { sendDbError } from '../lib/errorResponse.js';
+import { parseCoordinates } from '../lib/coordinates.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 import { listAllUsers, toAdminUserSummary } from '../lib/adminUsers.js';
 
@@ -182,11 +183,9 @@ router.post('/water/bathymetry', requireAuth, async (req, res) => {
 });
 
 router.post('/weather', optionalAuth, async (req, res) => {
-  const lat = Number(req.body?.latitude);
-  const lon = Number(req.body?.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return res.status(400).json({ error: 'latitude und longitude erforderlich' });
-  }
+  const coords = parseCoordinates(req.body?.latitude, req.body?.longitude);
+  if (!coords.ok) return res.status(400).json({ error: coords.error });
+  const { latitude: lat, longitude: lon } = coords;
   try {
     const w = await fetchWithTimeout(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code,relative_humidity_2m&hourly=temperature_2m,precipitation_probability&timezone=auto`,
@@ -204,11 +203,9 @@ router.post('/weather', optionalAuth, async (req, res) => {
 const ALERT_SEVERITY_RANK = { extreme: 4, severe: 3, moderate: 2, minor: 1 };
 
 router.post('/weather/alerts', optionalAuth, async (req, res) => {
-  const lat = Number(req.body?.latitude);
-  const lon = Number(req.body?.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return res.status(400).json({ error: 'latitude und longitude erforderlich' });
-  }
+  const coords = parseCoordinates(req.body?.latitude, req.body?.longitude);
+  if (!coords.ok) return res.status(400).json({ error: coords.error });
+  const { latitude: lat, longitude: lon } = coords;
   try {
     const data = await fetchWithTimeout(
       `https://api.brightsky.dev/alerts?lat=${lat}&lon=${lon}`,

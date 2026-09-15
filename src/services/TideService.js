@@ -1,6 +1,8 @@
 // NOAA Tide API Integration für Echtzeit-Gezeitendaten
 // Quelle: https://api.noaa.gov/
 
+import SolunarService from './SolunarService';
+
 class TideService {
   constructor() {
     this.baseUrl = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
@@ -90,8 +92,16 @@ class TideService {
       const startDate = this.formatNOAADate(today);
       const endDate = this.formatNOAADate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)); // +7 Tage
 
-      // NOAA Predictions API - nur für Hochwasser/Niedrigwasser
-      const url = `${this.baseUrl}?station=${station.id}&begin_date=${startDate}&end_date=${endDate}&product=predictions&datum=mhhw&units=metric&application=BaitBuddy&format=json`;
+      // NOAA Predictions API.
+      // `interval=hilo` liefert ausschliesslich die Extrema (Hoch-/Niedrigwasser)
+      // mit einem `type`-Feld (H/L). Ohne diesen Parameter kommt die
+      // 6-Minuten-Zeitreihe zurueck — deren Punkte sind fast alle weder Hoch-
+      // noch Niedrigwasser, sodass die Anzeige drei "Niedrigwasser" im
+      // 6-Minuten-Abstand zeigte und `timeToNext` immer bei ~0 lag.
+      // `time_zone=gmt` macht die Zeitstempel eindeutig (siehe parseNoaaTime).
+      // `datum=mllw` ist die uebliche Bezugsgroesse fuer Gezeitenvorhersagen;
+      // mit `mhhw` waren praktisch alle Werte negativ.
+      const url = `${this.baseUrl}?station=${station.id}&begin_date=${startDate}&end_date=${endDate}&product=predictions&interval=hilo&datum=mllw&time_zone=gmt&units=metric&application=BaitBuddy&format=json`;
 
       const response = await fetch(url);
       if (!response.ok) throw new Error(`NOAA API error: ${response.status}`);
@@ -104,7 +114,7 @@ class TideService {
 
       // Finde nächstes Hoch- und Niedrigwasser
       const tidesWithType = this.categorizeExtrema(predictions);
-      const upcomingTides = tidesWithType.filter(t => new Date(t.t) >= now);
+      const upcomingTides = tidesWithType.filter(t => t.date && t.date >= now);
 
       const result = {
         current: this.getCurrentTideState(tidesWithType, now),
@@ -127,13 +137,36 @@ class TideService {
   }
 
   // Kategorisiere Extrema als Hoch/Niedrig
+  // NOAA liefert Zeitstempel als "YYYY-MM-DD HH:mm" ohne Zonenangabe. `new Date()`
+  // interpretiert dieses Format als LOKALzeit, angefordert ist es aber in GMT —
+  // jeder Vergleich mit `now` lag dadurch um den UTC-Offset des Geraets daneben
+  // (in Deutschland ein bis zwei Stunden). Deshalb explizit als UTC parsen.
+  parseNoaaTime(value) {
+    if (!value) return null;
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (!match) {
+      const fallback = new Date(value);
+      return Number.isNaN(fallback.getTime()) ? null : fallback;
+    }
+    const [, y, mo, d, h, mi] = match;
+    return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, 0));
+  }
+
   categorizeExtrema(predictions) {
     const tideLevels = predictions.map(p => parseFloat(p.v));
 
     return predictions.map((pred, i) => {
       let type = 'neutral';
 
-      if (i > 0 && i < tideLevels.length - 1) {
+      // Mit `interval=hilo` markiert NOAA jedes Extremum selbst (H/L). Nur wenn
+      // dieses Feld fehlt (aeltere Antworten, Zeitreihe), aus den Nachbarwerten
+      // ableiten.
+      const noaaType = typeof pred.type === 'string' ? pred.type.trim().toUpperCase() : '';
+      if (noaaType === 'H') {
+        type = 'high';
+      } else if (noaaType === 'L') {
+        type = 'low';
+      } else if (i > 0 && i < tideLevels.length - 1) {
         const prev = tideLevels[i - 1];
         const curr = tideLevels[i];
         const next = tideLevels[i + 1];
@@ -144,6 +177,9 @@ class TideService {
 
       return {
         t: pred.t,
+        // Aufgeloester Zeitstempel, damit Anzeige und Vergleiche nicht erneut
+        // das mehrdeutige NOAA-Format parsen muessen.
+        date: this.parseNoaaTime(pred.t),
         v: parseFloat(pred.v),
         type,
       };
@@ -159,7 +195,8 @@ class TideService {
     let nextExtreme = null;
 
     for (const tide of tidesWithType) {
-      const tideTime = new Date(tide.t);
+      const tideTime = tide.date || this.parseNoaaTime(tide.t);
+      if (!tideTime) continue;
       if (tideTime <= now) {
         prevExtreme = tide;
       } else if (!nextExtreme) {
@@ -170,7 +207,7 @@ class TideService {
     if (!nextExtreme) nextExtreme = tidesWithType[tidesWithType.length - 1];
 
     const state = {
-      height: nextExtreme.v,
+      height: this.interpolateHeight(prevExtreme, nextExtreme, now),
       type: nextExtreme.type === 'high' ? 'Steigend' : nextExtreme.type === 'low' ? 'Fallend' : 'Neutral',
       typeEmoji: nextExtreme.type === 'high' ? '🌊' : nextExtreme.type === 'low' ? '⬇️' : '➡️',
       timeToNext: this.timeUntilEvent(now, new Date(nextExtreme.t)),
@@ -179,6 +216,26 @@ class TideService {
     };
 
     return state;
+  }
+
+  // Aktueller Pegel zwischen zwei Extrema. `height` war bisher schlicht die
+  // Hoehe des NAECHSTEN Extremums — also nie der aktuelle Stand, sondern der
+  // Wert, der erst in bis zu sechs Stunden erreicht wird. Zwischen Hoch- und
+  // Niedrigwasser verlaeuft der Pegel naeherungsweise cosinusfoermig; ohne
+  // vorheriges Extremum bleibt nur der naechste Wert.
+  interpolateHeight(prevExtreme, nextExtreme, now) {
+    if (!nextExtreme) return null;
+    const nextTime = nextExtreme.date || this.parseNoaaTime(nextExtreme.t);
+    const prevTime = prevExtreme ? (prevExtreme.date || this.parseNoaaTime(prevExtreme.t)) : null;
+    if (!prevExtreme || !prevTime || !nextTime) return nextExtreme.v;
+
+    const span = nextTime.getTime() - prevTime.getTime();
+    if (span <= 0) return nextExtreme.v;
+
+    const elapsed = Math.min(Math.max((now.getTime() - prevTime.getTime()) / span, 0), 1);
+    const eased = (1 - Math.cos(Math.PI * elapsed)) / 2;
+    const height = prevExtreme.v + (nextExtreme.v - prevExtreme.v) * eased;
+    return parseFloat(height.toFixed(2));
   }
 
   // Berechne Zeit bis Event
@@ -194,10 +251,12 @@ class TideService {
   }
 
   // Formatiere Datum für NOAA API (YYYYMMDD)
+  // UTC-Datumsteile, passend zum `time_zone=gmt` der Anfrage — mit lokalen
+  // Teilen faellt das Fenster je nach Zeitzone um einen Tag daneben.
   formatNOAADate(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
     return `${y}${m}${d}`;
   }
 
@@ -225,12 +284,13 @@ class TideService {
     };
   }
 
-  // Berechne Mondphase (0-1, 0=Neumondlich, 0.5=Vollmond)
+  // Berechne Mondphase (0-1, 0=Neumond, 0.5=Vollmond).
+  // Delegiert an den SolunarService statt die Rechnung zu duplizieren: die
+  // hiesige Kopie nutzte `new Date(2000, 0, 6)` (LOKALzeit-Konstruktor und ohne
+  // Uhrzeit) — der Referenzpunkt haing damit von der Zeitzone des Geraets ab und
+  // lieferte je nach Standort eine andere Mondphase.
   calculateMoonPhase(date) {
-    const knownNewMoon = new Date(2000, 0, 6); // Mond-Neumondlich am 6. Jan 2000
-    const lunarCycle = 29.530588861; // Tage pro Mondzyklus
-    const daysSinceNewMoon = (date.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
-    return (daysSinceNewMoon % lunarCycle) / lunarCycle;
+    return SolunarService.getMoonPhase(date);
   }
 
   // Gebe Empfehlungs-Text basierend auf Gezeiten

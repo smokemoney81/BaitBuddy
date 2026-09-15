@@ -38,11 +38,24 @@ export default function PendingPhotoCard({ photo, spots, findNearestSpot, onAnal
 
             if (response.data && response.data.result_data) {
                 const aiData = response.data.result_data;
-                
+
+                // Ohne erkannte Art keinen Fang anlegen: ein Datensatz mit leerer
+                // Fischart fehlt spaeter in Fangliste, Artenstatistik und
+                // KI-Kontext. Das Foto bleibt erhalten, damit der Fang von Hand
+                // nachgetragen werden kann.
+                const species = (aiData.species_name || '').trim();
+                if (!species) {
+                    toast.warning('Keine Fischart erkannt', {
+                        description: 'Bitte trage den Fang von Hand ein — das Foto bleibt gespeichert.',
+                        duration: 6000,
+                    });
+                    return;
+                }
+
                 // Catch-Objekt erstellen - mit automatischem Spot!
                 const catchData = {
                     photo_url: photo.photo_url,
-                    species: aiData.species_name || '',
+                    species,
                     length_cm: aiData.length_cm || null,
                     weight_kg: aiData.weight_kg || null,
                     catch_time: photo.captured_at || new Date().toISOString(),
@@ -55,16 +68,16 @@ export default function PendingPhotoCard({ photo, spots, findNearestSpot, onAnal
                 // Catch speichern
                 await Catch.create(catchData);
 
-                const successMessage = nearestSpot 
-                    ? `${aiData.species_name || 'Unbekannt'} • ${aiData.length_cm ? Math.round(aiData.length_cm) + ' cm' : 'Länge unbekannt'} • ${nearestSpot.name}`
-                    : `${aiData.species_name || 'Unbekannt'} • ${aiData.length_cm ? Math.round(aiData.length_cm) + ' cm' : 'Länge unbekannt'}`;
+                const successMessage = nearestSpot
+                    ? `${species} • ${aiData.length_cm ? Math.round(aiData.length_cm) + ' cm' : 'Länge unbekannt'} • ${nearestSpot.name}`
+                    : `${species} • ${aiData.length_cm ? Math.round(aiData.length_cm) + ' cm' : 'Länge unbekannt'}`;
 
                 toast.success('Fang gespeichert!', {
                     description: successMessage,
                     duration: 5000
                 });
 
-                const spokenText = `Fang erkannt: ${aiData.species_name || 'Unbekannte Art'}.${aiData.length_cm ? ` Laenge etwa ${Math.round(aiData.length_cm)} Zentimeter.` : ''}${aiData.weight_kg ? ` Gewicht etwa ${aiData.weight_kg} Kilogramm.` : ''}${nearestSpot ? ` Spot ${nearestSpot.name} zugewiesen.` : ''} ${aiData.visual_details || ''}`;
+                const spokenText = `Fang erkannt: ${species}.${aiData.length_cm ? ` Laenge etwa ${Math.round(aiData.length_cm)} Zentimeter.` : ''}${aiData.weight_kg ? ` Gewicht etwa ${aiData.weight_kg} Kilogramm.` : ''}${nearestSpot ? ` Spot ${nearestSpot.name} zugewiesen.` : ''} ${aiData.visual_details || ''}`;
                 speak(spokenText);
 
                 onAnalyzed(photo.id, nearestSpot);
