@@ -14,6 +14,7 @@ import { cacheEntityData, cacheWeatherData, getCachedWeather, getOfflineData } f
 import OfflineCacheIndicator from "@/components/dashboard/OfflineCacheIndicator";
 import FishingRecommendationCard from "@/components/dashboard/FishingRecommendationCard";
 import NextTripHero from "@/components/dashboard/NextTripHero";
+import BuddyInsightCard from "@/components/dashboard/BuddyInsightCard";
 import AudioNotesWidget from "@/components/dashboard/AudioNotesWidget";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePredictivePrefetch } from "@/hooks/usePredictivePrefetch";
@@ -471,6 +472,7 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
         <DashboardOverview user={user} nearestSpots={nearestSpots} />
         <SuspenseWithErrorBoundary isMinimal={true}><NextTripHero /></SuspenseWithErrorBoundary>
+        <SuspenseWithErrorBoundary isMinimal={true}><BuddyInsightCard /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><SchonzeitWarner /></SuspenseWithErrorBoundary>
         <div className="flex items-center flex-wrap gap-3 justify-between"><button type="button" onClick={handleAiAnalysis} disabled={isAnalyzing} className="bb-secondary"><Brain size={18}/>{isAnalyzing ? 'Standort wird analysiert …' : 'KI Standort-Analyse'}</button><OfflineCacheIndicator /></div>
         {showAnalysis && aiAnalysis && <section className="bb-card" aria-label="KI-Analyse Ergebnis" aria-live="polite"><div className="flex justify-between items-center mb-4"><h2 className="text-lg font-semibold">Deine Standort-Analyse</h2><button type="button" className="bb-secondary" onClick={() => setShowAnalysis(false)}>Schließen</button></div><p className="whitespace-pre-wrap text-sm leading-relaxed">{aiAnalysis}</p></section>}
