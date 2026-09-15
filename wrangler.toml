@@ -1,2 +1,36 @@
+# Cloudflare Worker (Front-Door) fuer BaitBuddy — autoritative Deploy-Config.
+# Wird von der Cloudflare "Workers Builds"-Git-Integration (Projekt "baitbuddy")
+# gelesen. Zuvor stand hier eine Pages-artige Config (pages_build_output_dir),
+# die zum Workers-Build nicht passte und sofort fehlschlug.
+#
+# Cloudflare-Build-Einstellungen (im Dashboard zu setzen):
+#   Build command:  npm install --legacy-peer-deps && npm run build
+#   Deploy command: npx wrangler deploy   (nutzt diese Datei)
+# Variablen/Secret am Worker:
+#   BACKEND_URL (Var)  — Uebergang: https://bait-buddy.vercel.app, spaeter Container-URL
+#   CRON_SECRET (Secret) — identisch zum Backend, aktiviert die Cron-Triggers
+#
+# Der reine statische Frontend-Deploy per Pages ist damit abgeloest; die SPA wird
+# vom Worker ueber das Assets-Binding ausgeliefert, /api/* wird ans Backend
+# geproxyt (SSE unveraendert durchgereicht). Details: docs/CLOUDFLARE_MIGRATION.md
+
 name = "baitbuddy"
-pages_build_output_dir = "dist"
+main = "cloudflare/worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Statische SPA aus dem Vite-Build (dist/). _headers/_redirects in dist/ werden
+# ausgewertet; not_found_handling liefert die SPA-index.html (Client-Routing).
+[assets]
+directory = "dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# Cron Triggers (UTC) — identisch zu vercel.json > crons und docker/cron/crontab.
+[triggers]
+crons = ["0 3 * * *", "0 2 * * *", "0 1 * * *", "0 0 1 * *"]
+
+# Nicht-geheime Variable. BACKEND_URL zeigt auf das Express-Backend. Uebergang:
+# bestehendes Vercel-Backend, damit /api sofort funktioniert; spaeter Container.
+[vars]
+BACKEND_URL = "https://bait-buddy.vercel.app"

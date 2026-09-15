@@ -1,7 +1,7 @@
 # BaitBuddy — Entwicklungsrichtlinien für Claude
 
 ## 🎯 Projekt-Übersicht
-**BaitBuddy** ist eine Angel-App mit AI-gestütztem KI-Buddy. Technisch ist es eine **Vite + React 18 Web-App**, die für Android per **Capacitor** in einen WebView verpackt wird (die Android-Hülle lädt aktuell die Live-Vercel-Site). Backend läuft als Express-App auf Vercel Serverless, Datenspeicher auf Supabase.
+**BaitBuddy** ist eine Angel-App mit AI-gestütztem KI-Buddy. Technisch ist es eine **Vite + React 18 Web-App**, die für Android per **Capacitor** in einen WebView verpackt wird (die Android-Hülle lädt die Live-Site remote; Ziel-Domain `https://catchgbt.com` via Cloudflare, Migration läuft — bis zur Zonenaktivierung noch Vercel). Backend läuft als Express-App (Vercel Serverless bzw. Cloudflare Container), Datenspeicher auf Supabase.
 
 > Wichtig: Es ist **kein** React Native/Expo und **kein** Firebase. „Device-Features" nutzen Browser-Web-APIs im WebView. Supabase-**Realtime** wird derzeit **nicht** verwendet — der Datenzugriff läuft über einen eigenen REST-Client (`src/api/frontendClient.js`) gegen das Backend.
 

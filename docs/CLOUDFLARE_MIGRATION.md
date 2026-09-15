@@ -26,35 +26,47 @@ umsatzkritischen Premium-/KI-Pfad.
 - `cloudflare/worker.js` — Front-Door: proxyt `/api/*` an `BACKEND_URL` (SSE wird
   unveraendert durchgereicht), liefert sonst die SPA aus dem Assets-Binding und
   fuehrt die vier Crons aus.
-- `cloudflare/wrangler.toml` — Worker-Config: Assets (`../dist`), Cron Triggers,
-  `BACKEND_URL`-Var; `CRON_SECRET` als Secret setzen.
+- `wrangler.toml` (Repo-Root) — **autoritative** Worker-Config, die die Cloudflare
+  "Workers Builds"-Integration liest: `main = cloudflare/worker.js`, Assets (`dist`),
+  Cron Triggers, `BACKEND_URL`-Var; `CRON_SECRET` als Secret setzen.
 - `public/_headers` — Cache-Header (Aequivalent zu `vercel.json > headers`).
 - `public/_redirects` — SPA-Fallback (bereits vorhanden).
 - `docker/backend.Dockerfile` — Backend-Image fuer den Cloudflare-Container.
 
+## Ziel-Domain
+
+Die produktive Web-App-Domain ist **`catchgbt.com`** (Apex). Erwartete Origins:
+`https://catchgbt.com`, `https://www.catchgbt.com` (beide bereits Default in
+`backend/src/lib/allowedOrigins.js`).
+
 ## Deploy-Schritte
 
-1. Backend-Container bauen/deployen (Basis: `docker/backend.Dockerfile`) und unter
-   einer Adresse erreichbar machen — diese wird `BACKEND_URL`.
-2. Frontend bauen: `npm run build` (erzeugt `dist/` inkl. `_headers`/`_redirects`).
-3. Worker deployen: `npx wrangler deploy --config cloudflare/wrangler.toml`
-   (in `cloudflare/wrangler.toml` `BACKEND_URL` eintragen; zeigt auf Schritt 1).
-4. Secret setzen: `npx wrangler secret put CRON_SECRET --config cloudflare/wrangler.toml`.
-5. Alle Backend-Secrets am Container hinterlegen (siehe `backend/.env.example`):
-   `SUPABASE_*`, `ANTHROPIC_API_KEY`, `ELEVENLABS_*`, `OPENAI_*` (optional),
-   `STRIPE_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `KV_URL` (optional),
-   `ALLOWED_ORIGINS`, `CRON_SECRET`, `SENTRY_DSN` (optional).
-6. `ALLOWED_ORIGINS` auf die neue Domain setzen (ersetzt die transitionalen Defaults).
-7. Domain/DNS in Cloudflare auf den Worker richten.
+1. Zone `catchgbt.com` aktivieren (Nameserver beim Registrar auf
+   `rayden.ns.cloudflare.com` / `serenity.ns.cloudflare.com`), bis Status `active`.
+2. Cloudflare "Workers Builds" (Projekt `baitbuddy`) konfigurieren:
+   Build command `npm install --legacy-peer-deps && npm run build`, Deploy ueber
+   die Root-`wrangler.toml` (`npx wrangler deploy`).
+3. Am Worker setzen: Variable `BACKEND_URL` (Uebergang: `https://bait-buddy.vercel.app`,
+   spaeter Container-URL) und Secret `CRON_SECRET` (identisch zum Backend).
+4. Worker Custom Domain `catchgbt.com` (und `www` bzw. Redirect `www -> apex`)
+   hinzufuegen; alten `www`-CNAME (manus.space) erst danach ersetzen.
+5. Spaeter: Backend-Container (`docker/backend.Dockerfile`) deployen, Secrets aus
+   `backend/.env.example` setzen (`SUPABASE_*`, `ANTHROPIC_API_KEY`, `ELEVENLABS_*`,
+   `STRIPE_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `KV_URL` optional, `ALLOWED_ORIGINS`,
+   `CRON_SECRET`), dann `BACKEND_URL` am Worker darauf umstellen.
+6. DNS-Hygiene: `_dmarc` (TXT), `autodiscover`, `_domainconnect` auf **DNS only**.
 
-## Was NACH der Domain noch zu tun ist (Android-AAB)
+## Was NACH der Domain-Aktivierung noch zu tun ist (Android-AAB)
 
-Die Android-App laedt die Live-Site remote. Nach dem Umzug muss die neue Domain an
-drei Stellen stehen, danach neuer AAB-Build (siehe `AAB_BUILD_GUIDE.md`):
+Die Android-App laedt die Live-Site remote von `catchgbt.com`. Bereits im Repo
+gesetzt (dieser PR): `capacitor.config.json` (`server.url`), App-Links-Host im
+`AndroidManifest.xml`, `versionCode`/`versionName`. Offen:
 
-- `capacitor.config.json` -> `server.url`
-- `android/app/src/main/AndroidManifest.xml` -> App-Links-Host (`autoVerify`)
-- `ALLOWED_ORIGINS` / `APP_URL` (CORS) am Backend
+- App-Links-Verifizierung: `assetlinks.json` mit dem Play-Signatur-Fingerprint
+  (SHA-256) unter `public/.well-known/assetlinks.json` ablegen (Fingerprint aus
+  der Play Console) — der Worker liefert es dann aus.
+- AAB-Build erst **nach** Zonenaktivierung anstossen (sonst weisse Seite fuer Tester):
+  `build-android.yml` per `workflow_dispatch` (`version_code` > letzter Play-Upload).
 
 ## Verifikation
 
