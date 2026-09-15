@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Camera, Play, Square, Loader2, Sparkles } from "lucide-react"; // Added Sparkles
 import { Button } from "@/components/ui/button";
 import { User } from "@/entities/User";
+import { ai } from "@/api/frontendClient";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion"; // Added framer-motion imports
 
@@ -115,40 +116,62 @@ function CameraAnalysisSectionInner() {
     }
   };
 
-  // Placeholder for analysis logic
+  // Erfasst das aktuelle Kamerabild und schickt es zur echten Claude-Vision-
+  // Analyse an das Backend (POST /api/ai/analyze-catch). Kein Mock, keine
+  // erfundenen Ergebnisse — bei fehlendem Bild/Offline/Fehler wird ein klarer
+  // Zustand angezeigt.
   const analyzeFrame = async () => {
-    console.log("Analyzing frame...");
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      toast.error("Kamerabild ist noch nicht bereit");
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setError("Keine Internetverbindung — die KI-Analyse benötigt eine Verbindung.");
+      toast.error("Offline: KI-Analyse nicht möglich");
+      return;
+    }
+
     setIsAnalyzing(true);
-    setAnalysisResult(null); // Clear previous result before new analysis
+    setError(null);
+    setAnalysisResult(null);
 
     try {
-      // Simulate API call for analysis
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const mockResult = "Erfolgreich identifiziert: Eine Bachforelle (Salmo trutta fario) von ca. 30cm Länge. Das Wasser ist klar und die Vegetation am Ufer deutet auf gute Sauerstoffversorgung hin. Perfekte Bedingungen zum Fliegenfischen! Gefundene Fischarten: Bachforelle, Elritze.";
-      setAnalysisResult(mockResult);
-      toast.success("Analyse abgeschlossen!");
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+      const response = await ai.analyzeCatch(null, dataUrl);
+      const analysis = typeof response?.analysis === "string" ? response.analysis.trim() : "";
+      if (!analysis) throw new Error("Leere Antwort von der KI");
+
+      setAnalysisResult(analysis);
+      toast.success("Analyse abgeschlossen");
     } catch (err) {
-      console.error("Analysis error:", err);
-      toast.error("Analyse fehlgeschlagen.");
-      setAnalysisResult("Fehler bei der Analyse. Bitte versuche es erneut.");
+      console.error("KI-Kamera-Analyse fehlgeschlagen:", err);
+      const tooMany = typeof err?.message === "string" && err.message.includes("429");
+      const msg = tooMany
+        ? "Zu viele Anfragen — bitte kurz warten."
+        : "Analyse fehlgeschlagen. Bitte erneut versuchen.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // Placeholder for freezing the camera feed
+  // Friert das aktuelle Bild ein und startet die Analyse.
   const handleFreeze = () => {
-    console.log("Freezing camera feed...");
     if (isCameraActive && videoRef.current) {
-      // In a real application, you would capture the current frame here (e.g., to a canvas)
-      // and send that image data to your AI for analysis.
       analyzeFrame();
     } else {
       toast.error("Kamera ist nicht aktiv, um einen Frame einzufrieren.");
     }
   };
 
-  // Premium-Check temporär deaktiviert - alle Features frei
   return (
     <Card className="glass-morphism border-gray-800 rounded-2xl">
       <CardHeader>
