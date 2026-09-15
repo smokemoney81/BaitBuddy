@@ -1,26 +1,20 @@
-# Cloudflare Worker (Front-Door + Backend-Container) fuer BaitBuddy — autoritative
-# Deploy-Config. Wird von der Cloudflare "Workers Builds"-Git-Integration bzw. von
-# `npx wrangler deploy` gelesen.
+# Cloudflare Worker (Front-Door) fuer BaitBuddy — autoritative Deploy-Config.
+# Wird von der Cloudflare "Workers Builds"-Git-Integration (Projekt "baitbuddy")
+# gelesen. Zuvor stand hier eine Pages-artige Config (pages_build_output_dir),
+# die zum Workers-Build nicht passte und sofort fehlschlug.
 #
-# Architektur (Details: docs/CLOUDFLARE_MIGRATION.md):
-#   - Statische SPA (Vite-Build dist/) wird vom Worker ueber das Assets-Binding
-#     ausgeliefert; _headers/_redirects in dist/ steuern Cache & SPA-Fallback.
-#   - /api/* wird an das Express-Backend geroutet, das als Cloudflare Container
-#     (docker/backend.Dockerfile) laeuft und ueber das Durable-Object-Binding
-#     BACKEND angesprochen wird. SSE wird unveraendert durchgereicht.
-#   - Die vier Crons laufen als Cloudflare Cron Triggers und rufen die
-#     Admin-Endpunkte im Container mit CRON_SECRET auf.
-#
-# Cloudflare-Build-Einstellungen (Workers Builds):
+# Cloudflare-Build-Einstellungen (im Dashboard zu setzen):
 #   Build command:  npm install --legacy-peer-deps && npm run build
-#   Deploy command: npx wrangler deploy   (nutzt diese Datei, baut + pusht das Image)
+#   Deploy command: npx wrangler deploy   (nutzt diese Datei)
+# Variablen/Secret am Worker:
+#   BACKEND_URL (Var)  — Basis-URL des Express-Backends. Zeigt auf das neue
+#                        Vercel-Projekt (Konto ssbedburg); spaeter Container-URL.
+#                        Im Dashboard als Worker-Variable ueberschreibbar.
+#   CRON_SECRET (Secret) — identisch zum Backend, aktiviert die Cron-Triggers
 #
-# Am Worker zu setzen (Dashboard bzw. `wrangler secret put`):
-#   CRON_SECRET (Secret, identisch zum Backend) — aktiviert die Cron-Triggers.
-#   Backend-Secrets als Secrets/Vars, die der Worker an den Container reicht
-#   (siehe backendEnv() in cloudflare/worker.js): SUPABASE_URL,
-#   SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY,
-#   STRIPE_WEBHOOK_SECRET, GOOGLE_PLAY_SERVICE_ACCOUNT_JSON, ALLOWED_ORIGINS, ...
+# Der reine statische Frontend-Deploy per Pages ist damit abgeloest; die SPA wird
+# vom Worker ueber das Assets-Binding ausgeliefert, /api/* wird ans Backend
+# geproxyt (SSE unveraendert durchgereicht). Details: docs/CLOUDFLARE_MIGRATION.md
 
 name = "baitbuddy"
 main = "cloudflare/worker.js"
@@ -38,22 +32,9 @@ not_found_handling = "single-page-application"
 [triggers]
 crons = ["0 3 * * *", "0 2 * * *", "0 1 * * *", "0 0 1 * *"]
 
-# Backend (Express) als Cloudflare Container. `wrangler deploy` baut das Image
-# aus docker/backend.Dockerfile und pusht es. Der Build-Context ist das Repo-Root
-# ("."), weil das Dockerfile aus backend/ und scripts/ kopiert.
-[[containers]]
-class_name = "Backend"
-image = "./docker/backend.Dockerfile"
-image_build_context = "."
-instance_type = "basic"
-max_instances = 3
-
-# Durable Object, ueber das der Worker die Container-Instanz anspricht.
-[[durable_objects.bindings]]
-name = "BACKEND"
-class_name = "Backend"
-
-# SQLite-basierte DO-Migration (Pflicht fuer Container-Klassen).
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["Backend"]
+# Nicht-geheime Variable. BACKEND_URL zeigt auf das Express-Backend. Aktuell das
+# neue Vercel-Projekt (Konto ssbedburg), damit /api sofort funktioniert; der
+# Cloudflare-Container folgt spaeter. Der exakte Produktions-Alias ist im neuen
+# Vercel-Dashboard zu verifizieren und ggf. als Worker-Variable zu ueberschreiben.
+[vars]
+BACKEND_URL = "https://bait-buddy-ssbedburg-2361s-projects.vercel.app"

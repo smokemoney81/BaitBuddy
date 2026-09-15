@@ -23,22 +23,15 @@ umsatzkritischen Premium-/KI-Pfad.
 
 ## Dateien in diesem Repo
 
-- `cloudflare/worker.js` — Front-Door: routet `/api/*` an das Backend im
-  Cloudflare Container ueber das Durable-Object-Binding `env.BACKEND`
-  (`getContainer(...).fetch`, SSE wird unveraendert durchgereicht), liefert sonst
-  die SPA aus dem Assets-Binding und fuehrt die vier Crons aus. Enthaelt die
-  Container-Klasse `Backend extends Container` (Port 3000), die die
-  Backend-Secrets aus der Worker-Umgebung an den Container-Prozess reicht.
+- `cloudflare/worker.js` — Front-Door: proxyt `/api/*` an `BACKEND_URL` (SSE wird
+  unveraendert durchgereicht), liefert sonst die SPA aus dem Assets-Binding und
+  fuehrt die vier Crons aus.
 - `wrangler.toml` (Repo-Root) — **autoritative** Worker-Config, die die Cloudflare
-  "Workers Builds"-Integration bzw. `wrangler deploy` liest: `main =
-  cloudflare/worker.js`, Assets (`dist`), Cron Triggers und der `[[containers]]`-
-  Block (Image `docker/backend.Dockerfile`, `image_build_context = "."`,
-  DO-Binding `BACKEND`, SQLite-Migration). `CRON_SECRET` und die Backend-Secrets
-  als Worker-Secrets setzen.
+  "Workers Builds"-Integration liest: `main = cloudflare/worker.js`, Assets (`dist`),
+  Cron Triggers, `BACKEND_URL`-Var; `CRON_SECRET` als Secret setzen.
 - `public/_headers` — Cache-Header (Aequivalent zu `vercel.json > headers`).
 - `public/_redirects` — SPA-Fallback (bereits vorhanden).
-- `docker/backend.Dockerfile` — Backend-Image fuer den Cloudflare-Container
-  (wird von `wrangler deploy` gebaut und gepusht).
+- `docker/backend.Dockerfile` — Backend-Image fuer den Cloudflare-Container.
 
 ## Ziel-Domain
 
@@ -48,28 +41,23 @@ Die produktive Web-App-Domain ist **`catchgbt.com`** (Apex). Erwartete Origins:
 
 ## Deploy-Schritte
 
-Voraussetzung: **Workers Paid Plan** (Cloudflare Containers ist zahlungspflichtig)
-und lokal ein laufender **Docker-Daemon** fuer `wrangler deploy` (baut/pusht das
-Image) — alternativ Cloudflare "Workers Builds", das den Image-Build uebernimmt.
-
 1. Zone `catchgbt.com` aktivieren (Nameserver beim Registrar auf
    `rayden.ns.cloudflare.com` / `serenity.ns.cloudflare.com`), bis Status `active`.
-   (Aktuell zeigt die Domain noch auf einen Nicht-Cloudflare-Host.)
-2. Worker-Secrets setzen (Dashboard oder `wrangler secret put`): `CRON_SECRET`
-   sowie die Backend-Secrets, die der Worker an den Container reicht (siehe
-   `backendEnv()` in `cloudflare/worker.js`): `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`,
-   `STRIPE_WEBHOOK_SECRET`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `ALLOWED_ORIGINS`,
-   `ELEVENLABS_*`/`OPENAI_API_KEY` (TTS/Voice), SMTP-Variablen, `KV_URL` (optional).
-3. Deployen: `npx wrangler deploy` (baut das Image aus `docker/backend.Dockerfile`
-   mit `image_build_context = "."`, pusht es, deployt Worker + Container +
-   Cron Triggers) **oder** Cloudflare "Workers Builds" (Projekt `baitbuddy`,
-   Build command `npm install --legacy-peer-deps && npm run build`, Deploy
-   `npx wrangler deploy`).
+2. Cloudflare "Workers Builds" (Projekt `baitbuddy`) konfigurieren:
+   Build command `npm install --legacy-peer-deps && npm run build`, Deploy ueber
+   die Root-`wrangler.toml` (`npx wrangler deploy`).
+3. Am Worker setzen: Variable `BACKEND_URL` (aktuell das **neue Vercel-Projekt**,
+   Konto `ssbedburg` — exakten Produktions-Alias im Vercel-Dashboard verifizieren;
+   spaeter die Container-URL) und Secret `CRON_SECRET` (identisch zum Backend).
+   Hinweis: Der Backend-Container (`docker/backend.Dockerfile`, `[[containers]]`)
+   ist die Ziel-Architektur, aber **zurueckgestellt** — er braucht den Workers
+   Paid Plan. Bis dahin proxyt der Front-Door `/api/*` an das Vercel-Backend.
 4. Worker Custom Domain `catchgbt.com` (und `www` bzw. Redirect `www -> apex`)
    hinzufuegen; alten `www`-CNAME (manus.space) erst danach ersetzen.
-5. `VITE_API_URL` bleibt **leer**: Die SPA ruft `/api` same-origin auf, der Worker
-   routet es an den Container — kein Frontend-Rebuild bei Backend-Aenderungen.
+5. Spaeter: Backend-Container (`docker/backend.Dockerfile`) deployen, Secrets aus
+   `backend/.env.example` setzen (`SUPABASE_*`, `ANTHROPIC_API_KEY`, `ELEVENLABS_*`,
+   `STRIPE_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `KV_URL` optional, `ALLOWED_ORIGINS`,
+   `CRON_SECRET`), dann `BACKEND_URL` am Worker darauf umstellen.
 6. DNS-Hygiene: `_dmarc` (TXT), `autodiscover`, `_domainconnect` auf **DNS only**.
 
 ## Was NACH der Domain-Aktivierung noch zu tun ist (Android-AAB)
