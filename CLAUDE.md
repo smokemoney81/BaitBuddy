@@ -360,11 +360,20 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 
 ---
 
-## 🏭 Infrastruktur: Nur Vercel & Supabase
+## 🏭 Infrastruktur: Cloudflare & Supabase (Migration von Vercel)
 
-- ✅ Vercel (Hosting, Serverless, Deploy)
-- ✅ Supabase (DB, Auth, Realtime, Storage)
-- ❌ **Keine** anderen externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services)
+> **Migration in Arbeit (Vercel → Cloudflare):** Der Code ist Cloudflare-tauglich
+> vorbereitet (Front-Door-Worker `cloudflare/worker.js`, Pages-`_headers`,
+> `cf-connecting-ip` im Rate-Limiter, Env-gesteuerte Origins, generischer
+> `READ_ONLY_FS`-Guard). Ziel: SPA über Cloudflare (Static Assets/Pages),
+> Express-Backend als **Cloudflare Container** (`docker/backend.Dockerfile`),
+> Crons als **Cron Triggers**. Deploy/Domain sind noch offen — bis dahin läuft
+> die Live-Site auf Vercel. Details: `docs/CLOUDFLARE_MIGRATION.md`.
+
+- ✅ Cloudflare (Hosting, Worker/Container, Deploy) — Zielplattform
+- ✅ Supabase (DB, Auth, Storage)
+- ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
+- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)
 > nutzt optional **Vercel KV** (Upstash Redis, ioredis-kompatibel) als
