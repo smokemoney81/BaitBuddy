@@ -29,8 +29,10 @@ describe('integrations – Externe Service-Integrationen', () => {
   });
 
   it('prüft Authentifizierungsschlüssel-Struktur', () => {
-    // API Keys sollten sichere Umgebungsvariablen sein, nicht im Code
-    const keyPattern = /^[A-Z_]+_API_KEY$/;
+    // API Keys sollten sichere Umgebungsvariablen sein, nicht im Code:
+    // Großbuchstaben-Namen, die auf _KEY enden (deckt _API_KEY und
+    // _SERVICE_ROLE_KEY ab).
+    const keyPattern = /^[A-Z_]+_KEY$/;
     const apiKeyNames = [
       'ANTHROPIC_API_KEY',
       'ELEVENLABS_API_KEY',
