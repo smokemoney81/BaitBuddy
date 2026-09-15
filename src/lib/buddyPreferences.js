@@ -17,3 +17,44 @@ export function normalizeNavigation(value) {
   const valid = [...new Set(value)].filter(key => NAVIGATION_OPTIONS.includes(key)).slice(0, 4);
   return valid.length ? valid : [...DEFAULT_NAVIGATION];
 }
+
+// Persönliche Angel-Präferenzen (BaitBuddy 2.0). Bewusst KEINE eigene Tabelle:
+// wie Buddy/Navigation liegen sie in user_metadata.settings.fishing und werden
+// über denselben savePreferences-Pfad (PATCH /auth/me, section-merge) gespeichert.
+// Speisen Trip-Planer-Defaults und persönliche Dashboard-Insights.
+export const FISHING_SPECIES_OPTIONS = ['Hecht', 'Zander', 'Barsch', 'Forelle', 'Karpfen', 'Aal', 'Wels', 'Rapfen', 'Döbel', 'Schleie', 'Brasse', 'Rotauge'];
+export const FISHING_METHOD_OPTIONS = ['Spinnfischen', 'Dropshot', 'Vertikalangeln', 'Grundangeln', 'Posenangeln', 'Feedern', 'Karpfenangeln', 'Fliegenfischen'];
+export const FISHING_WATER_TYPE_OPTIONS = ['See', 'Fluss', 'Kanal', 'Teich', 'Hafen', 'Küste', 'Talsperre'];
+export const DEFAULT_FISHING_PREFERENCES = { targetSpecies: [], methods: [], waterTypes: [], favoriteLures: [], preferredTime: null };
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function cleanStringList(value, max = 12) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const s = item.trim().slice(0, 40);
+    if (s && !out.includes(s)) out.push(s);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function normalizeTimeWindow(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const start = typeof value.start === 'string' && TIME_RE.test(value.start) ? value.start : null;
+  const end = typeof value.end === 'string' && TIME_RE.test(value.end) ? value.end : null;
+  return start && end ? { start, end } : null;
+}
+
+export function normalizeFishing(value = {}) {
+  const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    targetSpecies: cleanStringList(v.targetSpecies),
+    methods: cleanStringList(v.methods),
+    waterTypes: cleanStringList(v.waterTypes),
+    favoriteLures: cleanStringList(v.favoriteLures),
+    preferredTime: normalizeTimeWindow(v.preferredTime),
+  };
+}
