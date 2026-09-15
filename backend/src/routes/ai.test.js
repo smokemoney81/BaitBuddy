@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import { createSupabaseMock } from '../../test/mockSupabase.js';
+import { createSupabaseMock, createQueryBuilderMock } from '../../test/mockSupabase.js';
 
 const { supabaseMock, llmMock } = vi.hoisted(() => ({
   supabaseMock: { current: null },
@@ -536,5 +536,61 @@ describe('POST /api/ai/realtime-session', () => {
     expect(instructions).toContain('GESPRÄCHSSTIL & RÜCKFRAGEN');
     expect(instructions).toContain('DEINE APP-FUNKTIONEN');
     expect(instructions).toContain('KEINE App-Aktionen');
+  });
+});
+
+describe('Optionaler App-Kontext bricht die Antwort nicht ab', () => {
+  // Der Supabase-Client meldet DB-Fehler als { error }, wirft aber bei
+  // Netzwerk-/Timeout-Problemen. Da alle Kontext-Quellen gemeinsam in einem
+  // Promise.all laufen, riss ein solcher Fehler zuvor die ganze Antwort mit.
+  const failingTable = (table, failFor) => {
+    const real = createSupabaseMock({ authUser: { id: 'u1', email: 'a@b.de' } });
+    const original = real.from.bind(real);
+    real.from = (name) => {
+      if (name === failFor) {
+        const builder = createQueryBuilderMock();
+        builder.then = (resolve, reject) =>
+          Promise.reject(new Error('fetch failed')).then(resolve, reject);
+        return builder;
+      }
+      return original(name);
+    };
+    return real;
+  };
+
+  it('antwortet weiter, wenn das Fangbuch nicht ladbar ist', async () => {
+    supabaseMock.current = failingTable('catches', 'catches');
+    llmMock.invokeLLM = vi.fn().mockResolvedValue('Petri! Womit warst du unterwegs?');
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', 'Bearer tok')
+      // trifft wantsCatches -> die geworfene catches-Query wird angefasst
+      .send({ messages: [{ role: 'user', content: 'Was war mein letzter Fang?' }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.reply).toBe('Petri! Womit warst du unterwegs?');
+    expect(llmMock.invokeLLM).toHaveBeenCalled();
+  });
+
+  it('erstellt die Voice-Session weiter, wenn das Fangbuch nicht ladbar ist', async () => {
+    supabaseMock.current = failingTable('catches', 'catches');
+    process.env.OPENAI_API_KEY = 'sk-test';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ value: 'ephemeral-key', expires_at: 123 }),
+    });
+
+    try {
+      const res = await request(app)
+        .post('/api/ai/realtime-session')
+        .set('Authorization', 'Bearer tok')
+        .send({});
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+    } finally {
+      fetchSpy.mockRestore();
+      delete process.env.OPENAI_API_KEY;
+    }
   });
 });

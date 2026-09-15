@@ -13,6 +13,7 @@ export default function TutorialModal({ isOpen, onClose }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playingStep, setPlayingStep] = useState(null);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const steps = tutorialSteps[language] || tutorialSteps.de;
 
@@ -23,6 +24,7 @@ export default function TutorialModal({ isOpen, onClose }) {
       setPlayingStep(null);
     }
     if (currentStep < steps.length - 1) {
+      setImageFailed(false);
       setCurrentStep(currentStep + 1);
     }
   };
@@ -34,6 +36,7 @@ export default function TutorialModal({ isOpen, onClose }) {
       setPlayingStep(null);
     }
     if (currentStep > 0) {
+      setImageFailed(false);
       setCurrentStep(currentStep - 1);
     }
   };
@@ -103,13 +106,21 @@ export default function TutorialModal({ isOpen, onClose }) {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="mb-3 rounded-xl overflow-hidden shadow-lg bg-gray-950 border border-gray-800">
-                  <img
-                    src={currentStepData.image}
-                    alt={currentStepData.title}
-                    className="w-full h-44 object-cover"
-                  />
-                </div>
+                {/* Faellt ein Bild aus, blieb vorher ein leerer Rahmen mit
+                    kaputtem Icon stehen. Der Schritt traegt auch ohne Bild:
+                    Text und Sprachausgabe bleiben vollstaendig. */}
+                {!imageFailed && (
+                  <div className="mb-3 rounded-xl overflow-hidden shadow-lg bg-gray-950 border border-gray-800">
+                    <img
+                      src={currentStepData.image}
+                      alt={currentStepData.title}
+                      className="w-full h-44 object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      onError={() => setImageFailed(true)}
+                    />
+                  </div>
+                )}
 
                 {currentStepData.route && (
                   <Link
