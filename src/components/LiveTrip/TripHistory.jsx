@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Download, Cloud, AlertCircle, Clock, Fish } from 'lucide-react';
 import { toast } from 'sonner';
 import TripSyncService from '../../services/TripSyncService';
+import { auth } from '../../api/frontendClient';
 
 function TripHistory() {
   const [trips, setTrips] = useState([]);
@@ -43,9 +44,14 @@ function TripHistory() {
   };
 
   const handleSync = async () => {
+    const token = auth.getToken();
+    if (!token) {
+      toast.error('Bitte melde dich an, um Touren zu synchronisieren');
+      return;
+    }
     setSyncing(true);
     try {
-      const result = await TripSyncService.syncTripsToCloud('mock-token');
+      const result = await TripSyncService.syncTripsToCloud(token);
       toast.success(`${result.synced} Touren synchronisiert`);
       loadTrips();
     } catch (error) {
