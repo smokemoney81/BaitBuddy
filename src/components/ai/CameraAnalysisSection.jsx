@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Camera, Play, Square, Loader2, Sparkles } from "lucide-react"; // Added Sparkles
+import { Camera, Play, Square, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { User } from "@/entities/User";
 import { toast } from "sonner";
-import { AnimatePresence, motion } from "framer-motion"; // Added framer-motion imports
+import { AnimatePresence, motion } from "framer-motion";
+import { ai } from "@/api/frontendClient";
 
 import PlanGuard from "@/components/premium/PlanGuard";
 
@@ -115,22 +116,44 @@ function CameraAnalysisSectionInner() {
     }
   };
 
-  // Placeholder for analysis logic
   const analyzeFrame = async () => {
-    console.log("Analyzing frame...");
     setIsAnalyzing(true);
-    setAnalysisResult(null); // Clear previous result before new analysis
+    setAnalysisResult(null);
 
     try {
-      // Simulate API call for analysis
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const mockResult = "Erfolgreich identifiziert: Eine Bachforelle (Salmo trutta fario) von ca. 30cm Länge. Das Wasser ist klar und die Vegetation am Ufer deutet auf gute Sauerstoffversorgung hin. Perfekte Bedingungen zum Fliegenfischen! Gefundene Fischarten: Bachforelle, Elritze.";
-      setAnalysisResult(mockResult);
+      if (!videoRef.current) {
+        throw new Error("Video-Element nicht verfügbar");
+      }
+
+      // Capture frame from video stream to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error("Canvas-Kontext nicht verfügbar");
+      }
+
+      // Draw frame (mirror horizontally as shown on screen)
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoRef.current, -canvas.width, 0);
+      ctx.scale(-1, 1);
+
+      // Convert canvas to base64 (without data-URL prefix)
+      const imageBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      if (!imageBase64) {
+        throw new Error("Frame konnte nicht erfasst werden");
+      }
+
+      // Send to AI vision endpoint via frontendClient
+      const result = await ai.vision(imageBase64);
+      setAnalysisResult(result.analysis || 'Analyse abgeschlossen');
       toast.success("Analyse abgeschlossen!");
     } catch (err) {
       console.error("Analysis error:", err);
-      toast.error("Analyse fehlgeschlagen.");
-      setAnalysisResult("Fehler bei der Analyse. Bitte versuche es erneut.");
+      toast.error("Analyse fehlgeschlagen: " + (err.message || "Unbekannter Fehler"));
+      setAnalysisResult(null);
     } finally {
       setIsAnalyzing(false);
     }

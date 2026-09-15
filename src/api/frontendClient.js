@@ -801,6 +801,7 @@ export const ai = {
     if (!result) throw new Error('Stream endete ohne Ergebnis');
     return result;
   },
+  vision:            (image_base64) => api.post('/api/ai/vision', { image_base64 }),
   analyzeCatch:      (file_url, image_base64) => api.post('/api/ai/analyze-catch', { file_url, image_base64 }),
   fishingRecommend:  (lat, lng)               => api.post('/api/ai/fishing-recommendation', { latitude: lat, longitude: lng }),
   evaluateCatch:     (catch_data, context)    => api.post('/api/ai/evaluate-catch', { catch_data, context }),
