@@ -154,6 +154,20 @@ describe('rateLimitKeyGenerator', () => {
   // Auf Vercel ist req.ip die interne Proxy-Adresse — der Key muss aus den
   // vertrauenswuerdigen Client-IP-Headern kommen, sonst teilen sich alle
   // Nutzer denselben Limit-Zaehler.
+  it('bevorzugt cf-connecting-ip (Cloudflare) vor allen anderen Headern', async () => {
+    const { rateLimitKeyGenerator } = await import('./rateLimit.js');
+    const key = rateLimitKeyGenerator({
+      headers: {
+        'cf-connecting-ip': '203.0.113.9',
+        'x-vercel-forwarded-for': '203.0.113.7',
+        'x-real-ip': '198.51.100.1',
+        'x-forwarded-for': '192.0.2.1, 10.0.0.1',
+      },
+      ip: '10.0.0.2',
+    });
+    expect(key).toBe('203.0.113.9');
+  });
+
   it('bevorzugt x-vercel-forwarded-for vor anderen Headern und req.ip', async () => {
     const { rateLimitKeyGenerator } = await import('./rateLimit.js');
     const key = rateLimitKeyGenerator({

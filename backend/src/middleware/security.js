@@ -2,6 +2,7 @@
 // Ergänzt Helmet, fügt zusätzliche Header hinzu, validiert Origins
 
 import { logger } from '../lib/logger.js';
+import { getAllowedOrigins } from '../lib/allowedOrigins.js';
 
 /**
  * Security Middleware für Production-Deployment
@@ -58,14 +59,7 @@ export function securityMiddleware(app) {
  * (Defense-in-depth: auch wenn CORS Nginx-seitig greift)
  */
 export function validateOrigin(req, res, next) {
-  const allowedOrigins = [
-    'https://catchgbt.com',
-    'https://www.catchgbt.com',
-    'https://bait-buddy.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'capacitor://localhost',
-  ];
+  const allowedOrigins = getAllowedOrigins();
 
   const origin = req.headers.origin || req.headers.referer;
   const isAllowed = allowedOrigins.some(allowed => origin?.startsWith(allowed));
