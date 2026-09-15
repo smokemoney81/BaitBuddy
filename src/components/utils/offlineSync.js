@@ -19,7 +19,59 @@ const QUEUE_KEYS = {
   catches: 'bb_offline_catch_queue',
   notes: 'bb_offline_notes_queue',
   pendingSync: 'bb_pending_sync',
+  catchIdMap: 'bb_offline_catch_id_map',
 };
+
+// Ein offline erfasster Fang traegt nur eine lokale Pseudo-ID (`offline_…`); die
+// echte ID vergibt der Server erst beim Sync. Offline gespeicherte Fotos zeigen
+// auf diese Pseudo-ID — ohne Uebersetzungstabelle ginge die Verknuepfung
+// Fang↔Foto beim Upload verloren (der Server kennt `offline_…` nicht). Die Map
+// liegt in localStorage, weil zwischen Fang-Sync und Foto-Sync ein App-Neustart
+// liegen kann.
+const MAX_ID_MAP_SIZE = 500;
+
+const OFFLINE_ID_PREFIX = 'offline_';
+
+export function isOfflineCatchId(catchId) {
+  return typeof catchId === 'string' && catchId.startsWith(OFFLINE_ID_PREFIX);
+}
+
+export function getOfflineCatchIdMap() {
+  try {
+    const raw = localStorage.getItem(QUEUE_KEYS.catchIdMap);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveOfflineCatchIdMap(map) {
+  try {
+    const keys = Object.keys(map);
+    if (keys.length === 0) {
+      localStorage.removeItem(QUEUE_KEYS.catchIdMap);
+      return;
+    }
+    // Aelteste Zuordnungen zuerst verwerfen (Objekt-Schluessel behalten ihre
+    // Einfuegereihenfolge), damit die Map nicht unbegrenzt waechst.
+    const kept = keys.length > MAX_ID_MAP_SIZE ? keys.slice(keys.length - MAX_ID_MAP_SIZE) : keys;
+    localStorage.setItem(
+      QUEUE_KEYS.catchIdMap,
+      JSON.stringify(Object.fromEntries(kept.map((k) => [k, map[k]]))),
+    );
+  } catch (e) {
+    console.error('Fehler beim Speichern der Offline-ID-Zuordnung:', e);
+  }
+}
+
+export function clearOfflineCatchIdMap() {
+  try {
+    localStorage.removeItem(QUEUE_KEYS.catchIdMap);
+  } catch (e) {
+    console.error('Fehler beim Löschen der Offline-ID-Zuordnung:', e);
+  }
+}
 
 // Deckelt die Offline-Queue, damit sie bei dauerhaft fehlschlagendem Sync
 // (z.B. abgelaufenes Token) nicht unbegrenzt in localStorage waechst.
@@ -97,6 +149,7 @@ export async function syncOfflineCatches() {
   let failed = 0;
   const errors = [];
   const syncedIds = new Set();
+  const idMap = getOfflineCatchIdMap();
 
   for (const catchData of queue) {
     try {
@@ -104,6 +157,9 @@ export async function syncOfflineCatches() {
       const result = await entities.Catch.create(realData);
       console.log(`Fang ${__id} synchronisiert:`, result.id);
       syncedIds.add(__id);
+      // Server-ID merken, damit der nachgelagerte Foto-Sync die Verknuepfung
+      // Fang↔Foto auf die echte ID umschreiben kann.
+      if (result?.id) idMap[__id] = result.id;
       synced++;
     } catch (e) {
       console.error(`Fehler beim Sync von ${catchData.__id}:`, e);
@@ -128,6 +184,8 @@ export async function syncOfflineCatches() {
     }
   }
 
+  if (syncedIds.size > 0) saveOfflineCatchIdMap(idMap);
+
   if (synced > 0) {
     console.log(`Erfolgreich synchronisiert: ${synced} Fänge`);
   }
@@ -135,7 +193,7 @@ export async function syncOfflineCatches() {
     console.warn(`Sync fehlgeschlagen: ${failed} Fänge`);
   }
 
-  return { synced, failed, errors };
+  return { synced, failed, errors, idMap };
 }
 
 // ─── Smart Create: Online POST, Offline Queue ──────────────────────────────
@@ -192,6 +250,16 @@ export function removeFromOfflineNotesQueue(noteId) {
 let syncUnsubscribe = null;
 let planUpdatedListener = null;
 
+// Fänge zuerst, Fotos danach — und bewusst NICHT parallel: der Foto-Sync
+// uebersetzt die lokale Pseudo-ID des Fangs in dessen Server-ID und kann das
+// erst, wenn der Fang-Sync diese Zuordnung geschrieben hat. Liefen beide
+// gleichzeitig, landete das Foto ohne Verknuepfung auf dem Server.
+export async function syncOfflineData() {
+  const catches = await syncOfflineCatches();
+  const photos = await syncOfflinePhotos();
+  return { catches, photos };
+}
+
 export function initAutoSync() {
   if (syncUnsubscribe) return;
 
@@ -199,7 +267,7 @@ export function initAutoSync() {
     if (online) {
       console.log('Online — Starte Synchronisierung...');
       await new Promise(r => setTimeout(r, 1000));
-      await Promise.all([syncOfflineCatches(), syncOfflinePhotos()]);
+      await syncOfflineData();
     }
   });
 
@@ -210,13 +278,13 @@ export function initAutoSync() {
   // Zeitpunkt, um die Queue nachzuholen.
   if (typeof window !== 'undefined') {
     planUpdatedListener = async () => {
-      await Promise.all([syncOfflineCatches(), syncOfflinePhotos()]);
+      await syncOfflineData();
     };
     window.addEventListener('plan-updated', planUpdatedListener);
   }
 
   if (checkIsOnline()) {
-    Promise.all([syncOfflineCatches(), syncOfflinePhotos()]);
+    syncOfflineData();
   }
 }
 
@@ -258,30 +326,61 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+// Uebersetzt die am Foto hinterlegte Fang-ID in die ID, unter der der Fang auf
+// dem Server liegt. Drei Faelle:
+//   - echte Server-ID (online erfasster Fang)  → direkt verwenden
+//   - Pseudo-ID mit bekannter Zuordnung        → auf die Server-ID umschreiben
+//   - Pseudo-ID ohne Zuordnung                 → der Fang wartet selbst noch in
+//     der Queue: zurueckstellen. Steht er nicht mehr in der Queue, kommt er auch
+//     nicht mehr — dann das Foto lieber unverknuepft hochladen als verlieren.
+function resolveSyncedCatchId(catchId, idMap, pendingOfflineIds) {
+  if (!catchId) return { catchId: null, defer: false };
+  if (!isOfflineCatchId(catchId)) return { catchId, defer: false };
+
+  const serverId = idMap[catchId];
+  if (serverId) return { catchId: serverId, defer: false };
+  if (pendingOfflineIds.has(catchId)) return { catchId: null, defer: true };
+  return { catchId: null, defer: false };
+}
+
 export async function syncOfflinePhotos() {
   if (!checkIsOnline()) {
     console.log('Offline — Foto-Sync verpasst');
-    return { synced: 0, failed: 0, errors: [] };
+    return { synced: 0, failed: 0, deferred: 0, errors: [] };
   }
 
   if (!api.getToken()) {
     console.log('Kein Auth-Token — Foto-Sync verschoben');
-    return { synced: 0, failed: 0, errors: [] };
+    return { synced: 0, failed: 0, deferred: 0, errors: [] };
   }
 
   try {
     const photos = await getUnsyncdOfflinePhotos();
     if (photos.length === 0) {
-      return { synced: 0, failed: 0, errors: [] };
+      return { synced: 0, failed: 0, deferred: 0, errors: [] };
     }
 
     console.log(`Synchronisiere ${photos.length} offline Fotos...`);
 
     let synced = 0;
     let failed = 0;
+    let deferred = 0;
     const errors = [];
+    const idMap = getOfflineCatchIdMap();
+    const pendingOfflineIds = new Set(getOfflineCatchQueue().map((c) => c.__id));
 
     for (const photo of photos) {
+      const resolved = resolveSyncedCatchId(photo.catchId, idMap, pendingOfflineIds);
+      if (resolved.defer) {
+        // Der zugehoerige Fang ist noch nicht auf dem Server. Das Foto bleibt
+        // ungesynct in IndexedDB und wird beim naechsten Lauf erneut versucht —
+        // kein Fehler, damit die Warteschlangen-Anzeige nicht faelschlich
+        // Probleme meldet.
+        console.log(`Foto ${photo.id} zurückgestellt — Fang ${photo.catchId} noch nicht synchronisiert`);
+        deferred++;
+        continue;
+      }
+
       try {
         // Upload als Base64-JSON an den existierenden Backend-Endpunkt
         // /api/files/upload. Der frühere Code schickte ein File-Objekt per
@@ -301,12 +400,12 @@ export async function syncOfflinePhotos() {
           await markPhotoAsSynced(photo.id);
 
           // Wenn das Foto mit einem Fang verlinkt ist, aktualisiere den Fang mit der photo_url
-          if (photo.catchId) {
+          if (resolved.catchId) {
             try {
-              await entities.Catch.update(photo.catchId, { photo_url: uploadResult.file_url });
-              console.log(`Catch ${photo.catchId} mit Foto-URL aktualisiert: ${uploadResult.file_url}`);
+              await entities.Catch.update(resolved.catchId, { photo_url: uploadResult.file_url });
+              console.log(`Catch ${resolved.catchId} mit Foto-URL aktualisiert: ${uploadResult.file_url}`);
             } catch (updateError) {
-              console.warn(`Fehler beim Aktualisieren von Catch ${photo.catchId} mit Foto-URL:`, updateError);
+              console.warn(`Fehler beim Aktualisieren von Catch ${resolved.catchId} mit Foto-URL:`, updateError);
               // Nicht kritisch — Foto ist hochgeladen, nur die Verlinkung fehlgeschlagen
             }
           }
@@ -334,10 +433,10 @@ export async function syncOfflinePhotos() {
       console.warn(`Sync fehlgeschlagen: ${failed} Fotos`);
     }
 
-    return { synced, failed, errors };
+    return { synced, failed, deferred, errors };
   } catch (e) {
     console.error('Fehler beim Foto-Sync:', e);
-    return { synced: 0, failed: 0, errors: [{ error: e.message }] };
+    return { synced: 0, failed: 0, deferred: 0, errors: [{ error: e.message }] };
   }
 }
 

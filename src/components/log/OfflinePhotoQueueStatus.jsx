@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertCircle, Image, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { getUnsyncdOfflinePhotos, getOfflinePhotoStats } from '@/utils/offlinePhotoStorage';
-import { syncOfflinePhotos } from '@/components/utils/offlineSync';
+import { syncOfflineData } from '@/components/utils/offlineSync';
 
 export default function OfflinePhotoQueueStatus() {
   const [stats, setStats] = useState({ total: 0, unsynced: 0, withErrors: 0 });
@@ -33,14 +33,19 @@ export default function OfflinePhotoQueueStatus() {
   const handleManualSync = async () => {
     setSyncing(true);
     try {
-      const result = await syncOfflinePhotos();
+      // Fänge mitsynchronisieren: ein Foto zu einem noch nicht hochgeladenen
+      // Offline-Fang wird sonst nur zurückgestellt und der Knopf bliebe wirkungslos.
+      const { photos: result } = await syncOfflineData();
       await updateStats();
 
       if (result.synced > 0) {
-        toast.success(`${result.synced} Foto(s) synchronisiert!`);
+        toast.success(`${result.synced} Foto(s) synchronisiert`);
       }
       if (result.failed > 0) {
         toast.error(`${result.failed} Foto(s) fehlgeschlagen`);
+      }
+      if (!result.synced && !result.failed && result.deferred > 0) {
+        toast.info(`${result.deferred} Foto(s) warten auf den zugehörigen Fang`);
       }
     } catch (e) {
       toast.error('Sync-Fehler: ' + e.message);

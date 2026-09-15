@@ -442,18 +442,23 @@ export default function QuickCatchDialog() {
       const savedCatch = await createCatchWithOfflineSupport(catchData);
       const wasOffline = !isOnline();
 
-      // If we have a pending offline photo, link it to this catch
-      if (pendingOfflinePhotoId && wasOffline) {
+      // Ein offline zwischengespeichertes Foto immer mit dem Fang verknüpfen —
+      // auch wenn die Verbindung zwischen Aufnahme und Speichern zurückkam. Die
+      // Bedingung `wasOffline` liess das Foto in genau diesem Fall verwaisen.
+      // Die echte Server-ID hat Vorrang; offline gibt es nur die Pseudo-ID
+      // `__id`, die der Foto-Sync nach dem Fang-Upload selbst übersetzt.
+      if (pendingOfflinePhotoId) {
         try {
-          const catchIdForPhoto = savedCatch?.__id || savedCatch?.id;
+          const catchIdForPhoto = savedCatch?.id || savedCatch?.__id;
           if (catchIdForPhoto) {
             await updateOfflinePhotoById(pendingOfflinePhotoId, catchIdForPhoto);
-            console.log(`Offline photo ${pendingOfflinePhotoId} linked to catch ${catchIdForPhoto}`);
+            console.log(`Offline-Foto ${pendingOfflinePhotoId} mit Fang ${catchIdForPhoto} verknüpft`);
           }
         } catch (linkError) {
           console.error('Fehler beim Verlinken des offline Fotos mit dem Fang:', linkError);
           // Nicht kritisch — Foto wird trotzdem synced, kann aber nicht zurück zum Fang verlinkt werden
         }
+        setPendingOfflinePhotoId(null);
       }
 
       if (!wasOffline) {

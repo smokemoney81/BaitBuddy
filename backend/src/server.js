@@ -1,10 +1,10 @@
 import 'dotenv/config';
+import express from 'express';
 // Leitet in async-Route-Handlern geworfene Rejections an die Error-Middleware
 // weiter. Express 4 tut das nicht von selbst — ohne dies würde ein geworfener
 // Fehler (z.B. Netzwerk-/Timeout aus Supabase oder fetch) zu einer unbehandelten
 // Rejection und der Request bliebe bis zum Plattform-Timeout hängen.
-import 'express-async-errors';
-import express from 'express';
+import { registerAsyncErrorHandling } from './middleware/asyncHandler.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import { logger, requestLogger, errorLogger, initSentry } from './lib/logger.js';
@@ -35,8 +35,11 @@ import { getAnthropicKey } from './lib/llm.js';
 import { getAllowedOrigins } from './lib/allowedOrigins.js';
 
 const app = express();
-initSentry(app);
+initSentry();
 const PORT = process.env.PORT || 3000;
+
+// ESM-kompatible Async-Error-Handling
+registerAsyncErrorHandling(app);
 
 // Security-Middleware
 securityMiddleware(app);

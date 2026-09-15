@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Camera, Play, Square, Loader2, Sparkles } from "lucide-react"; // Added Sparkles
+import { Camera, Play, Square, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { User } from "@/entities/User";
 import { ai } from "@/api/frontendClient";
 import { toast } from "sonner";
-import { AnimatePresence, motion } from "framer-motion"; // Added framer-motion imports
+import { AnimatePresence, motion } from "framer-motion";
 
 import PlanGuard from "@/components/premium/PlanGuard";
 
@@ -117,9 +117,8 @@ function CameraAnalysisSectionInner() {
   };
 
   // Erfasst das aktuelle Kamerabild und schickt es zur echten Claude-Vision-
-  // Analyse an das Backend (POST /api/ai/analyze-catch). Kein Mock, keine
-  // erfundenen Ergebnisse — bei fehlendem Bild/Offline/Fehler wird ein klarer
-  // Zustand angezeigt.
+  // Analyse an das Backend (POST /api/ai/vision). Kein Mock, keine erfundenen
+  // Ergebnisse — bei fehlendem Bild/Offline/Fehler wird ein klarer Zustand angezeigt.
   const analyzeFrame = async () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) {
@@ -141,11 +140,14 @@ function CameraAnalysisSectionInner() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas-Kontext nicht verfügbar");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      // Rohes Base64 ohne data-URL-Präfix an das Vision-Endpoint.
+      const imageBase64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+      if (!imageBase64) throw new Error("Frame konnte nicht erfasst werden");
 
-      const response = await ai.analyzeCatch(null, dataUrl);
-      const analysis = typeof response?.analysis === "string" ? response.analysis.trim() : "";
+      const result = await ai.vision(imageBase64);
+      const analysis = typeof result?.analysis === "string" ? result.analysis.trim() : "";
       if (!analysis) throw new Error("Leere Antwort von der KI");
 
       setAnalysisResult(analysis);

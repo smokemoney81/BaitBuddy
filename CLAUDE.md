@@ -90,7 +90,14 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 - **LLM**: **Anthropic Claude über Anthropic Cloud API** — natives `fetch` gegen die Messages API (`https://api.anthropic.com/v1/messages`) in `backend/src/lib/llm.js`. EIN Modell für Text UND Vision, Default `claude-haiku-4-5` (schnellstes Modell, hält das < 2 Sek.-Latenz-Ziel), per Env `ANTHROPIC_MODEL` umschaltbar (z. B. `claude-opus-4-8`). Der Key wird über `getAnthropicKey()` tolerant gelesen (`ANTHROPIC_API_KEY` bzw. `sk-ant-…`-Varianten). Der Aufruf erfolgt serverseitig, nie direkt vom Frontend. **Anthropic Cloud API ist der einzige LLM-Provider; andere Anbieter sind nicht gestattet.**
   - ⚠️ **Regel: Nur Anthropic Cloud API als LLM-Quelle** — Alle LLM-Anfragen müssen über Backend-Endpoints mit Anthropic gehen (`POST /api/ai/chat`, `POST /api/ai/realtime-session`, `POST /api/ai/vision` u.ä.). Frontend darf keine LLM-Libraries direkt verwenden. Das verhindert API-Key-Exposure, reduziert Bundle-Size und zentralisiert Kontextverwaltung serverseitig.
 - **TTS-Stimmen**: `POST /api/ai/tts` (ElevenLabs) kennt zwei Stimmen: männlich „Daniel" (Standard, alle Pläne) und weiblich „Matilda" (**nur Ultimate**, Plan-ID `elite`/Friends-Level). Das Plan-Gate sitzt **serverseitig** (`backend/src/lib/planResolver.js`, geteilt mit `premium.js`) — ohne Ultimate fällt der Server still auf die Standardstimme zurück. Die Auswahl liegt in den Audio-Einstellungen (`VoiceSettings.jsx`), gespeichert via `src/lib/ttsVoice.js` (localStorage `buddy-tts-voice`); `elevenLabsTTS.js` sendet die Wahl bei jedem TTS-Aufruf mit. Env-Overrides: `ELEVENLABS_VOICE_ID` (männlich), `ELEVENLABS_VOICE_ID_FEMALE` (weiblich).
-  - ⚠️ **Regel: Nur die ElevenLabs-Stimme** — Die App spricht ausschließlich mit der natürlichen ElevenLabs-Stimme über die zentrale Utility `src/components/utils/elevenLabsTTS.js` (`speakWithFallback` = spricht und löst nach Wiedergabe-Ende auf; „Fallback" bedeutet **Stille** bei Fehlern, nicht Roboterstimme). Die frühere Browser-TTS (`speechSynthesis`, `browserTTS.jsx`) wurde komplett entfernt und darf **nicht** wieder eingeführt werden — schlägt ElevenLabs fehl (offline, kein API-Key), bleibt die Ausgabe still und der Text steht im Chat. Überlappende TTS-Aufrufe werden per Generation-Token in `elevenLabsTTS.js` verworfen (keine Doppelstimmen).
+  - ⚠️ **Regel: Nur natürliche Stimmen, nie Browser-TTS** — Die App spricht ausschließlich über die zentrale Utility `src/components/utils/elevenLabsTTS.js` (`speakWithFallback` = spricht und löst nach Wiedergabe-Ende auf; „Fallback" bedeutet **Stille** bei Fehlern, nicht Roboterstimme). Die frühere Browser-TTS (`speechSynthesis`, `browserTTS.jsx`) wurde komplett entfernt und darf **nicht** wieder eingeführt werden — schlägt ElevenLabs fehl (offline, kein API-Key), bleibt die Ausgabe still und der Text steht im Chat. Überlappende TTS-Aufrufe werden per Generation-Token in `elevenLabsTTS.js` verworfen (keine Doppelstimmen).
+    **Welche natürliche Stimme spricht, entscheidet die Server-Kette**, nicht der
+    Client: `buildProviderChain()` in `backend/src/lib/multiProviderTTS.js` reiht
+    OPENAI_API_KEY → ELEVENLABS_API_KEY → GOOGLE_CLOUD_API_KEY → GEMINI_API_KEY
+    und nimmt den ersten gesetzten Schlüssel. Ist `OPENAI_API_KEY` gesetzt (etwa
+    für die Realtime-Voice-Session), spricht `/api/ai/tts` also mit einer
+    OpenAI-Stimme. **Diese Reihenfolge ist so gewollt** — nicht "korrigieren".
+    Wer ElevenLabs erzwingen will, lässt `OPENAI_API_KEY` leer.
 
 ### Dev-Checkliste
 - [ ] Keine Platzhalter in KI-Responses (echte Kontextdaten)
@@ -453,6 +460,29 @@ durch diese Funktion schicken.
 > Defaults in `build.gradle`, die der Play-Store-Versionierung folgen. Der
 > `version_code` muss höher sein als der zuletzt in der Play Console
 > hochgeladene.
+
+### ⚠️ `npm audit fix --force` bricht den Android-Build
+
+`npm audit` meldet zwei offene Lücken in **`tar` 6.2.1**. Diese Version zieht
+ausschließlich `@capacitor/cli` (devDependency, `dist/util/template.js`) und sie
+läuft nur bei `cap add`/`cap update`/`cap migrate`, wo Capacitors **eigenes**
+Plattform-Template aus dem npm-Paket entpackt wird — kein Nutzer-Input, kein
+Laufzeitpfad der App, nichts davon landet im Bundle oder im AAB.
+
+**Nicht "wegfixen".** Beide angebotenen Wege sind teurer als die Lücke:
+
+- **`overrides: { "tar": "^7" }`** — verifiziert kaputt. tar 7 ist ESM mit
+  `__esModule`-Flag und ohne Default-Export, deshalb liefert das
+  `tslib.__importDefault(require("tar"))` in `template.js` ein Objekt, dessen
+  `.default` `undefined` ist: `TypeError: Cannot read properties of undefined
+  (reading 'extract')`. `cap add android` stirbt daran.
+- **`@capacitor/cli@8`** — `6.2.2` ist die letzte 6er-CLI und verlangt
+  `tar ^6.1.11`; die tar-6-Linie endet bei `6.2.1`, ein Fix existiert dort nicht.
+  Ein CLI-Sprung auf 8 zwingt `@capacitor/core`, `@capacitor/android` und die
+  drei Plugins mit — ein eigenes Vorhaben, kein Audit-Aufräumen.
+
+Wer das dennoch angeht, verifiziert es gegen einen **echten Android-Build**
+(SDK + `bundleRelease`), nicht nur gegen `npm audit`.
 
 ---
 

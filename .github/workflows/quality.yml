@@ -85,6 +85,17 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
+      # Das Runner-Image hat Googles Chrome-Apt-Repo konfiguriert. Dessen Index
+      # lieferte am 2026-09-09 reproduzierbar einen "Hash Sum mismatch", woran
+      # das `apt-get update` INNERHALB von `--with-deps` scheiterte (Exit 100):
+      # der blockierende E2E-Gate stand damit fuer jeden PR still, obwohl kein
+      # einziger Test lief und die Browser-Binaries bereits aus dem Cache
+      # wiederhergestellt waren. Playwright braucht dieses Repo nicht — seine
+      # System-Pakete kommen aus den Ubuntu-Quellen. `rm -f` bleibt still, falls
+      # eine kuenftige Image-Version die Datei nicht mehr mitbringt.
+      - name: Remove unrelated third-party apt sources
+        run: sudo rm -f /etc/apt/sources.list.d/*google*
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

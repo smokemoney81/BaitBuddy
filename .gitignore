@@ -3,6 +3,9 @@
 .env.*
 .env.production
 .env.production.local
+# Vorlagen ohne Geheimnisse bleiben versioniert
+!.env.example
+!backend/.env.example
 
 # Logs
 logs

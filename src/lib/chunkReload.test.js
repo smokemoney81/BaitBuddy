@@ -40,6 +40,32 @@ describe('installChunkReloadHandler', () => {
     expect(second.defaultPrevented).toBe(false);
   });
 
+  it('lädt offline NICHT neu — ohne Netz gibt es keinen frischen Chunk zu holen', () => {
+    uninstall();
+    uninstall = installChunkReloadHandler({ reload, isOnline: () => false });
+
+    const event = firePreloadError();
+
+    expect(reload).not.toHaveBeenCalled();
+    // Fehler bewusst nicht unterdrückt: Vite löste das Import-Promise sonst mit
+    // `undefined` auf, woraus React.lazy einen nichtssagenden Folgefehler macht.
+    // So erreicht die klare Ladefehler-Meldung den ErrorBoundary.
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('verbraucht offline den Reload-Guard nicht', () => {
+    uninstall();
+    uninstall = installChunkReloadHandler({ reload, isOnline: () => false });
+    firePreloadError();
+
+    // Sobald das Netz zurück ist, muss die Selbstheilung weiterhin greifen.
+    uninstall();
+    uninstall = installChunkReloadHandler({ reload, isOnline: () => true });
+    firePreloadError();
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it('erlaubt einen erneuten Selbstheilungs-Versuch nach Ablauf des Guards', () => {
     firePreloadError();
     // Guard-Zeitstempel künstlich in die Vergangenheit setzen (> 60s).

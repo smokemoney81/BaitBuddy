@@ -15,8 +15,15 @@ import kotlin.coroutines.resumeWithException
  * PlayIntegrityManager
  *
  * Holt sich einen Integrity-Token von der Google Play Integrity API.
- * Der Token wird anschliessend an das Backend (Base44 Funktion verifyPlayIntegrity)
- * geschickt und dort serverseitig verifiziert.
+ * Der Token soll anschliessend an das Backend geschickt und dort serverseitig
+ * verifiziert werden.
+ *
+ * STAND: Die Gegenstelle fehlt. Weder backend/src/routes/ noch die native
+ * Java-App unter android/app/src/main/java/app/baitbuddy/mobile/ enthalten
+ * eine Integrity-Verifikation; src/lib/playIntegrity.js wird von keiner
+ * Komponente importiert und src/api/frontendClient.js liefert fuer
+ * verifyPlayIntegrity fest { valid: false }. Diese Datei ist eine Vorlage,
+ * keine aktive Integration.
  *
  * WICHTIG: Im Google Cloud Console muss die Play Integrity API aktiviert sein
  * und das Cloud Project muss mit dem Play Console Projekt verknuepft sein.
