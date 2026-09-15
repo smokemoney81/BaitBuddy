@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Check, X, Fish, MapPin, CalendarClock, CloudSun,
   Backpack, Anchor, ScrollText, ListChecks, Loader2, Crosshair, Plus, Trash2, Play,
@@ -47,6 +47,7 @@ const WEATHER_TEXT = (code) => {
 };
 
 export default function TripPlannerWizard({ onClose, onSave, plan, currentLocation }) {
+  const navigate = useNavigate();
   const { fishing } = useBuddyPreferences();
   const [state, setState] = useState(() => createInitialWizardState(plan));
   const [stepIndex, setStepIndex] = useState(0);
@@ -66,6 +67,7 @@ export default function TripPlannerWizard({ onClose, onSave, plan, currentLocati
       const payload = buildPlanPayload(state);
       if (activate) payload.is_active = true;
       await onSave(payload, plan?.id);
+      if (activate) { navigate('/AnglerMode'); return; }
       onClose();
     } catch (e) {
       setError('Trip konnte nicht gespeichert werden. Bitte erneut versuchen.');

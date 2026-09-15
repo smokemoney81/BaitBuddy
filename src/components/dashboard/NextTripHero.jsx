@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarClock, Fish, MapPin, Compass, ChevronRight, Loader2, Plus } from 'lucide-react';
+import { CalendarClock, Fish, MapPin, Compass, ChevronRight, Loader2, Plus, Play } from 'lucide-react';
 import { FishingPlan } from '@/entities/FishingPlan';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { computeTripJourney, selectNextTrip, readPlanSpot } from '@/lib/tripJourney';
@@ -128,10 +128,16 @@ export default function NextTripHero() {
 
       <TripJourney journey={journey} />
 
-      <Link to="/TripPlanner" className="bb-action mt-4 inline-flex w-full justify-center">
-        {journey.percent >= 100 ? 'Trip ansehen' : 'Planung fortsetzen'}
-        <ChevronRight size={18} aria-hidden="true" />
-      </Link>
+      {plan.is_active ? (
+        <Link to="/AnglerMode" className="bb-action mt-4 inline-flex w-full justify-center">
+          <Play size={18} aria-hidden="true" /> Zum Anglermodus
+        </Link>
+      ) : (
+        <Link to="/TripPlanner" className="bb-action mt-4 inline-flex w-full justify-center">
+          {journey.percent >= 100 ? 'Trip ansehen' : 'Planung fortsetzen'}
+          <ChevronRight size={18} aria-hidden="true" />
+        </Link>
+      )}
     </section>
   );
 }
