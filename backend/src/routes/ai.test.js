@@ -382,6 +382,10 @@ describe('POST /api/ai/tts', () => {
 
   it('nutzt fuer voice=female OHNE Ultimate-Plan die maennliche Standardstimme (Server-Gate)', async () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de' },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -404,6 +408,7 @@ describe('POST /api/ai/tts', () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
     supabaseMock.current = createSupabaseMock({
       authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'elite' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
     });
     const fetchMock = vi.fn(async () => ({
       ok: true,
