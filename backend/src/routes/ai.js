@@ -20,6 +20,7 @@ import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 import { getTTSAudio } from '../lib/multiProviderTTS.js';
 import { buddyPersonalization } from '../lib/buddyPersonalization.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
+import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -233,10 +234,9 @@ async function buildChatPrompt(req) {
       // Koordinaten hart als Zahlen validieren, bevor sie in die Upstream-URL
       // interpoliert werden — sonst könnte ein String wie "52.5&extra=1" fremde
       // Query-Parameter einschleusen.
-      const lat = Number(userLocation.latitude);
-      const lon = Number(userLocation.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
-          lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+      const coords = parseCoordinates(userLocation.latitude, userLocation.longitude);
+      if (!coords.ok) return null;
+      const { latitude: lat, longitude: lon } = coords;
       const w = await fetchWithTimeout(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code&timezone=auto`,
         {}, WEATHER_TIMEOUT_MS
@@ -544,11 +544,9 @@ const WMO = {
 
 router.post('/ai/fishing-recommendation', requireAuth, async (req, res) => {
   try {
-    const lat = Number(req.body?.latitude);
-    const lon = Number(req.body?.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return res.status(400).json({ error: 'latitude und longitude erforderlich' });
-    }
+    const coords = parseCoordinates(req.body?.latitude, req.body?.longitude);
+    if (!coords.ok) return res.status(400).json({ error: coords.error });
+    const { latitude: lat, longitude: lon } = coords;
 
     // Wetter und Fangbuch parallel laden — spart Latenz vor dem LLM-Call.
     const [weather, catches] = await Promise.all([
@@ -677,15 +675,16 @@ router.post('/ai/tts', requireAuth, async (req, res) => {
 router.post('/ai/fish-behavior-analysis', requireAuth, async (req, res) => {
   try {
     const { species, water_data = {}, air_pressure } = req.body;
-    const lat = req.body.latitude != null ? Number(req.body.latitude) : null;
-    const lon = req.body.longitude != null ? Number(req.body.longitude) : null;
+    const coords = parseOptionalCoordinates(req.body.latitude, req.body.longitude);
+    if (!coords.ok) return res.status(400).json({ error: coords.error });
+    const { latitude: lat, longitude: lon } = coords;
 
     if (!species || !species.trim()) {
       return res.status(400).json({ error: 'Fischart (species) erforderlich' });
     }
 
     let currentWeather = null;
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+    if (lat !== null && lon !== null) {
       try {
         const w = await fetchWithTimeout(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code,surface_pressure,relative_humidity_2m&timezone=auto`,

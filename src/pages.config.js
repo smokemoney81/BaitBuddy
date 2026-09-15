@@ -47,60 +47,60 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import { lazy } from 'react';
+import { lazyPage } from '@/lib/lazyPage';
 
 // Code-Splitting: Jede Seite wird erst beim Aufruf geladen (React.lazy).
 // Das reduziert das initiale Bundle drastisch und beschleunigt alle Seiten.
 // App.jsx rendert die Routen bereits in <Suspense> mit Fallback.
-const AGB = lazy(() => import('./pages/AGB'));
-const AuthCallback = lazy(() => import('./pages/AuthCallback'));
-const AI = lazy(() => import('./pages/AI'));
-const ARKnotenAssistent = lazy(() => import('./pages/ARKnotenAssistent'));
-const ARView = lazy(() => import('./pages/ARView'));
-const AdminUsers = lazy(() => import('./pages/AdminUsers'));
-const Analysis = lazy(() => import('./pages/Analysis'));
-const AngelscheinPruefungSchonzeiten = lazy(() => import('./pages/AngelscheinPruefungSchonzeiten'));
-const BaitMixer = lazy(() => import('./pages/BaitMixer'));
-const BathymetricCrowdsourcing = lazy(() => import('./pages/BathymetricCrowdsourcing'));
-const CatchCam = lazy(() => import('./pages/CatchCam'));
-const Community = lazy(() => import('./pages/Community'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Datenschutz = lazy(() => import('./pages/Datenschutz'));
-const DeviceIntegration = lazy(() => import('./pages/DeviceIntegration'));
-const Devices = lazy(() => import('./pages/Devices'));
-const Events = lazy(() => import('./pages/Events'));
-const FunctionRatings = lazy(() => import('./pages/FunctionRatings'));
-const Gear = lazy(() => import('./pages/Gear'));
-const Home = lazy(() => import('./pages/Home'));
-const Impressum = lazy(() => import('./pages/Impressum'));
-const KiBuddyBeta = lazy(() => import('./pages/KiBuddyBeta'));
-const Licenses = lazy(() => import('./pages/Licenses'));
-const Logbook = lazy(() => import('./pages/Logbook'));
-const LiveTripPage = lazy(() => import('./pages/LiveTripPage'));
-const Map = lazy(() => import('./pages/Map'));
-const MapPage = lazy(() => import('./pages/MapPage'));
-const Match3Game = lazy(() => import('./pages/Match3Game'));
-const Premium = lazy(() => import('./pages/Premium'));
-const PremiumPlans = lazy(() => import('./pages/PremiumPlans'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Quiz = lazy(() => import('./pages/Quiz'));
-const Rank = lazy(() => import('./pages/Rank'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Shop = lazy(() => import('./pages/Shop'));
-const StartFishing = lazy(() => import('./pages/StartFishing'));
-const TripPlanner = lazy(() => import('./pages/TripPlanner'));
-const Tutorials = lazy(() => import('./pages/Tutorials'));
-const UsedGear = lazy(() => import('./pages/UsedGear'));
+const AGB = lazyPage(() => import('./pages/AGB'));
+const AuthCallback = lazyPage(() => import('./pages/AuthCallback'));
+const AI = lazyPage(() => import('./pages/AI'));
+const ARKnotenAssistent = lazyPage(() => import('./pages/ARKnotenAssistent'));
+const ARView = lazyPage(() => import('./pages/ARView'));
+const AdminUsers = lazyPage(() => import('./pages/AdminUsers'));
+const Analysis = lazyPage(() => import('./pages/Analysis'));
+const AngelscheinPruefungSchonzeiten = lazyPage(() => import('./pages/AngelscheinPruefungSchonzeiten'));
+const BaitMixer = lazyPage(() => import('./pages/BaitMixer'));
+const BathymetricCrowdsourcing = lazyPage(() => import('./pages/BathymetricCrowdsourcing'));
+const CatchCam = lazyPage(() => import('./pages/CatchCam'));
+const Community = lazyPage(() => import('./pages/Community'));
+const Dashboard = lazyPage(() => import('./pages/Dashboard'));
+const Datenschutz = lazyPage(() => import('./pages/Datenschutz'));
+const DeviceIntegration = lazyPage(() => import('./pages/DeviceIntegration'));
+const Devices = lazyPage(() => import('./pages/Devices'));
+const Events = lazyPage(() => import('./pages/Events'));
+const FunctionRatings = lazyPage(() => import('./pages/FunctionRatings'));
+const Gear = lazyPage(() => import('./pages/Gear'));
+const Home = lazyPage(() => import('./pages/Home'));
+const Impressum = lazyPage(() => import('./pages/Impressum'));
+const KiBuddyBeta = lazyPage(() => import('./pages/KiBuddyBeta'));
+const Licenses = lazyPage(() => import('./pages/Licenses'));
+const Logbook = lazyPage(() => import('./pages/Logbook'));
+const LiveTripPage = lazyPage(() => import('./pages/LiveTripPage'));
+const Map = lazyPage(() => import('./pages/Map'));
+const MapPage = lazyPage(() => import('./pages/MapPage'));
+const Match3Game = lazyPage(() => import('./pages/Match3Game'));
+const Premium = lazyPage(() => import('./pages/Premium'));
+const PremiumPlans = lazyPage(() => import('./pages/PremiumPlans'));
+const Profile = lazyPage(() => import('./pages/Profile'));
+const Quiz = lazyPage(() => import('./pages/Quiz'));
+const Rank = lazyPage(() => import('./pages/Rank'));
+const ResetPassword = lazyPage(() => import('./pages/ResetPassword'));
+const Settings = lazyPage(() => import('./pages/Settings'));
+const Shop = lazyPage(() => import('./pages/Shop'));
+const StartFishing = lazyPage(() => import('./pages/StartFishing'));
+const TripPlanner = lazyPage(() => import('./pages/TripPlanner'));
+const Tutorials = lazyPage(() => import('./pages/Tutorials'));
+const UsedGear = lazyPage(() => import('./pages/UsedGear'));
 // VoiceChat und VoiceLecture waren fertig implementiert, aber ohne Route und
 // ohne Importeur — beide Seiten waren damit gar nicht erreichbar, obwohl die
 // Sprachsteuerung (voicePages.js) und die Buddy-Tipps (buddyTips.js) sie als
 // Ziel führen. VoiceChat ist zudem der einzige Aufrufer von
 // POST /api/ai/realtime-session, das im Backend existiert und getestet ist.
-const VoiceChat = lazy(() => import('./pages/VoiceChat'));
-const VoiceLecture = lazy(() => import('./pages/VoiceLecture'));
-const WaterAnalysis = lazy(() => import('./pages/WaterAnalysis'));
-const Weather = lazy(() => import('./pages/Weather'));
+const VoiceChat = lazyPage(() => import('./pages/VoiceChat'));
+const VoiceLecture = lazyPage(() => import('./pages/VoiceLecture'));
+const WaterAnalysis = lazyPage(() => import('./pages/WaterAnalysis'));
+const Weather = lazyPage(() => import('./pages/Weather'));
 import __Layout from './Layout.jsx';
 
 

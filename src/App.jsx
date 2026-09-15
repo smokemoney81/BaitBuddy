@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import './App.css'
 import './globals.css'
 import './styles/baitbuddy-v2.css'
@@ -24,14 +24,15 @@ import ErrorBoundary from '@/lib/ErrorBoundary';
 import { initAutoSync } from '@/components/utils/offlineSync';
 import { initNetworkStatus } from '@/utils/networkStatus';
 import { prefetchAllPages } from '@/lib/prefetchPages';
-const CatchStats = lazy(() => import('@/pages/CatchStats'));
-const AdminTracking = lazy(() => import('@/pages/AdminTracking'));
-const Help = lazy(() => import('@/pages/Help'));
-const EventCatalog = lazy(() => import('@/pages/EventCatalog'));
-const EventDetails = lazy(() => import('@/pages/EventDetails'));
-const EventCreate = lazy(() => import('@/pages/EventCreate'));
-const MonthlyLeaderboard = lazy(() => import('@/pages/MonthlyLeaderboard'));
-const Koeder3D = lazy(() => import('@/pages/Koeder3D'));
+import { lazyPage } from '@/lib/lazyPage';
+const CatchStats = lazyPage(() => import('@/pages/CatchStats'));
+const AdminTracking = lazyPage(() => import('@/pages/AdminTracking'));
+const Help = lazyPage(() => import('@/pages/Help'));
+const EventCatalog = lazyPage(() => import('@/pages/EventCatalog'));
+const EventDetails = lazyPage(() => import('@/pages/EventDetails'));
+const EventCreate = lazyPage(() => import('@/pages/EventCreate'));
+const MonthlyLeaderboard = lazyPage(() => import('@/pages/MonthlyLeaderboard'));
+const Koeder3D = lazyPage(() => import('@/pages/Koeder3D'));
 import PageViewTracker from '@/components/utils/PageViewTracker';
 
 const LazyPageFallback = () => (
