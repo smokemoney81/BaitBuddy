@@ -86,6 +86,17 @@ describe('GET /api/admin/premium/check-expiry', () => {
     expect(res.body.expired).toBe(450);
   });
 
+  it('akzeptiert das Cron-Secret auch als Authorization: Bearer', async () => {
+    // Vercel-Crons, der Docker-Cron und der Cloudflare-Cron-Worker senden das
+    // Secret als Bearer-Header — frueher lief check-expiry dadurch in 401.
+    await boot({ adminUsers: [] });
+    const res = await request(app)
+      .get('/api/admin/premium/check-expiry')
+      .set('Authorization', `Bearer ${process.env.CRON_SECRET}`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
   it('lehnt Aufrufe ohne Cron-Secret ab', async () => {
     const res = await request(app).get('/api/admin/premium/check-expiry');
     expect(res.status).toBe(401);

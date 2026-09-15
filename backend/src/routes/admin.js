@@ -16,7 +16,16 @@ if (!ADMIN_SECRET) {
 }
 
 function requireCronAuth(req, res, next) {
-  const secret = req.get('x-cron-secret') || req.query.secret;
+  // Drei akzeptierte Wege, damit ALLE Cron-Ausloeser denselben Endpunkt treffen:
+  // - x-cron-secret Header (manuelle/eigene Aufrufe)
+  // - ?secret= Query
+  // - Authorization: Bearer <secret> (Vercel-Crons, Docker-Cron und der
+  //   Cloudflare-Cron-Worker senden diesen Header). Frueher pruefte diese Route
+  //   NUR x-cron-secret, waehrend Vercel/Docker Bearer schickten — der
+  //   check-expiry-Cron lief dadurch dauerhaft in 401.
+  const authHeader = req.get('authorization') || '';
+  const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const secret = req.get('x-cron-secret') || req.query.secret || bearer;
   if (secret !== ADMIN_SECRET) {
     return res.status(401).json({ error: 'Unauthorised' });
   }
