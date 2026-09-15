@@ -9,6 +9,7 @@ import { FishingPlan } from '@/entities/FishingPlan';
 import { Catch } from '@/entities/Catch';
 import { selectNextTrip, readPlanSpot } from '@/lib/tripJourney';
 import { formatElapsed, elapsedSeconds, timeOfDayTheme } from '@/lib/anglerMode';
+import { computeInsights } from '@/lib/fishingInsights';
 
 const startKey = (id) => `bb_angler_start_${id}`;
 
@@ -78,14 +79,15 @@ export default function AnglerMode() {
     setEnding(true);
     const seconds = elapsedSeconds(startMs, Date.now());
     let catches = null;
+    let insights = [];
     try {
-      const startIso = new Date(startMs).toISOString();
       const list = await Catch.list('-catch_time', 50);
-      catches = (Array.isArray(list) ? list : []).filter((c) => {
+      const tripCatches = (Array.isArray(list) ? list : []).filter((c) => {
         const t = c.catch_time || c.created_at;
         return t && new Date(t).getTime() >= startMs - 60000; // kleine Toleranz
-      }).length;
-      void startIso;
+      });
+      catches = tripCatches.length;
+      insights = computeInsights(tripCatches).slice(0, 3);
     } catch { catches = null; }
     try {
       await FishingPlan.update(plan.id, { is_active: false });
@@ -96,7 +98,7 @@ export default function AnglerMode() {
       return;
     }
     clearStart(plan.id);
-    setSummary({ seconds, catches });
+    setSummary({ seconds, catches, insights });
     setEnding(false);
   }, [plan, startMs]);
 
@@ -189,9 +191,17 @@ export default function AnglerMode() {
                 <div className="text-slate-100">{summary.catches != null ? summary.catches : '—'}</div>
               </div>
             </div>
-            <p className="mt-4 text-sm text-slate-400">
-              {summary.catches ? 'Schau dir deine Fänge im Fangbuch an und werte den Tag aus.' : 'Kein Fang erfasst? Kein Problem — die Bedingungen fließen in künftige Empfehlungen ein.'}
-            </p>
+            {summary.insights && summary.insights.length > 0 ? (
+              <ul className="mt-4 space-y-1.5 text-left">
+                {summary.insights.map((ins) => (
+                  <li key={ins.id} className="text-sm text-slate-200 leading-relaxed">{ins.text}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-sm text-slate-400">
+                {summary.catches ? 'Schau dir deine Fänge im Fangbuch an und werte den Tag aus.' : 'Kein Fang erfasst? Kein Problem — die Bedingungen fließen in künftige Empfehlungen ein.'}
+              </p>
+            )}
             <div className="mt-4 flex gap-2">
               <Link to="/Logbook" className="bb-secondary flex-1 justify-center"><BookOpen size={16} /> Fangbuch</Link>
               <button type="button" className="bb-action flex-1 justify-center" onClick={() => navigate('/Dashboard')}>Fertig</button>
