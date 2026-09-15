@@ -18,7 +18,16 @@ export async function resolveServerToolAccess({ user, toolId, monthlyLimit = nul
     throw new Error('Invalid tool identifier');
   }
 
-  const { data: permanentUnlock, error } = await supabase
+  // Permanenten Unlock aus dem Ledger lesen. Ein LESEFEHLER darf einen aktiven
+  // Premium-/Ultimate-Nutzer NICHT hart sperren: frueher wurde der Fehler
+  // geworfen (500), sodass z. B. die Ultimate-Female-Voice bei einem
+  // Ledger-Fehler komplett ausfiel, obwohl der aktive Plan allein Zugriff gibt.
+  // Deshalb degradieren wir bei Lesefehlern zu "kein permanenter Unlock" und
+  // lassen die Entscheidung ueber premiumActive laufen (fail-safe, nie
+  // faelschlich freischaltend — ein fehlender Unlock kann nur Zugriff entziehen,
+  // nicht gewaehren).
+  let permanentUnlock = null;
+  const { data, error } = await supabase
     .from('user_tool_unlocks')
     .select('unlock_type')
     .eq('user_id', user.id)
@@ -27,7 +36,11 @@ export async function resolveServerToolAccess({ user, toolId, monthlyLimit = nul
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    console.error(`[toolEntitlements] Ledger-Lesefehler fuer ${toolId} (fail-safe, kein Unlock):`, error.message || error);
+  } else {
+    permanentUnlock = data;
+  }
 
   const { isActive: premiumActive } = resolvePlan(user);
   return resolveToolAccess({

@@ -63,6 +63,29 @@ describe('resolveServerToolAccess', () => {
     })).resolves.toMatchObject({ allowed: false, entitled: false });
   });
 
+  it('still allows an active Premium user when the unlock ledger read errors (fail-safe)', async () => {
+    // Regression (§39): a ledger read error must not hard-lock an Ultimate user.
+    const chain = unlockQuery({ data: null, error: { message: 'ledger unavailable' } });
+    mocks.supabase.from.mockReturnValue(chain);
+    mocks.resolvePlan.mockReturnValue({ isActive: true });
+
+    await expect(resolveServerToolAccess({
+      user: { id: '00000000-0000-0000-0000-000000000001' },
+      toolId: 'premium_voice',
+    })).resolves.toMatchObject({ allowed: true, source: 'premium' });
+  });
+
+  it('fails safe (no access, no throw) when the ledger errors and there is no Premium', async () => {
+    const chain = unlockQuery({ data: null, error: { message: 'ledger unavailable' } });
+    mocks.supabase.from.mockReturnValue(chain);
+    mocks.resolvePlan.mockReturnValue({ isActive: false });
+
+    await expect(resolveServerToolAccess({
+      user: { id: '00000000-0000-0000-0000-000000000001' },
+      toolId: 'premium_voice',
+    })).resolves.toMatchObject({ allowed: false, entitled: false });
+  });
+
   it('rejects malformed tool identifiers before querying the database', async () => {
     await expect(resolveServerToolAccess({
       user: { id: '00000000-0000-0000-0000-000000000001' },
