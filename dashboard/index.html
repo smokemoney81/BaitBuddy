@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Command Center — Dashboard</title>
+  <style>
+    :root {
+      --bg: #0a0c12;
+      --bg-2: #0d1017;
+      --surface: #12151e;
+      --surface-2: #1a1f2b;
+      --border: #262c3a;
+      --border-soft: #1e2432;
+      --text: #e6e9f2;
+      --text-muted: #8b93a7;
+      --accent: #8b7cff;
+      --accent-soft: #1c1e33;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 14px 34px rgba(0, 0, 0, .4);
+      --radius: 16px;
+      --c1: #8b7cff; --c2: #38bdf8; --c3: #34d399; --c4: #fbbf24; --c5: #f472b6; --c6: #a78bfa; --c7: #22d3ee; --c8: #fb7185;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(1100px 600px at 80% -10%, rgba(139, 124, 255, .10), transparent 60%),
+        radial-gradient(900px 500px at -10% 20%, rgba(56, 189, 248, .06), transparent 55%),
+        var(--bg);
+      background-attachment: fixed;
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+    input, textarea, select {
+      font-family: inherit; font-size: 14px; color: var(--text);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 12px; width: 100%; outline: none;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { resize: vertical; }
+    ::placeholder { color: var(--text-muted); }
+    a { color: var(--accent); text-decoration: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
+    [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .app { max-width: 1240px; margin: 0 auto; padding: 20px; }
+
+    header.topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand .logo {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      display: grid; place-items: center; color: #0a0c12; flex-shrink: 0;
+      box-shadow: 0 6px 18px rgba(139, 124, 255, .35);
+    }
+    .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+    .brand .sub { font-size: 13px; color: var(--text-muted); }
+    .clock { text-align: right; }
+    .clock .time { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .clock .date { font-size: 13px; color: var(--text-muted); text-transform: capitalize; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-muted);
+      transition: .15s;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .grid { display: grid; gap: 18px; }
+    .cols-2 { grid-template-columns: 1fr 1fr; }
+    .cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent), var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px;
+    }
+    .card h2 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .card h2 .count { margin-left: auto; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+    }
+    .stat .label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .stat .value { font-size: 30px; font-weight: 800; letter-spacing: -.03em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .stat .ic { position: absolute; top: 14px; right: 14px; opacity: .35; }
+
+    /* Graph view */
+    .graph-card { padding: 0; overflow: hidden; margin-bottom: 18px; }
+    .graph-head {
+      display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .graph-head h2 { margin: 0; }
+    .graph-legend { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+    .graph-legend .li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+    .graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .graph-tools { display: flex; gap: 6px; margin-left: 8px; }
+    .graph-stage { position: relative; height: 400px; touch-action: none; }
+    .graph-stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+    .graph-stage.dragging canvas { cursor: grabbing; }
+    .graph-hint {
+      position: absolute; left: 14px; bottom: 12px; font-size: 11px; color: var(--text-muted);
+      background: rgba(10, 12, 18, .6); padding: 5px 9px; border-radius: 8px; border: 1px solid var(--border-soft);
+      pointer-events: none;
+    }
+    .graph-empty {
+      position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-muted);
+      font-size: 13px; text-align: center; padding: 20px;
+    }
+    .mini-btn {
+      width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); transition: .15s;
+    }
+    .mini-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .ai-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .ai-link {
+      display: flex; align-items: center; gap: 10px; padding: 12px;
+      border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2);
+      transition: .15s; color: var(--text);
+    }
+    .ai-link:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--shadow); }
+    .ai-link .badge { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; flex-shrink: 0; }
+    .ai-link .nm { font-size: 14px; font-weight: 600; }
+    .ai-link .ds { font-size: 11px; color: var(--text-muted); }
+
+    .row {
+      display: flex; align-items: flex-start; gap: 10px; padding: 10px;
+      border-radius: 11px; border: 1px solid transparent; transition: .12s;
+    }
+    .row:hover { background: var(--surface-2); }
+    .row + .row { margin-top: 2px; }
+    .check {
+      width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border);
+      flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; transition: .12s;
+    }
+    .check:hover { border-color: var(--accent); }
+    .check.done { background: var(--success); border-color: var(--success); color: #06281c; }
+    .task-main { flex: 1; min-width: 0; }
+    .task-title { font-size: 14px; font-weight: 500; word-break: break-word; }
+    .task-title.done { text-decoration: line-through; color: var(--text-muted); }
+    .task-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+    .tag { padding: 2px 8px; border-radius: 999px; font-weight: 600; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+    .due { display: inline-flex; align-items: center; gap: 4px; }
+    .due.overdue { color: var(--danger); font-weight: 700; }
+    .due.soon { color: var(--warning); font-weight: 600; }
+    .prio-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .del { opacity: 0; color: var(--text-muted); padding: 4px; border-radius: 7px; transition: .12s; flex-shrink: 0; }
+    .row:hover .del, .proj:hover .del { opacity: 1; }
+    .del:hover { color: var(--danger); background: var(--surface); }
+
+    .add-form { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .add-form .grow { flex: 1; min-width: 140px; }
+    .btn {
+      background: var(--accent); color: #0a0c12; border-radius: 10px; padding: 9px 16px;
+      font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn.ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); font-weight: 600; }
+    .btn.sm { padding: 6px 11px; font-size: 13px; }
+
+    .proj { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 11px; transition: .12s; cursor: pointer; }
+    .proj:hover { background: var(--surface-2); }
+    .proj .swatch { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+    .proj .pn { flex: 1; font-size: 14px; font-weight: 500; }
+    .proj .bar { height: 6px; border-radius: 999px; background: var(--surface-2); width: 84px; overflow: hidden; flex-shrink: 0; }
+    .proj .bar > span { display: block; height: 100%; border-radius: 999px; }
+    .proj .pct { font-size: 11px; color: var(--text-muted); width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .note-editor textarea { min-height: 200px; font-size: 14px; line-height: 1.6; }
+    .note-status { font-size: 11px; color: var(--text-muted); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+
+    .chart-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .legend { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+    .legend .li { display: flex; align-items: center; gap: 8px; }
+    .legend .dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+    .legend .lv { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 22px 8px; }
+
+    .modal-back {
+      position: fixed; inset: 0; background: rgba(2, 4, 10, .7); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+    }
+    .modal-back.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); width: 100%; max-width: 440px; padding: 22px; }
+    .modal h3 { font-size: 17px; margin-bottom: 16px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+    .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+    .swatches button { width: 28px; height: 28px; border-radius: 8px; border: 2px solid transparent; }
+    .swatches button.sel { border-color: var(--text); }
+
+    .toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(120%);
+      background: var(--text); color: var(--bg); padding: 11px 18px; border-radius: 11px;
+      font-size: 13px; font-weight: 600; box-shadow: var(--shadow); z-index: 60; transition: transform .3s ease; max-width: 90vw;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .muted { color: var(--text-muted); }
+    .scroll { max-height: 340px; overflow-y: auto; margin: -4px; padding: 4px; }
+    .scroll::-webkit-scrollbar { width: 8px; }
+    .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+    @media (max-width: 900px) {
+      .cols-2, .cols-3 { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .ai-links { grid-template-columns: 1fr; }
+      .graph-stage { height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.6"/><line x1="6.7" y1="7.4" x2="10.4" y2="16"/><line x1="17.3" y1="7.4" x2="13.6" y2="16"/><line x1="7" y1="6" x2="17" y2="6"/></svg>
+        </div>
+        <div>
+          <h1>Command Center</h1>
+          <div class="sub" id="greeting">Dein persönliches Dashboard</div>
+        </div>
+      </div>
+      <div class="clock">
+        <div class="time" id="clockTime">--:--</div>
+        <div class="date" id="clockDate">—</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="notifyBtn" title="Erinnerungen aktivieren">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </button>
+        <button class="icon-btn" id="exportBtn" title="Daten exportieren">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="icon-btn" id="importBtn" title="Daten importieren">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+      </div>
+    </header>
+
+    <div class="stats" id="stats"></div>
+
+    <!-- Interactive graph (Obsidian-style) -->
+    <div class="card graph-card">
+      <div class="graph-head">
+        <h2>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="7" r="2"/><circle cx="12" cy="17" r="2"/><circle cx="18" cy="18" r="1.6"/><line x1="6.8" y1="6.7" x2="10.4" y2="15.6"/><line x1="17.4" y1="8.3" x2="13.2" y2="15.8"/><line x1="13.7" y1="16.7" x2="16.6" y2="17.6"/></svg>
+          Graph-Ansicht
+        </h2>
+        <div class="graph-legend">
+          <span class="li"><span class="dot" style="background:var(--accent)"></span>Zentrum</span>
+          <span class="li"><span class="dot" style="background:var(--c2)"></span>Projekt</span>
+          <span class="li"><span class="dot" style="background:var(--text-muted)"></span>Aufgabe offen</span>
+          <span class="li"><span class="dot" style="background:var(--success)"></span>erledigt</span>
+          <span class="li"><span class="dot" style="background:var(--danger)"></span>überfällig</span>
+        </div>
+        <div class="graph-tools">
+          <button class="mini-btn" id="graphZoomIn" title="Vergrößern"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <button class="mini-btn" id="graphZoomOut" title="Verkleinern"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <button class="mini-btn" id="graphReset" title="Ansicht zurücksetzen"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+        </div>
+      </div>
+      <div class="graph-stage" id="graphStage">
+        <canvas id="graphCanvas"></canvas>
+        <div class="graph-hint">Ziehen zum Verschieben · Scrollen zum Zoomen · Knoten greifen &amp; bewegen</div>
+        <div class="graph-empty" id="graphEmpty" hidden>Lege Projekte und Aufgaben an — sie erscheinen hier als vernetzter Graph.</div>
+      </div>
+    </div>
+
+    <div class="grid cols-3">
+      <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 18px;">
+        <div class="card">
+          <h2>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Aufgaben &amp; Erinnerungen
+            <span class="count" id="taskCount"></span>
+          </h2>
+          <div class="add-form">
+            <input class="grow" id="taskInput" placeholder="Neue Aufgabe … (Enter)" />
+            <select id="taskProject" style="width: auto; min-width: 120px;"></select>
+            <select id="taskPrio" style="width: auto;">
+              <option value="low">Niedrig</option>
+              <option value="med" selected>Mittel</option>
+              <option value="high">Hoch</option>
+            </select>
+            <input type="datetime-local" id="taskDue" style="width: auto;" />
+            <button class="btn" id="addTaskBtn">Hinzufügen</button>
+          </div>
+          <div class="scroll" id="taskList"></div>
+        </div>
+
+        <div class="grid cols-2">
+          <div class="card">
+            <h2>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+              Status-Übersicht
+            </h2>
+            <div class="chart-wrap">
+              <div id="donut"></div>
+              <div class="legend" id="donutLegend"></div>
+            </div>
+          </div>
+          <div class="card">
+            <h2>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+              Erledigt (7 Tage)
+            </h2>
+            <div id="trend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 18px;">
+        <div class="card">
+          <h2>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0-3 3 3 3 0 0 0 0 6 3 3 0 0 0 3 3v1a3 3 0 0 0 6 0v-1a3 3 0 0 0 3-3 3 3 0 0 0 0-6 3 3 0 0 0-3-3V5a3 3 0 0 0-3-3z"/></svg>
+            KI-Assistenten
+          </h2>
+          <div class="ai-links" id="aiLinks"></div>
+        </div>
+
+        <div class="card">
+          <h2>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Projekte
+            <button class="btn sm" id="addProjectBtn" style="margin-left: auto;">+ Neu</button>
+          </h2>
+          <div id="projectList"></div>
+        </div>
+
+        <div class="card">
+          <h2>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+            Notizbuch
+          </h2>
+          <div class="note-editor">
+            <textarea id="notes" placeholder="Notizen, Ideen, Gedanken … wird automatisch gespeichert."></textarea>
+            <div class="note-status">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span id="noteStatus">Automatisch gespeichert</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer style="text-align: center; color: var(--text-muted); font-size: 12px; margin: 28px 0 8px;">
+      Alle Daten bleiben lokal in deinem Browser (localStorage). Nutze Export für ein Backup.
+    </footer>
+  </div>
+
+  <div class="modal-back" id="projectModal">
+    <div class="modal">
+      <h3 id="projectModalTitle">Neues Projekt</h3>
+      <div class="field">
+        <label>Name</label>
+        <input id="projectNameInput" placeholder="z. B. Website Relaunch" />
+      </div>
+      <div class="field">
+        <label>Farbe</label>
+        <div class="swatches" id="colorSwatches"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="projectCancel">Abbrechen</button>
+        <button class="btn" id="projectSave">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const STORE_KEY = "command_center_v1";
+    const PALETTE = ["#8b7cff", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#22d3ee", "#fb7185"];
+    const AI_TOOLS = [
+      { name: "ChatGPT", desc: "OpenAI GPT", url: "https://chat.openai.com", color: "#10a37f", initials: "GP" },
+      { name: "Claude", desc: "Anthropic", url: "https://claude.ai", color: "#d97757", initials: "CL" },
+      { name: "Gemini", desc: "Google", url: "https://gemini.google.com", color: "#1a73e8", initials: "GE" },
+      { name: "Perplexity", desc: "Suche & KI", url: "https://www.perplexity.ai", color: "#20808d", initials: "PX" },
+      { name: "Copilot", desc: "Microsoft", url: "https://copilot.microsoft.com", color: "#0a58ca", initials: "CP" },
+      { name: "Mistral", desc: "Le Chat", url: "https://chat.mistral.ai", color: "#f2542d", initials: "MI" }
+    ];
+    const CSS = getComputedStyle(document.documentElement);
+    const col = (name) => CSS.getPropertyValue(name).trim();
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const defaultState = () => ({
+      tasks: [], projects: [{ id: uid(), name: "Allgemein", color: "#8b7cff" }],
+      notes: "", history: {}
+    });
+
+    let state = load();
+    let editingProjectId = null;
+    let pickedColor = PALETTE[0];
+
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return defaultState();
+        const parsed = JSON.parse(raw);
+        const base = defaultState();
+        return Object.assign(base, parsed, { projects: (parsed.projects && parsed.projects.length) ? parsed.projects : base.projects });
+      } catch (e) { return defaultState(); }
+    }
+    function save() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+      catch (e) { toast("Speichern fehlgeschlagen (Speicher voll?)"); }
+    }
+
+    const $ = (id) => document.getElementById(id);
+    function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+    function todayKey(d) { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+    function projectById(id) { return state.projects.find(p => p.id === id); }
+
+    let toastTimer;
+    function toast(msg) {
+      const t = $("toast"); t.textContent = msg; t.classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+    }
+
+    function tickClock() {
+      const now = new Date();
+      $("clockTime").textContent = now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      $("clockDate").textContent = now.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      const h = now.getHours();
+      const greet = h < 5 ? "Gute Nacht" : h < 11 ? "Guten Morgen" : h < 18 ? "Guten Tag" : "Guten Abend";
+      $("greeting").textContent = greet + " — bereit für den Tag?";
+    }
+
+    function renderStats() {
+      const open = state.tasks.filter(t => !t.done);
+      const doneToday = state.history[todayKey()] || 0;
+      const overdue = open.filter(t => t.due && new Date(t.due) < new Date()).length;
+      const tiles = [
+        { label: "Offen", value: open.length, color: "var(--accent)", icon: '<path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/>' },
+        { label: "Heute erledigt", value: doneToday, color: "var(--success)", icon: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' },
+        { label: "Überfällig", value: overdue, color: "var(--danger)", icon: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
+        { label: "Projekte", value: state.projects.length, color: "var(--warning)", icon: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>' }
+      ];
+      $("stats").innerHTML = tiles.map(t => `
+        <div class="stat">
+          <div class="label">${t.label}</div>
+          <div class="value" style="color:${t.color}">${t.value}</div>
+          <svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="${t.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.icon}</svg>
+        </div>`).join("");
+    }
+
+    function renderAiLinks() {
+      $("aiLinks").innerHTML = AI_TOOLS.map(a => `
+        <a class="ai-link" href="${a.url}" target="_blank" rel="noopener noreferrer">
+          <span class="badge" style="background:${a.color}">${a.initials}</span>
+          <span><span class="nm">${a.name}</span><br><span class="ds">${a.desc}</span></span>
+        </a>`).join("");
+    }
+
+    function renderProjects() {
+      const list = $("projectList");
+      if (!state.projects.length) list.innerHTML = '<div class="empty">Noch keine Projekte.</div>';
+      else list.innerHTML = state.projects.map(p => {
+        const tasks = state.tasks.filter(t => t.projectId === p.id);
+        const done = tasks.filter(t => t.done).length;
+        const pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+        return `
+        <div class="proj" data-id="${p.id}">
+          <span class="swatch" style="background:${p.color}"></span>
+          <span class="pn">${esc(p.name)}</span>
+          <span class="bar"><span style="width:${pct}%;background:${p.color}"></span></span>
+          <span class="pct">${pct}%</span>
+          <button class="del proj-del" title="Projekt löschen" data-id="${p.id}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>`;
+      }).join("");
+      const sel = $("taskProject"), prev = sel.value;
+      sel.innerHTML = state.projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+      if (prev && projectById(prev)) sel.value = prev;
+    }
+
+    function prioColor(p) { return p === "high" ? "var(--danger)" : p === "med" ? "var(--warning)" : "var(--text-muted)"; }
+    function prioLabel(p) { return p === "high" ? "Hoch" : p === "med" ? "Mittel" : "Niedrig"; }
+    function dueInfo(due) {
+      if (!due) return null;
+      const d = new Date(due), diff = d - new Date();
+      const label = d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      return { label, cls: diff < 0 ? "overdue" : diff < 3600000 * 12 ? "soon" : "" };
+    }
+
+    function renderTasks() {
+      const list = $("taskList");
+      const sorted = state.tasks.slice().sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        const ad = a.due ? new Date(a.due).getTime() : Infinity;
+        const bd = b.due ? new Date(b.due).getTime() : Infinity;
+        if (ad !== bd) return ad - bd;
+        return b.createdAt - a.createdAt;
+      });
+      $("taskCount").textContent = state.tasks.filter(t => !t.done).length + " offen / " + state.tasks.length + " gesamt";
+      if (!sorted.length) { list.innerHTML = '<div class="empty">Keine Aufgaben — leg direkt eine an.</div>'; return; }
+      list.innerHTML = sorted.map(t => {
+        const proj = projectById(t.projectId), di = dueInfo(t.due);
+        return `
+        <div class="row" data-id="${t.id}">
+          <div class="check ${t.done ? "done" : ""}" data-check="${t.id}">
+            ${t.done ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ""}
+          </div>
+          <div class="task-main">
+            <div class="task-title ${t.done ? "done" : ""}">${esc(t.title)}</div>
+            <div class="task-meta">
+              <span class="prio-dot" style="background:${prioColor(t.prio)}"></span>${prioLabel(t.prio)}
+              ${proj ? `<span class="tag" style="background:${proj.color}22;color:${proj.color}">${esc(proj.name)}</span>` : ""}
+              ${di ? `<span class="due ${di.cls}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${di.label}</span>` : ""}
+            </div>
+          </div>
+          <button class="del task-del" title="Löschen" data-id="${t.id}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>`;
+      }).join("");
+    }
+
+    function renderDonut() {
+      const open = state.tasks.filter(t => !t.done);
+      const overdue = open.filter(t => t.due && new Date(t.due) < new Date()).length;
+      const onTrack = open.length - overdue;
+      const done = state.tasks.filter(t => t.done).length;
+      const parts = [
+        { label: "Erledigt", value: done, color: col("--success") },
+        { label: "Im Plan", value: onTrack, color: col("--accent") },
+        { label: "Überfällig", value: overdue, color: col("--danger") }
+      ];
+      const total = parts.reduce((s, p) => s + p.value, 0);
+      const R = 52, C = 2 * Math.PI * R, cx = 66, cy = 66;
+      let offset = 0, segs = "";
+      if (total > 0) parts.forEach(p => {
+        if (!p.value) return;
+        const len = p.value / total * C;
+        segs += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${p.color}" stroke-width="16" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
+        offset += len;
+      });
+      else segs = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${col("--surface-2")}" stroke-width="16"/>`;
+      $("donut").innerHTML = `
+        <svg width="132" height="132" viewBox="0 0 132 132">${segs}
+          <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="26" font-weight="800" fill="${col("--text")}">${total}</text>
+          <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="11" fill="${col("--text-muted")}">Aufgaben</text>
+        </svg>`;
+      $("donutLegend").innerHTML = parts.map(p => `<div class="li"><span class="dot" style="background:${p.color}"></span>${p.label}<span class="lv">${p.value}</span></div>`).join("");
+    }
+
+    function renderTrend() {
+      const days = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push({ label: d.toLocaleDateString("de-DE", { weekday: "short" }), value: state.history[todayKey(d)] || 0 }); }
+      const max = Math.max(1, ...days.map(d => d.value));
+      const W = 300, H = 130, padX = 14, padB = 22, padT = 10, iw = W - padX * 2, ih = H - padB - padT;
+      const pts = days.map((d, i) => ({ x: padX + i / (days.length - 1) * iw, y: padT + ih - (d.value / max) * ih, d }));
+      const line = pts.map((p, i) => (i ? "L" : "M") + p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" ");
+      const area = line + ` L${pts[pts.length - 1].x.toFixed(1)} ${(padT + ih).toFixed(1)} L${pts[0].x.toFixed(1)} ${(padT + ih).toFixed(1)} Z`;
+      $("trend").innerHTML = `
+        <svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+          <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col("--accent")}" stop-opacity="0.32"/><stop offset="100%" stop-color="${col("--accent")}" stop-opacity="0"/></linearGradient></defs>
+          <path d="${area}" fill="url(#tg)"/>
+          <path d="${line}" fill="none" stroke="${col("--accent")}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          ${pts.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${col("--surface")}" stroke="${col("--accent")}" stroke-width="2"/>
+            <text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${col("--text")}">${p.d.value || ""}</text>
+            <text x="${p.x.toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="${col("--text-muted")}">${p.d.label}</text>`).join("")}
+        </svg>`;
+    }
+
+    /* ===================== Obsidian-style interactive graph ===================== */
+    const Graph = (function () {
+      const canvas = $("graphCanvas"), stage = $("graphStage");
+      const ctx = canvas.getContext("2d");
+      let nodes = [], links = [], byId = {};
+      let W = 0, H = 0, dpr = 1;
+      let view = { x: 0, y: 0, k: 1 };          // pan + zoom
+      let alpha = 0;                              // simulation energy
+      let raf = null, running = false;
+      let hoverNode = null, dragNode = null, panning = false;
+      let last = { x: 0, y: 0 }, moved = false;
+      const neighbors = {};                       // id -> Set of neighbor ids
+
+      function resize() {
+        const r = stage.getBoundingClientRect();
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = r.width; H = r.height;
+        canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+      }
+
+      function build() {
+        const prev = {}; nodes.forEach(n => prev[n.id] = n);
+        nodes = []; links = []; byId = {};
+        Object.keys(neighbors).forEach(k => delete neighbors[k]);
+
+        const root = mkNode("root", "root", "Command Center", col("--accent"), 15);
+        state.projects.forEach(p => {
+          const pn = mkNode("p:" + p.id, "project", p.name, p.color, 11);
+          link(root, pn);
+          const tasks = state.tasks.filter(t => t.projectId === p.id);
+          tasks.forEach(t => {
+            const overdue = !t.done && t.due && new Date(t.due) < new Date();
+            const c = t.done ? col("--success") : overdue ? col("--danger") : col("--text-muted");
+            const tn = mkNode("t:" + t.id, "task", t.title, c, t.done ? 5 : 7);
+            tn.done = t.done; tn.projColor = p.color;
+            link(pn, tn);
+          });
+        });
+        // preserve positions across rebuilds
+        nodes.forEach(n => { const o = prev[n.id]; if (o) { n.x = o.x; n.y = o.y; n.vx = o.vx; n.vy = o.vy; } });
+
+        const isEmpty = state.tasks.length === 0 && state.projects.length <= 1;
+        $("graphEmpty").hidden = !isEmpty;
+        kick();
+      }
+
+      function mkNode(id, type, label, color, r) {
+        const n = { id, type, label, color, r,
+          x: W / 2 + (Math.random() - 0.5) * 120, y: H / 2 + (Math.random() - 0.5) * 120, vx: 0, vy: 0 };
+        nodes.push(n); byId[id] = n; neighbors[id] = neighbors[id] || new Set();
+        return n;
+      }
+      function link(a, b) {
+        links.push({ s: a.id, t: b.id });
+        neighbors[a.id].add(b.id); neighbors[b.id].add(a.id);
+      }
+
+      function kick() { alpha = 1; start(); }
+      function start() { if (!running) { running = true; raf = requestAnimationFrame(loop); } }
+      function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; }
+
+      function loop() {
+        if (!running) return;
+        const iterations = reduceMotion ? 6 : 1;
+        for (let i = 0; i < iterations; i++) tick();
+        draw();
+        if (alpha > 0.005 || dragNode) { raf = requestAnimationFrame(loop); }
+        else { running = false; draw(); }
+      }
+
+      function tick() {
+        if (!dragNode) alpha *= 0.965;
+        const cx = W / 2, cy = H / 2;
+        const REP = 2600, N = nodes.length;
+        for (let i = 0; i < N; i++) {
+          const a = nodes[i];
+          // centering
+          a.vx += (cx - a.x) * 0.0016 * (alpha + 0.05);
+          a.vy += (cy - a.y) * 0.0016 * (alpha + 0.05);
+          for (let j = i + 1; j < N; j++) {
+            const b = nodes[j];
+            let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy || 0.01;
+            const d = Math.sqrt(d2);
+            const f = REP / d2;
+            const fx = (dx / d) * f, fy = (dy / d) * f;
+            a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+          }
+        }
+        links.forEach(l => {
+          const a = byId[l.s], b = byId[l.t]; if (!a || !b) return;
+          const ideal = a.type === "root" || b.type === "root" ? 96 : 62;
+          let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01;
+          const f = (d - ideal) * 0.035;
+          const fx = (dx / d) * f, fy = (dy / d) * f;
+          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+        });
+        nodes.forEach(n => {
+          if (n === dragNode) { n.vx = 0; n.vy = 0; return; }
+          n.vx *= 0.82; n.vy *= 0.82;
+          n.x += n.vx; n.y += n.vy;
+        });
+      }
+
+      function toScreen(n) { return { x: n.x * view.k + view.x, y: n.y * view.k + view.y }; }
+      function toWorld(px, py) { return { x: (px - view.x) / view.k, y: (py - view.y) / view.k }; }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        const hoverSet = hoverNode ? neighbors[hoverNode.id] : null;
+        // links
+        ctx.lineWidth = 1;
+        links.forEach(l => {
+          const a = byId[l.s], b = byId[l.t]; if (!a || !b) return;
+          const A = toScreen(a), B = toScreen(b);
+          const active = hoverNode && (l.s === hoverNode.id || l.t === hoverNode.id);
+          ctx.strokeStyle = active ? hexA(a.color, 0.9) : (hoverNode ? hexA("#3a4152", 0.35) : hexA("#3a4152", 0.6));
+          ctx.lineWidth = active ? 1.8 : 1;
+          ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+        });
+        // nodes
+        const showLabelAll = view.k > 1.35;
+        nodes.forEach(n => {
+          const P = toScreen(n);
+          const r = n.r * view.k;
+          const dim = hoverNode && n !== hoverNode && !(hoverSet && hoverSet.has(n.id));
+          ctx.globalAlpha = dim ? 0.28 : 1;
+          // project ring for tasks
+          if (n.type === "task" && n.projColor) {
+            ctx.beginPath(); ctx.arc(P.x, P.y, r + 2, 0, Math.PI * 2);
+            ctx.strokeStyle = hexA(n.projColor, 0.7); ctx.lineWidth = 1.5; ctx.stroke();
+          }
+          if (n === hoverNode) {
+            ctx.beginPath(); ctx.arc(P.x, P.y, r + 5, 0, Math.PI * 2);
+            ctx.fillStyle = hexA(n.color, 0.18); ctx.fill();
+          }
+          ctx.beginPath(); ctx.arc(P.x, P.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = n.color; ctx.fill();
+          if (n.type !== "task") { ctx.strokeStyle = hexA("#0a0c12", 0.9); ctx.lineWidth = 2; ctx.stroke(); }
+          // label
+          const showLabel = n === hoverNode || (hoverSet && hoverSet.has(n.id)) || showLabelAll || n.type === "root" || (n.type === "project" && view.k > 0.85);
+          if (showLabel) {
+            const fs = Math.max(10, Math.min(13, (n.type === "root" ? 13 : n.type === "project" ? 12 : 11)));
+            ctx.font = (n.type === "task" ? "" : "600 ") + fs + "px -apple-system, Segoe UI, Roboto, sans-serif";
+            const txt = n.label.length > 26 ? n.label.slice(0, 24) + "…" : n.label;
+            const tw = ctx.measureText(txt).width;
+            const lx = P.x, ly = P.y + r + fs + 2;
+            ctx.globalAlpha = dim ? 0.28 : 0.95;
+            ctx.fillStyle = hexA("#0a0c12", 0.72);
+            roundRect(ctx, lx - tw / 2 - 5, ly - fs, tw + 10, fs + 6, 5); ctx.fill();
+            ctx.fillStyle = col("--text");
+            ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+            ctx.fillText(txt, lx, ly);
+          }
+          ctx.globalAlpha = 1;
+        });
+      }
+
+      function roundRect(c, x, y, w, h, r) {
+        c.beginPath();
+        c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+      }
+      function hexA(hex, a) {
+        hex = (hex || "#888").trim();
+        if (hex[0] !== "#") return hex;
+        if (hex.length === 4) hex = "#" + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+      }
+
+      function pick(px, py) {
+        const w = toWorld(px, py);
+        let best = null, bestD = Infinity;
+        nodes.forEach(n => {
+          const d = Math.hypot(n.x - w.x, n.y - w.y);
+          const hit = n.r + 6;
+          if (d < hit && d < bestD) { bestD = d; best = n; }
+        });
+        return best;
+      }
+
+      function localPt(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+
+      function onDown(e) {
+        canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+        const p = localPt(e); moved = false; last = p;
+        const n = pick(p.x, p.y);
+        if (n) { dragNode = n; alpha = Math.max(alpha, 0.35); start(); }
+        else { panning = true; stage.classList.add("dragging"); }
+      }
+      function onMove(e) {
+        const p = localPt(e);
+        if (dragNode) {
+          const w = toWorld(p.x, p.y); dragNode.x = w.x; dragNode.y = w.y; moved = true; start(); return;
+        }
+        if (panning) {
+          view.x += p.x - last.x; view.y += p.y - last.y; last = p; moved = true; draw(); return;
+        }
+        const n = pick(p.x, p.y);
+        if (n !== hoverNode) { hoverNode = n; canvas.style.cursor = n ? "pointer" : ""; draw(); }
+      }
+      function onUp(e) {
+        if (dragNode && !moved && dragNode.type === "task") toggleTaskFromGraph(dragNode.id);
+        dragNode = null; panning = false; stage.classList.remove("dragging");
+      }
+      function onWheel(e) {
+        e.preventDefault();
+        const p = localPt(e);
+        const factor = Math.exp(-e.deltaY * 0.0012);
+        const nk = Math.min(3, Math.max(0.35, view.k * factor));
+        const w = toWorld(p.x, p.y);
+        view.k = nk;
+        view.x = p.x - w.x * view.k; view.y = p.y - w.y * view.k;
+        draw();
+      }
+      function zoomBy(f) {
+        const cx = W / 2, cy = H / 2, w = toWorld(cx, cy);
+        view.k = Math.min(3, Math.max(0.35, view.k * f));
+        view.x = cx - w.x * view.k; view.y = cy - w.y * view.k; draw();
+      }
+      function reset() { view = { x: 0, y: 0, k: 1 }; nodes.forEach(n => { n.x = W / 2 + (Math.random() - .5) * 140; n.y = H / 2 + (Math.random() - .5) * 140; }); kick(); }
+
+      canvas.addEventListener("pointerdown", onDown);
+      canvas.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      canvas.addEventListener("wheel", onWheel, { passive: false });
+      canvas.addEventListener("pointerleave", () => { if (hoverNode) { hoverNode = null; draw(); } });
+      $("graphZoomIn").addEventListener("click", () => zoomBy(1.25));
+      $("graphZoomOut").addEventListener("click", () => zoomBy(0.8));
+      $("graphReset").addEventListener("click", reset);
+      window.addEventListener("resize", resize);
+
+      return { build, resize, refresh: build };
+    })();
+
+    function toggleTaskFromGraph(nid) { const id = nid.slice(2); toggleTask(id); }
+
+    function renderAll() {
+      renderStats(); renderProjects(); renderTasks(); renderDonut(); renderTrend(); Graph.refresh();
+    }
+
+    function addTask() {
+      const input = $("taskInput"), title = input.value.trim();
+      if (!title) { input.focus(); return; }
+      const due = $("taskDue").value ? new Date($("taskDue").value).toISOString() : null;
+      state.tasks.push({ id: uid(), title, done: false, projectId: $("taskProject").value || (state.projects[0] && state.projects[0].id), prio: $("taskPrio").value, due, notified: false, createdAt: Date.now() });
+      input.value = ""; $("taskDue").value = "";
+      save(); renderAll(); input.focus();
+      if (due) toast("Aufgabe mit Erinnerung angelegt");
+    }
+    function toggleTask(id) {
+      const t = state.tasks.find(x => x.id === id); if (!t) return;
+      t.done = !t.done; const k = todayKey();
+      if (t.done) state.history[k] = (state.history[k] || 0) + 1;
+      else if (state.history[k]) state.history[k] = Math.max(0, state.history[k] - 1);
+      save(); renderAll();
+    }
+    function deleteTask(id) { state.tasks = state.tasks.filter(t => t.id !== id); save(); renderAll(); }
+
+    function openProjectModal(id) {
+      editingProjectId = id || null;
+      const p = id ? projectById(id) : null;
+      $("projectModalTitle").textContent = id ? "Projekt bearbeiten" : "Neues Projekt";
+      $("projectNameInput").value = p ? p.name : "";
+      pickedColor = p ? p.color : PALETTE[state.projects.length % PALETTE.length];
+      $("colorSwatches").innerHTML = PALETTE.map(c => `<button data-c="${c}" class="${c === pickedColor ? "sel" : ""}" style="background:${c}"></button>`).join("");
+      $("projectModal").classList.add("open");
+      setTimeout(() => $("projectNameInput").focus(), 50);
+    }
+    function closeProjectModal() { $("projectModal").classList.remove("open"); editingProjectId = null; }
+    function saveProject() {
+      const name = $("projectNameInput").value.trim(); if (!name) { $("projectNameInput").focus(); return; }
+      if (editingProjectId) { const p = projectById(editingProjectId); if (p) { p.name = name; p.color = pickedColor; } }
+      else state.projects.push({ id: uid(), name, color: pickedColor });
+      save(); renderAll(); closeProjectModal();
+    }
+    function deleteProject(id) {
+      if (state.projects.length <= 1) { toast("Mindestens ein Projekt muss bleiben"); return; }
+      const tasks = state.tasks.filter(t => t.projectId === id).length;
+      if (tasks && !confirm(`Projekt löschen? ${tasks} Aufgabe(n) werden mitgelöscht.`)) return;
+      state.projects = state.projects.filter(p => p.id !== id);
+      state.tasks = state.tasks.filter(t => t.projectId !== id);
+      save(); renderAll();
+    }
+
+    let noteTimer;
+    function onNoteInput() {
+      $("noteStatus").textContent = "Speichere …";
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(() => {
+        state.notes = $("notes").value; save();
+        $("noteStatus").textContent = "Automatisch gespeichert · " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      }, 500);
+    }
+
+    function requestNotify() {
+      if (!("Notification" in window)) { toast("Benachrichtigungen werden nicht unterstützt"); return; }
+      if (Notification.permission === "granted") { toast("Erinnerungen sind aktiv"); return; }
+      Notification.requestPermission().then(perm => toast(perm === "granted" ? "Erinnerungen aktiviert" : "Erinnerungen abgelehnt"));
+    }
+    function checkReminders() {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      const now = Date.now(); let changed = false;
+      state.tasks.forEach(t => {
+        if (t.done || t.notified || !t.due) return;
+        if (new Date(t.due).getTime() <= now) {
+          const proj = projectById(t.projectId);
+          try { new Notification("Aufgabe fällig: " + t.title, { body: (proj ? proj.name + " · " : "") + "Priorität " + prioLabel(t.prio), tag: "cc-" + t.id }); } catch (e) {}
+          t.notified = true; changed = true;
+        }
+      });
+      if (changed) save();
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "command-center-backup-" + todayKey() + ".json"; a.click(); URL.revokeObjectURL(url);
+      toast("Backup exportiert");
+    }
+    function importData(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!data || typeof data !== "object") throw new Error("bad");
+          state = Object.assign(defaultState(), data);
+          if (!state.projects.length) state.projects = defaultState().projects;
+          save(); $("notes").value = state.notes || ""; renderAll();
+          toast("Daten importiert");
+        } catch (e) { toast("Import fehlgeschlagen — ungültige Datei"); }
+      };
+      reader.readAsText(file);
+    }
+
+    // Events
+    $("addTaskBtn").addEventListener("click", addTask);
+    $("taskInput").addEventListener("keydown", e => { if (e.key === "Enter") addTask(); });
+    $("taskList").addEventListener("click", e => {
+      const chk = e.target.closest("[data-check]"); if (chk) return toggleTask(chk.getAttribute("data-check"));
+      const del = e.target.closest(".task-del"); if (del) return deleteTask(del.getAttribute("data-id"));
+    });
+    $("projectList").addEventListener("click", e => {
+      const del = e.target.closest(".proj-del"); if (del) { e.stopPropagation(); return deleteProject(del.getAttribute("data-id")); }
+      const proj = e.target.closest(".proj"); if (proj) openProjectModal(proj.getAttribute("data-id"));
+    });
+    $("addProjectBtn").addEventListener("click", () => openProjectModal(null));
+    $("projectCancel").addEventListener("click", closeProjectModal);
+    $("projectSave").addEventListener("click", saveProject);
+    $("projectNameInput").addEventListener("keydown", e => { if (e.key === "Enter") saveProject(); });
+    $("projectModal").addEventListener("click", e => { if (e.target === $("projectModal")) closeProjectModal(); });
+    $("colorSwatches").addEventListener("click", e => {
+      const b = e.target.closest("button[data-c]"); if (!b) return;
+      pickedColor = b.getAttribute("data-c");
+      [...$("colorSwatches").children].forEach(c => c.classList.toggle("sel", c === b));
+    });
+    $("notes").addEventListener("input", onNoteInput);
+    $("notifyBtn").addEventListener("click", requestNotify);
+    $("exportBtn").addEventListener("click", exportData);
+    $("importBtn").addEventListener("click", () => $("importFile").click());
+    $("importFile").addEventListener("change", e => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ""; });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeProjectModal(); });
+
+    // Init
+    $("notes").value = state.notes || "";
+    renderAiLinks();
+    renderStats(); renderProjects(); renderTasks(); renderDonut(); renderTrend();
+    Graph.resize(); Graph.build();
+    tickClock();
+    setInterval(tickClock, 20000);
+    setInterval(() => { renderTasks(); renderStats(); }, 60000);
+    checkReminders();
+    setInterval(checkReminders, 30000);
+  })();
+  </script>
+</body>
+</html>
