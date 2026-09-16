@@ -134,7 +134,9 @@ export async function installApiMocks(page, options = {}) {
       }
 
       if (path === '/api/auth/me') {
-        return authenticated
+        // Check if token is present (either from initial auth or from login)
+        const token = await page.evaluate(() => window.localStorage.getItem('bb_token'));
+        return token
           ? fulfillJson(route, state.user)
           : fulfillJson(route, { error: 'Kein Token' }, 401);
       }
