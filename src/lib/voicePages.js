@@ -32,6 +32,12 @@ const PAGE_ALIASES = {
   karte: "Map", map: "Map", gewässerkarte: "Map", gewaesserkarte: "Map",
 
   wetter: "Weather", weather: "Weather",
+  // Der Aktions-Katalog des Buddys (backend/src/lib/buddyActionCatalog.js)
+  // fuehrt "warnung" und "voice" als erlaubte Seiten-Werte. Ohne diese Aliase
+  // liefen genau die Navigationen ins Leere, die der Prompt selbst anbietet.
+  // Wetter-Warnungen leben auf der Wetter-Seite, "voice" meint den Sprachchat.
+  warnung: "Weather", warnungen: "Weather", wetterwarnung: "Weather",
+  voice: "VoiceChat",
 
   community: "Community", forum: "Community", feed: "Community",
 

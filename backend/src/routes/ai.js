@@ -19,6 +19,7 @@ import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 import { getTTSAudio } from '../lib/multiProviderTTS.js';
 import { personalizationContext } from '../lib/personalizationEngine.js';
+import { buildActionPromptSection } from '../lib/buddyActionCatalog.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
 
@@ -303,16 +304,7 @@ ${FISHING_KNOWLEDGE}
 
 ${FISHING_FAQ_CONTEXT}
 
-DU KANNST DIE APP STEUERN. Wenn der Nutzer dich darum bittet, etwas in der App zu tun, hänge ans ENDE deiner Antwort einen Aktions-Block an. Format exakt so (nur EIN Block pro Antwort):
-<<ACTION>>{"type":"...","params":{...}}<<END>>
-
-Verfügbare Aktionen:
-1. Navigieren / Seite öffnen: {"type":"navigate","params":{"page":"<seite>"}}
-   Erlaubte Seiten-Werte: dashboard, logbuch, karte, wetter, warnung, community, ausruestung, chat, ki, trip, profil, einstellungen, rang, wasser, angelschein, quiz, lizenzen, events, koeder, statistik, knoten, shop, premium, hilfe, tutorial, geraete, voice, personalisierung
-2. Fang eintragen: {"type":"log_catch","params":{"species":"Hecht","length_cm":75,"weight_kg":4.2,"bait_used":"Gummifisch","notes":"..."}}
-3. Spot speichern: {"type":"add_spot","params":{"name":"Mein Spot","water_type":"see|fluss|teich|kanal|bach","notes":"..."}}
-
-Regeln: Aktions-Block nur wenn Nutzer wirklich eine Aktion will. Zuerst kurze Bestätigung, dann Block. Block wird dem Nutzer nicht angezeigt. Nutze fuer "page" exakt einen der erlaubten Werte.${context}`;
+${buildActionPromptSection()}${context}`;
 
   const history = safeMessages.slice(-6).map(m =>
     `${m.role === 'user' ? 'Nutzer' : 'BaitBuddy'}: ${m.content}`
