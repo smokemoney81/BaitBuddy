@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Watch, Camera, Zap, Radio, ArrowRight, Plus,
+  Watch, Camera, Zap, Radio, Plus,
   Bluetooth, ChevronRight, AlertCircle, CheckCircle2,
-  Loader2, Droplets, Gauge
+  Gauge
 } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
 

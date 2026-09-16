@@ -7,7 +7,7 @@ import WaterRadarChart from "@/components/water/WaterRadarChart";
 import ExportPanel from "@/components/water/ExportPanel";
 import SpotComparison from "@/components/water/SpotComparison";
 import WaterAnalysisTutorial from "@/components/water/WaterAnalysisTutorial";
-import { Loader2, Waves, Thermometer, TrendingUp, Brain, Droplets } from "lucide-react";
+import { Loader2, Thermometer, TrendingUp, Brain, Droplets } from "lucide-react";
 import { useRef } from "react";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 
