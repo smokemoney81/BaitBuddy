@@ -84,6 +84,9 @@ describe('entities (frontendClient)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
+    // Diese Tests beschreiben den angemeldeten Pfad. Ohne Token übernimmt für
+    // Catch und Spot der lokale Gast-Speicher (siehe eigener Block unten).
+    api.setToken('token-123');
   });
 
   it('list() liefert ein leeres Array, wenn der Server einen Fehler meldet', async () => {
@@ -141,6 +144,57 @@ describe('entities (frontendClient)', () => {
     ));
 
     await expect(entities.Catch.bulkCreate([{ species: 'Aal' }])).rejects.toThrow('Ungueltige Daten');
+  });
+});
+
+describe('entities im Gastmodus (ohne Token)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('speichert einen Fang lokal, statt in einen 401 zu laufen', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const saved = await entities.Catch.create({ species: 'Hecht' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(saved.id).toMatch(/^guest_/);
+    expect(await entities.Catch.list()).toHaveLength(1);
+  });
+
+  it('liest, ändert und löscht lokal — ohne Netzaufruf', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    const saved = await entities.Spot.create({ name: 'Buhne 12' });
+
+    expect((await entities.Spot.get(saved.id)).name).toBe('Buhne 12');
+    expect(await entities.Spot.filter({ name: 'Buhne 12' })).toHaveLength(1);
+
+    await entities.Spot.update(saved.id, { name: 'Buhne 13' });
+    expect((await entities.Spot.get(saved.id)).name).toBe('Buhne 13');
+
+    await entities.Spot.delete(saved.id);
+    expect(await entities.Spot.list()).toHaveLength(0);
+  });
+
+  it('lässt Entities ohne Gast-Unterstützung weiterhin ans Backend gehen', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([{ id: 1 }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await entities.Post.list();
+
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('greift nach der Anmeldung wieder auf das Backend zu', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([{ id: 1 }]));
+    vi.stubGlobal('fetch', fetchMock);
+    api.setToken('token-123');
+
+    expect(await entities.Catch.list()).toEqual([{ id: 1 }]);
+    expect(fetchMock).toHaveBeenCalled();
   });
 });
 
