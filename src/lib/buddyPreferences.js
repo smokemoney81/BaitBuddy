@@ -1,5 +1,5 @@
 export const DEFAULT_NAVIGATION = ['Dashboard', 'Map', 'Community', 'Profile'];
-export const NAVIGATION_OPTIONS = ['Dashboard', 'Map', 'KiBuddyBeta', 'Weather', 'Logbook', 'TripPlanner', 'Community', 'Gear', 'Profile'];
+export const NAVIGATION_OPTIONS = ['Dashboard', 'Map', 'KiBuddyBeta', 'Weather', 'Logbook', 'TripPlanner', 'Community', 'Gear', 'Profile', 'PremiumPlans'];
 export const BUDDIES = {
   female_default: { gender: 'female', name: 'Marina', avatar: '/assets/buddy/marina-avatar.png', portrait: '/assets/buddy/marina.png', description: 'Freundlich, modern und aufmerksam.' },
   male_default: { gender: 'male', name: 'Finn', avatar: '/assets/buddy/finn.png', portrait: '/assets/buddy/finn.png', description: 'Ruhig, direkt und erfahren.' },

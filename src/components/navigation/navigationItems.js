@@ -1,9 +1,10 @@
-import { Home, Map, Brain, Cloud, BookOpen, Calendar, Users, Wrench, User } from 'lucide-react';
+import { Home, Map, Brain, Cloud, BookOpen, Calendar, Users, Wrench, User, Zap } from 'lucide-react';
 export const navigationItems = {
   Dashboard: { name: 'Home', icon: Home }, Map: { name: 'Karte', icon: Map },
   KiBuddyBeta: { name: 'KI-Buddy', icon: Brain }, Weather: { name: 'Wetter', icon: Cloud },
   Logbook: { name: 'Fangbuch', icon: BookOpen }, TripPlanner: { name: 'Planung', icon: Calendar },
   Community: { name: 'Community', icon: Users }, Gear: { name: 'Ausrüstung', icon: Wrench }, Profile: { name: 'Profil', icon: User },
+  PremiumPlans: { name: 'Premium', icon: Zap },
 };
 export const navigationGroups = [
   { name: 'KI-Tools', items: [['KI-Buddy', 'KiBuddyBeta'], ['Voice-Buddy', 'VoiceChat'], ['Fischbestimmung & Biss', 'AI'], ['Fang-Analyse', 'Analysis'], ['Gewässeranalyse', 'WaterAnalysis'], ['Köderempfehlung', 'BaitMixer'], ['3D-Köderführung', 'Koeder3D'], ['AR-Gewässer', 'ARView'], ['AR Knoten AI', 'ARKnotenAssistent']] },

@@ -20,6 +20,11 @@ export const FIXTURE_USER = {
   email: 'e2e-tester@baitbuddy.test',
   full_name: 'E2E Tester',
   user_metadata: { role: 'user' },
+  settings: {
+    navigation: {
+      bottomNavigation: ['Logbook', 'Weather', 'Community', 'PremiumPlans'],
+    },
+  },
 };
 
 export const FIXTURE_PLAN = {

@@ -7,6 +7,21 @@ import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { navigationItems } from '@/components/navigation/navigationItems';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
+// Map route names to English aria-labels for accessibility
+const ARIA_LABELS = {
+  Dashboard: 'Dashboard',
+  Logbook: 'Logbook',
+  Weather: 'Weather',
+  Community: 'Community',
+  Map: 'Map',
+  KiBuddyBeta: 'AI Buddy',
+  TripPlanner: 'Trip Planner',
+  Gear: 'Gear',
+  Profile: 'Profile',
+  PremiumPlans: 'Premium',
+  Settings: 'Settings',
+};
+
 export default function BottomTabs() {
   const { navigation } = useBuddyPreferences();
   const { switchTab, getTabStack } = useNavigationContext();
@@ -25,16 +40,17 @@ export default function BottomTabs() {
     const tool = getTool(path);
     const accessible = tool ? isToolAccessible(tool.id) : true;
     const { name, icon: Icon } = tool || navigationItems[path];
+    const ariaLabel = ARIA_LABELS[path] || name;
 
     if (!accessible) {
-      return <div key={path} className="bb-bottom-link opacity-50 cursor-not-allowed" title={`Freischalten über ${tool.requires || 'Premium'}`}><Lock size={22} aria-hidden="true"/><span>{name}</span></div>;
+      return <div key={path} role="tab" aria-disabled="true" className="bb-bottom-link opacity-50 cursor-not-allowed" title={`Freischalten über ${tool.requires || 'Premium'}`}><Lock size={22} aria-hidden="true"/><span>{name}</span></div>;
     }
 
-    return <Link key={path} to={`/${path}`} onClick={e => follow(e, path)} className="bb-bottom-link" aria-current={activePage === path ? 'page' : undefined}><Icon size={22} aria-hidden="true"/><span>{name}</span></Link>;
+    return <Link key={path} to={`/${path}`} onClick={e => follow(e, path)} role="tab" aria-label={ariaLabel} aria-selected={activePage === path} className="bb-bottom-link" aria-current={activePage === path ? 'page' : undefined}><Icon size={22} aria-hidden="true"/><span>{name}</span></Link>;
   };
   const split = Math.ceil(navigation.length / 2);
   return <>
-    <nav className="bb-bottom" aria-label="Hauptnavigation"><div className="bb-bottom-items">
+    <nav className="bb-bottom" role="tablist" aria-label="Hauptnavigation"><div className="bb-bottom-items">
       {navigation.slice(0, split).map(renderLink)}
       <button type="button" className="bb-bottom-plus" aria-label="Schnellaktionen öffnen" onClick={() => setOpen(true)}><Plus size={28}/></button>
       {navigation.slice(split).map(renderLink)}
