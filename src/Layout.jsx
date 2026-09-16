@@ -163,7 +163,7 @@ function LayoutContent({ children, currentPageName }) {
     // und crasht die App in die ErrorBoundary — deshalb per typeof absichern.
     const hasIdleCallback = typeof requestIdleCallback !== 'undefined';
     const id = hasIdleCallback
-      ? requestIdleCallback(() => refreshUser())
+      ? requestIdleCallback(() => refreshUser(), { timeout: 2000 })
       : setTimeout(() => refreshUser(), 0);
     return () => {
       if (hasIdleCallback && typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(id);
