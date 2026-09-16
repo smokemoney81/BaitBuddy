@@ -3,16 +3,23 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { api } from '@/api/frontendClient';
 
+const RETRY_DELAY_MS = 500;
+const MAX_RETRIES = 6; // 3 Sekunden insgesamt
+
 export default function AuthCallback() {
   const [status, setStatus] = useState('Anmeldung wird verarbeitet...');
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
     let unsubscribed = false;
+    let attempts = 0;
 
-    const handleAuthFlow = async () => {
+    // Versucht, die Session zu holen mit Wiederholungslogik.
+    // Supabase braucht manchmal kurz, um die Session nach dem Redirect zu setzen.
+    const tryGetSession = async () => {
       if (unsubscribed) return;
 
+      attempts++;
       const { data, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
@@ -21,6 +28,7 @@ export default function AuthCallback() {
       }
 
       if (data.session?.access_token) {
+        // Session vorhanden → Token speichern und zum Dashboard gehen
         api.setToken(data.session.access_token);
         if (data.session.refresh_token) api.setRefreshToken(data.session.refresh_token);
         if (!unsubscribed) {
@@ -29,7 +37,14 @@ export default function AuthCallback() {
         return;
       }
 
-      // Fallback: warte auf onAuthStateChange Events
+      // Retry: Session noch nicht da, aber wir haben noch Versuche
+      if (attempts < MAX_RETRIES) {
+        setTimeout(tryGetSession, RETRY_DELAY_MS);
+        return;
+      }
+
+      // Letzer Versuch fehlgeschlagen → auf onAuthStateChange warten
+      setStatus('Warte auf Authentifizierung...');
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         (event, session) => {
           if (unsubscribed) return;
@@ -43,18 +58,30 @@ export default function AuthCallback() {
         }
       );
 
+      // Timeout für den Listener
       const timeout = setTimeout(() => {
         if (!unsubscribed) {
           subscription.unsubscribe();
           setStatus('Anmeldung fehlgeschlagen. Bitte erneut versuchen.');
         }
-      }, 15000);
+      }, 10000);
 
       return () => {
         unsubscribed = true;
         subscription.unsubscribe();
         clearTimeout(timeout);
       };
+    };
+
+    const handleAuthFlow = async () => {
+      try {
+        await tryGetSession();
+      } catch (err) {
+        console.error('[AuthCallback Error]', err);
+        if (!unsubscribed) {
+          setStatus('Ein Fehler ist aufgetreten. Bitte aktualisiere die Seite.');
+        }
+      }
     };
 
     handleAuthFlow();
