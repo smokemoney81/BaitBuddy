@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { listAllUsers } from '../lib/adminUsers.js';
 import { PLAN_RANK } from '../lib/planResolver.js';
 import { sendDbError } from '../lib/errorResponse.js';
+import logger from '../lib/logger.js';
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router.get('/admin/premium/check-expiry', requireCronAuth, async (req, res) => {
 
         if (!updateError) {
           expiredCount++;
-          console.log(`[admin] Plan abgelaufen für User ${user.id}: ${planId}`);
+          logger.info(`Plan abgelaufen für User ${user.id}: ${planId}`);
         } else {
           console.error(`[admin] Fehler beim Reset für User ${user.id}:`, updateError);
         }
@@ -143,7 +144,7 @@ router.post('/admin/plans/assign', requireAuth, requireAdmin, async (req, res) =
   });
   if (updateError) return sendDbError(res, updateError);
 
-  console.log(`[admin] ${req.user.email} hat ${targetUser.email} den Plan "${merged.premium_plan_id}" zugewiesen`);
+  logger.info(`${req.user.email} hat ${targetUser.email} den Plan "${merged.premium_plan_id}" zugewiesen`);
 
   return res.json({
     ok: true,

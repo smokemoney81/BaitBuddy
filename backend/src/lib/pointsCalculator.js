@@ -289,7 +289,6 @@ export async function aggregateMonthlyLeaderboard(year, month, supabase) {
 
     const eventIds = monthlyEvents.map(e => e.id);
     if (eventIds.length === 0) {
-      console.log(`Keine Events im ${month}/${year}`);
       return [];
     }
 
