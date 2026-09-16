@@ -949,3 +949,10 @@ export const dashboard = {
   getData: () => api.get('/api/dashboard'),
   refresh: () => api.post('/api/dashboard/refresh'),
 };
+
+// Transparenzbereich "BaitBuddy kennt dich" (§6). Nur lesend — korrigiert und
+// gelöscht wird über den Präferenz-Pfad (auth.updateMe), damit es dafür genau
+// eine Schreibstelle gibt.
+export const personalization = {
+  getProfile: () => api.get('/api/personalization/me'),
+};

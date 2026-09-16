@@ -13,13 +13,16 @@ export const ALLOWED_PAGES = [
   "BaitMixer", "Koeder3D", "CatchStats", "ARKnotenAssistent", "Shop", "Premium",
   "PremiumPlans", "Help", "Tutorials", "Devices", "DeviceIntegration",
   "StartFishing", "UsedGear", "BathymetricCrowdsourcing",
-  "VoiceLecture"
+  "VoiceLecture", "BuddyKnowsYou"
 ];
 
 // Aliase (immer kleingeschrieben) kanonischer Key.
 // Deckt deutsche Begriffe, englische Begriffe und die Kurz-Bezeichner ab,
 // die der KI-System-Prompt verwendet (home, log, map, chat, ...).
 const PAGE_ALIASES = {
+  "was weißt du über mich": "BuddyKnowsYou", "was weisst du ueber mich": "BuddyKnowsYou",
+  "mein profil beim buddy": "BuddyKnowsYou", "buddy kennt mich": "BuddyKnowsYou",
+  "personalisierung": "BuddyKnowsYou", "meine daten": "BuddyKnowsYou",
   home: "Dashboard", startseite: "Dashboard", dashboard: "Dashboard",
   start: "Dashboard", übersicht: "Dashboard", uebersicht: "Dashboard",
 

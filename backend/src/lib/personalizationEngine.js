@@ -118,6 +118,7 @@ export function buildAnglerProfile(user) {
     experience: EXPERIENCE_LABELS[angler.experience] ? angler.experience : null,
     region: typeof angler.region === 'string' && FEDERAL_STATE_NAMES[angler.region] ? angler.region : null,
     goals: cleanList(angler.goals, 6),
+    noGos: cleanList(angler.noGos, 10),
     targetSpecies: cleanList(fishing.targetSpecies, 12),
     methods: cleanList(fishing.methods, 12),
     waterTypes: cleanList(fishing.waterTypes, 12),
@@ -131,6 +132,7 @@ export function isProfileEmpty(profile) {
     && !profile.region
     && !profile.preferredTime
     && profile.goals.length === 0
+    && profile.noGos.length === 0
     && profile.targetSpecies.length === 0
     && profile.methods.length === 0
     && profile.waterTypes.length === 0
@@ -177,6 +179,9 @@ function formatProfile(profile) {
   if (profile.favoriteLures.length) lines.push(`- Bevorzugte Köder: ${profile.favoriteLures.join(', ')}`);
   if (profile.preferredTime) lines.push(`- Typische Angelzeit: ${profile.preferredTime.start}–${profile.preferredTime.end} Uhr`);
   if (profile.goals.length) lines.push(`- Persönliche Ziele: ${profile.goals.join(', ')}`);
+  // No-Gos stehen bewusst zuletzt und als Verbot formuliert — der Buddy darf
+  // sie nicht als Vorschlag missverstehen.
+  if (profile.noGos.length) lines.push(`- Schlage NIE vor: ${profile.noGos.join(', ')}`);
   return lines;
 }
 

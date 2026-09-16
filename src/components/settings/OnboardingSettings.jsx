@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { RotateCcw, Play } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RotateCcw, Play, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import {
@@ -70,6 +71,16 @@ export default function OnboardingSettings() {
       {!canSave && (
         <p className="bb-muted">Melde dich an, um das Onboarding zu starten.</p>
       )}
+
+      <div className="pt-2 border-t border-white/10">
+        <p className="bb-muted text-sm mb-3">
+          Was dein Buddy aus deinen Angaben und Fängen ableitet, siehst du im
+          Transparenzbereich — dort lässt sich auch jede Annahme korrigieren oder löschen.
+        </p>
+        <Link className="bb-secondary inline-flex" to="/BuddyKnowsYou">
+          <Eye size={18} aria-hidden="true" /> Das weiß BaitBuddy über dich
+        </Link>
+      </div>
     </section>
   );
 }

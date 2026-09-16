@@ -88,11 +88,14 @@ export const GOAL_OPTIONS = [
   'Wettbewerbe',
 ];
 
-export const DEFAULT_ANGLER = { experience: null, region: null, goals: [] };
+// No-Gos: was der Buddy NICHT vorschlagen soll (§9). Freitext, weil sich
+// persoenliche Ausschluesse nicht sinnvoll in eine Liste pressen lassen —
+// "keine Nachtangeln", "kein lebender Koederfisch", "keine Bootstouren".
+export const DEFAULT_ANGLER = { experience: null, region: null, goals: [], noGos: [] };
 
 export function normalizeAngler(value = {}) {
   const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const experience = EXPERIENCE_OPTIONS.some((o) => o.id === v.experience) ? v.experience : null;
   const region = typeof v.region === 'string' && /^[a-z]{2}$/.test(v.region) ? v.region : null;
-  return { experience, region, goals: cleanStringList(v.goals, 6) };
+  return { experience, region, goals: cleanStringList(v.goals, 6), noGos: cleanStringList(v.noGos, 10) };
 }
