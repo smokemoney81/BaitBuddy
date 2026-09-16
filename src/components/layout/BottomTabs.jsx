@@ -1,11 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Fish, MapPin, Calendar, Brain, Lock } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useNavigationContext } from '@/lib/NavigationContext';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { navigationItems } from '@/components/navigation/navigationItems';
-import { ToolRegistry } from '@/lib/toolRegistry';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
 export default function BottomTabs() {
