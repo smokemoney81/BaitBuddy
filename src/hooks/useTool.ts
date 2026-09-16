@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { ToolRegistry, type ToolDefinition, type PlanLevel } from '@/lib/toolRegistry';
-import { useAuth } from '@/api/AuthContext';
+import { useAuth } from '@/lib/AuthContext';
 
 export interface UseToolResult {
   // Get all tools accessible to the current user

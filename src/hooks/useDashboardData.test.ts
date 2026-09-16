@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDashboardData, useNextTrip, useRecentCatches, useTopSpots } from './useDashboardData';
 import { dashboard } from '@/api/frontendClient';
-import * as AuthContext from '@/api/AuthContext';
+import * as AuthContext from '@/lib/AuthContext';
 
 // Mock the API
 vi.mock('@/api/frontendClient', () => ({

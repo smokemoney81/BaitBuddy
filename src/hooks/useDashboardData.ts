@@ -20,7 +20,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dashboard } from '@/api/frontendClient';
-import { useAuth } from '@/api/AuthContext';
+import { useAuth } from '@/lib/AuthContext';
 import { useCallback } from 'react';
 
 export interface DashboardStatistics {
