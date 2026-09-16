@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLanguage } from '@/components/i18n/LanguageContext';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
@@ -29,8 +29,18 @@ export default function GuidedTourController() {
     startTour,
   } = useGuidedTour();
 
-  // Sammle alle verfügbaren Features für diesen User-Level
-  const allAvailableFeatures = getTourFeaturesByLevel(userLevel);
+  // Sammle alle verfügbaren Features für diesen User-Level.
+  //
+  // Muss memoisiert sein: Die Liste hängt unten als Dependency an einem Effekt,
+  // der `setCurrentFeature` mit einem jedes Mal neu erzeugten Objekt aufruft.
+  // Ohne useMemo liefert jeder Render eine neue Array-Referenz, der Effekt läuft
+  // erneut, setzt wieder State — eine Endlosschleife ("Maximum update depth
+  // exceeded"). Sie hat den Renderzyklus so belastet, dass der Seiteninhalt des
+  // Dashboards teils gar nicht mehr erschien.
+  const allAvailableFeatures = useMemo(
+    () => getTourFeaturesByLevel(userLevel),
+    [userLevel]
+  );
 
   // Features nur für aktuelle Route
   const [currentRouteFeatures, setCurrentRouteFeatures] = useState([]);
