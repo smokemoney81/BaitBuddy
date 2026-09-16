@@ -20,6 +20,7 @@ export const FIXTURE_USER = {
   email: 'e2e-tester@baitbuddy.test',
   full_name: 'E2E Tester',
   oauth_linked: true,
+  first_open_at: '2026-01-01T00:00:00.000Z',
   user_metadata: { role: 'user' },
   settings: {
     navigation: {
@@ -100,6 +101,11 @@ export async function installApiMocks(page, options = {}) {
     paymentMethods: data.paymentMethods ?? { google_play: true, stripe: true },
   };
 
+  // Tracks auth state at the Node.js level to avoid page.evaluate() inside
+  // route handlers (which can deadlock when the execution context is not yet
+  // stable during page initialisation).
+  let mutableAuthenticated = authenticated;
+
   if (authenticated) {
     await page.addInitScript(
       ([token, refresh]) => {
@@ -134,9 +140,9 @@ export async function installApiMocks(page, options = {}) {
       }
 
       if (path === '/api/auth/me') {
-        // Check if token is present (either from initial auth or from login)
-        const token = await page.evaluate(() => window.localStorage.getItem('bb_token'));
-        return token
+        // Use closure variable — avoids page.evaluate() inside a route handler,
+        // which can deadlock if the browser execution context is not yet stable.
+        return mutableAuthenticated
           ? fulfillJson(route, state.user)
           : fulfillJson(route, { error: 'Kein Token' }, 401);
       }
@@ -145,6 +151,7 @@ export async function installApiMocks(page, options = {}) {
         if (!email || !password) {
           return fulfillJson(route, { error: 'E-Mail und Passwort sind erforderlich' }, 400);
         }
+        mutableAuthenticated = true;
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
@@ -156,6 +163,7 @@ export async function installApiMocks(page, options = {}) {
         if (!email || !password) {
           return fulfillJson(route, { error: 'E-Mail und Passwort sind erforderlich' }, 400);
         }
+        mutableAuthenticated = true;
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
