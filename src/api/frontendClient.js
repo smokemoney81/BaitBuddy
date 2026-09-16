@@ -916,3 +916,10 @@ export const user = {
   startSession:  (feature) => api.post('/api/user/sessions/start', { feature }),
   endSession:    (id)       => api.post(`/api/user/sessions/${id}/end`),
 };
+
+export const dashboard = {
+  // BFF (Backend For Frontend) aggregated dashboard data
+  // Single request returns: next_trip, recent_catches, top_spots, weather, buddy_suggestion, statistics
+  getData: () => api.get('/api/dashboard'),
+  refresh: () => api.post('/api/dashboard/refresh'),
+};
