@@ -26,6 +26,21 @@ export const FIXTURE_USER = {
     navigation: {
       bottomNavigation: ['Dashboard', 'Logbook', 'Weather', 'Community'],
     },
+    // Ohne `chosen: true` oeffnet BuddyOnboarding.jsx sein Modal, sobald der
+    // AuthContext den Nutzer aufgeloest hat (`canSave && !buddy.chosen`). Das
+    // passiert asynchron und rennt damit gegen die Assertions: das Modal legt
+    // sich ueber die Tab-Leiste und das KI-Buddy-Widget, sodass die Tests je
+    // nach Timing mal gruen und mal rot waren. Ein Fixture-Nutzer mit
+    // gespeicherter Navigation hat das Onboarding laengst hinter sich.
+    buddy: {
+      gender: 'female',
+      avatarId: 'female_default',
+      voiceId: 'male',
+      tone: 'friendly',
+      speed: 1,
+      voiceEnabled: true,
+      chosen: true,
+    },
   },
 };
 
@@ -105,6 +120,17 @@ export async function installApiMocks(page, options = {}) {
   // route handlers (which can deadlock when the execution context is not yet
   // stable during page initialisation).
   let mutableAuthenticated = authenticated;
+
+  // Die Guided Tour startet sich auf dem Dashboard nach 500 ms selbst
+  // (GuidedTourController.jsx), sofern `bb_tour_skipped` nicht gesetzt ist.
+  // Ihren Abschluss-Status liest sie per Browser-Supabase-Client aus der
+  // users-Tabelle — also NICHT ueber /api/, womit die Route-Mocks unten sie
+  // nicht erreichen. Ihr Overlay legt sich ueber Tab-Leiste und KI-Buddy-Avatar
+  // und verschluckt damit Klicks. Der Fixture-Nutzer ist ein eingerichteter
+  // Nutzer, kein Erstbesucher, deshalb das Erstnutzer-Onboarding abschalten.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('bb_tour_skipped', 'true');
+  });
 
   if (authenticated) {
     await page.addInitScript(
