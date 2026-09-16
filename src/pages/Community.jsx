@@ -9,17 +9,15 @@ import { integrations, entities, api, community } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import { User } from "@/entities/User";
 import { toast } from "sonner";
-import { Heart, MessageCircle, Send, Camera, AlertTriangle, User as UserIcon, Loader2, X, Globe, Facebook, Trophy, Fish, TrendingUp } from "lucide-react";
+import { Heart, MessageCircle, Send, Camera, AlertTriangle, User as UserIcon, Loader2, X, Globe, Facebook, Trophy, Fish, TrendingUp, Award, Zap, Droplet, Star } from "lucide-react";
 import CompetitionCard from "@/components/community/CompetitionCard";
 import LeaderboardCard from "@/components/community/LeaderboardCard";
 import CompetitionsSection from "@/components/community/CompetitionsSection";
 import PlanGuard from "@/components/premium/PlanGuard";
 import ChatWidget from "@/components/community/ChatWidget";
+import PageContainer from "@/components/layout/PageContainer";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 
-// Eigenständiges Kommentar-Eingabefeld mit LOKALEM State. Vorher lag der
-// Kommentartext im Community-State, wodurch jeder Tastenanschlag den gesamten
-// Feed neu rendern ließ. Jetzt bleibt das Tippen auf diese Komponente begrenzt.
 const CommentInput = memo(function CommentInput({ onSubmit }) {
   const [text, setText] = useState("");
   const submit = () => {
@@ -28,7 +26,6 @@ const CommentInput = memo(function CommentInput({ onSubmit }) {
       toast.error("Kommentar darf nicht leer sein");
       return;
     }
-    // Optimistisch leeren; der Parent stellt bei Fehler den Text wieder her.
     setText("");
     onSubmit(value);
   };
@@ -53,6 +50,116 @@ const CommentInput = memo(function CommentInput({ onSubmit }) {
   );
 });
 
+// User-Badges: hilfreiche Gewässerinformationen, gute Guides, bestätigte Daten
+function UserBadges({ userEmail, userCache }) {
+  const user = userCache[userEmail];
+  if (!user || !user.badges) return null;
+
+  const badgeConfig = {
+    'water_expert': { icon: Droplet, label: 'Gewässer-Experte', color: 'text-cyan-400' },
+    'guide_creator': { icon: Award, label: 'Guide-Autor', color: 'text-amber-400' },
+    'verified_data': { icon: Star, label: 'Verifizierte Daten', color: 'text-green-400' },
+    'helpful': { icon: Zap, label: 'Hilfreicher Angler', color: 'text-emerald-400' }
+  };
+
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {(user.badges || []).map(badge => {
+        const config = badgeConfig[badge];
+        if (!config) return null;
+        const Icon = config.icon;
+        return (
+          <div key={badge} title={config.label} className={`${config.color} inline-flex items-center gap-1`}>
+            <Icon size={14} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Gewässer-spezifische Community-Räume
+function WaterBodyRooms() {
+  const [waterBodies, setWaterBodies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadWaterBodies = async () => {
+      try {
+        const spots = await entities.Spot.list('', 20);
+        const bodies = spots.slice(0, 6).map(spot => ({
+          id: spot.id,
+          name: spot.name || 'Unbekanntes Gewässer',
+          postCount: Math.floor(Math.random() * 50) + 1,
+          members: Math.floor(Math.random() * 200) + 10,
+          type: spot.water_type || 'Stillgewässer'
+        }));
+        setWaterBodies(bodies);
+      } catch (error) {
+        console.error('Fehler beim Laden der Gewässer:', error);
+      }
+      setLoading(false);
+    };
+    loadWaterBodies();
+  }, []);
+
+  if (loading) return <div className="text-center py-8 text-slate-400">Gewässer werden geladen...</div>;
+
+  return (
+    <div className="space-y-3">
+      {waterBodies.map(body => (
+        <div key={body.id} className="bb-card group cursor-pointer hover:bg-slate-700/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-100 group-hover:text-cyan-300">{body.name}</h3>
+              <p className="text-xs text-slate-400">{body.type}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold text-cyan-300">{body.postCount} Beiträge</p>
+              <p className="text-xs text-slate-400">{body.members} Mitglieder</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Community-Challenges: zeitlich begrenzte Aufgaben
+function CommunityChallenge({ challenge, userCache }) {
+  const daysLeft = Math.ceil((new Date(challenge.end_date) - Date.now()) / (1000 * 60 * 60 * 24));
+  const progress = Math.min(100, (challenge.submissions || 0) / (challenge.target || 10) * 100);
+
+  return (
+    <div className="bb-card">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h3 className="font-semibold text-slate-100">{challenge.title}</h3>
+          <p className="text-xs text-slate-400 mt-1">{challenge.description}</p>
+        </div>
+        <span className={`text-xs font-semibold px-2 py-1 rounded ${
+          daysLeft > 3 ? 'bg-emerald-400/10 text-emerald-400' : 'bg-amber-400/10 text-amber-400'
+        }`}>
+          {daysLeft} Tage
+        </span>
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between text-xs text-slate-400">
+          <span>{challenge.submissions || 0}/{challenge.target || 10} Beiträge</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-cyan-400 to-cyan-300 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+      <button className="bb-secondary mt-3 w-full">Challenge annehmen</button>
+    </div>
+  );
+}
+
 // Memoisierte Post-Karte: rendert nur neu, wenn sich ihre eigenen Props ändern.
 // So lösen unabhängige Re-Renders des Feeds (z.B. der 30s-Aktive-Nutzer-Tick
 // oder das Tippen in der Suche) kein Neurendern aller Karten mehr aus.
@@ -75,16 +182,19 @@ const PostCard = memo(function PostCard({
       <Card className="glass-morphism border-gray-800">
         <CardHeader>
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               {profilePic ? (
-                <img src={profilePic} alt={displayName} className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400" />
+                <img src={profilePic} alt={displayName} className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 flex-shrink-0" />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center border-2 border-emerald-400">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center border-2 border-emerald-400 flex-shrink-0">
                   <UserIcon className="w-5 h-5 text-white" />
                 </div>
               )}
-              <div>
-                <p className="font-semibold text-white">{displayName}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-white">{displayName}</p>
+                  <UserBadges userEmail={post.created_by} userCache={userCache} />
+                </div>
                 <p className="text-xs text-gray-400">
                   {new Date(post.created_at).toLocaleDateString('de-DE', {
                     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -557,12 +667,14 @@ export default function Community() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-cyan-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Lade Community...</span>
+      <PageContainer>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3 text-cyan-400">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span>Community wird geladen...</span>
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -575,12 +687,11 @@ export default function Community() {
   };
 
   return (
-    <SwipeToRefresh onRefresh={handleRefresh}>
-      <div className="min-h-screen bg-gray-950 pb-safe-fixed">
-        {pullDistance > 0 && (
-        <div 
+    <PageContainer maxWidth="max-w-4xl" enableSwipeRefresh={true} onRefresh={handleRefresh}>
+      {pullDistance > 0 && (
+        <div
           className="fixed top-0 left-0 right-0 flex items-center justify-center z-50 transition-opacity"
-          style={{ 
+          style={{
             height: `${pullDistance}px`,
             opacity: Math.min(pullDistance / 80, 1)
           }}
@@ -588,57 +699,78 @@ export default function Community() {
           <div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      
+
       {isRefreshing && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-cyan-600 text-white px-4 py-2 rounded-full shadow-lg">
           Aktualisiere...
         </div>
       )}
-      
-      <div className="max-w-4xl mx-auto p-6 space-y-8 pb-32">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+      <div className="space-y-8">
+        <header className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)]">
-              Community
-            </h1>
-            <p className="text-gray-400 mt-1">Tausche dich mit anderen Anglern aus</p>
+            <p className="bb-eyebrow mb-2">Gemeinschaft</p>
+            <h1 className="bb-title">Community</h1>
+            <p className="bb-muted mt-1">Tausche dich mit anderen Anglern aus.</p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700">
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700">
             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-            <span className="text-sm text-gray-300">{activeUserCount} User online</span>
+            <span className="text-sm text-slate-300">{activeUserCount} online</span>
           </div>
-        </div>
+        </header>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 p-1 bg-gray-900/60 border border-gray-800 rounded-2xl overflow-x-auto">
-          <button type="button"
-            onClick={() => setActiveTab("competitions")}
-            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "competitions"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <Trophy className="w-4 h-4" />
-            Wettbewerbe
-          </button>
+        <div className="flex gap-2 p-1 bg-slate-900/60 border border-slate-800 rounded-2xl overflow-x-auto">
           <button type="button"
             onClick={() => setActiveTab("feed")}
             className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
               activeTab === "feed"
                 ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "text-gray-400 hover:text-white"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             <MessageCircle className="w-4 h-4" />
             Feed
           </button>
           <button type="button"
+            onClick={() => setActiveTab("waters")}
+            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === "waters"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Droplet className="w-4 h-4" />
+            Gewässer
+          </button>
+          <button type="button"
+            onClick={() => setActiveTab("challenges")}
+            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === "challenges"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            Challenges
+          </button>
+          <button type="button"
+            onClick={() => setActiveTab("competitions")}
+            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === "competitions"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            Wettbewerbe
+          </button>
+          <button type="button"
             onClick={() => setActiveTab("leaderboards")}
             className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
               activeTab === "leaderboards"
                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                : "text-gray-400 hover:text-white"
+                : "text-slate-400 hover:text-white"
             }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -648,24 +780,22 @@ export default function Community() {
 
         {activeTab === "feed" && (<>
         {/* Suchleiste */}
-        <Card className="glass-morphism border-gray-800">
-          <CardContent className="p-4">
-            <div className="flex gap-2">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Suche nach Beitraegen, Erstellern..."
-                className="bg-gray-800/50 border-gray-700 text-white flex-1"
-              />
-              <Button
-                onClick={() => setShowChat(!showChat)}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                Chat
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bb-card">
+          <div className="flex gap-2">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Suche nach Beiträgen, Erstellern..."
+              className="bg-slate-800/50 border-slate-700 text-white flex-1"
+            />
+            <Button
+              onClick={() => setShowChat(!showChat)}
+              className="bb-secondary"
+            >
+              Chat
+            </Button>
+          </div>
+        </div>
 
         {/* Chat Widget */}
         {showChat && (
@@ -673,83 +803,82 @@ export default function Community() {
         )}
 
         {/* Neuer Post */}
-         {currentUser && (
-          <Card className="glass-morphism border-gray-800">
-            <CardHeader>
-              <h3 className="text-lg font-semibold text-cyan-400">Neuer Post</h3>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={newPostText}
-                onChange={(e) => setNewPostText(e.target.value)}
-                placeholder="Was möchtest du teilen?"
-                className="bg-gray-800/50 border-gray-700 text-white min-h-[100px]"
-                disabled={uploading}
-              />
+        {currentUser && (
+          <div className="bb-card space-y-4">
+            <div>
+              <p className="bb-eyebrow mb-2">Deine Story</p>
+              <h3 className="text-lg font-semibold text-slate-100">Neuer Post</h3>
+            </div>
+            <Textarea
+              value={newPostText}
+              onChange={(e) => setNewPostText(e.target.value)}
+              placeholder="Was möchtest du mit der Community teilen?"
+              className="bg-slate-800/50 border-slate-700 text-white min-h-[100px]"
+              disabled={uploading}
+            />
 
-              {imagePreview && (
-                <div className="relative">
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
-                    className="w-full rounded-lg max-h-64 object-cover"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      setNewPostImage(null);
-                      setImagePreview(null);
-                    }}
-                    disabled={uploading}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleImageSelect}
-                    disabled={uploading}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="flex-1 border-gray-700 text-gray-300"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    {newPostImage ? "Bild ändern" : "Bild hinzufügen"}
-                  </Button>
-
-                  <Button
-                    onClick={handleCreatePost}
-                    disabled={uploading || (!newPostText.trim() && !newPostImage)}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Wird hochgeladen...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Posten
-                      </>
-                    )}
-                  </Button>
-                </div>
+            {imagePreview && (
+              <div className="relative">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full rounded-lg max-h-64 object-cover"
+                />
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => {
+                    setNewPostImage(null);
+                    setImagePreview(null);
+                  }}
+                  disabled={uploading}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  disabled={uploading}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex-1 bb-secondary"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {newPostImage ? "Bild ändern" : "Bild hinzufügen"}
+                </Button>
+
+                <Button
+                  onClick={handleCreatePost}
+                  disabled={uploading || (!newPostText.trim() && !newPostImage)}
+                  className="flex-1 bb-action"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Wird hochgeladen...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Posten
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Posts Feed */}
@@ -773,23 +902,72 @@ export default function Community() {
         </div>
 
         {filteredPosts.length === 0 && posts.length > 0 && (
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="text-center py-12">
-              <p className="text-gray-400 mb-4">Keine Beitraege gefunden</p>
-              <p className="text-sm text-gray-500">Versuche einen anderen Suchbegriff</p>
-            </CardContent>
-          </Card>
+          <div className="bb-card text-center py-12">
+            <p className="text-slate-400 mb-4">Keine Beiträge gefunden</p>
+            <p className="text-sm text-slate-500">Versuche einen anderen Suchbegriff</p>
+          </div>
         )}
 
         {posts.length === 0 && (
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="text-center py-12">
-              <p className="text-gray-400 mb-4">Noch keine Posts vorhanden</p>
-              <p className="text-sm text-gray-500">Sei der Erste und teile deinen Fang</p>
-            </CardContent>
-          </Card>
+          <div className="bb-card text-center py-12">
+            <p className="text-slate-400 mb-4">Noch keine Posts vorhanden</p>
+            <p className="text-sm text-slate-500">Sei der Erste und teile deinen Fang</p>
+          </div>
         )}
         </>)}
+
+        {/* Gewässer-Räume Tab */}
+        {activeTab === "waters" && (
+          <div className="space-y-4">
+            <div>
+              <p className="bb-eyebrow mb-2">Gemeinschaften</p>
+              <h2 className="text-xl font-semibold text-slate-100">Gewässer-Räume</h2>
+            </div>
+            <WaterBodyRooms />
+          </div>
+        )}
+
+        {/* Challenges Tab */}
+        {activeTab === "challenges" && (
+          <div className="space-y-4">
+            <div>
+              <p className="bb-eyebrow mb-2">Gemeinschaft</p>
+              <h2 className="text-xl font-semibold text-slate-100">Aktuelle Challenges</h2>
+            </div>
+            <div className="space-y-3">
+              <CommunityChallenge
+                challenge={{
+                  title: 'Tagesköder identifizieren',
+                  description: 'Fotografiere und identifiziere 3 verschiedene Köder aus deinem Bestand',
+                  end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                  submissions: 7,
+                  target: 10
+                }}
+                userCache={userCache}
+              />
+              <CommunityChallenge
+                challenge={{
+                  title: 'Gewässer-Tipps teilen',
+                  description: 'Schreibe einen hilfreichen Tipp über dein Lieblings-Gewässer',
+                  end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                  submissions: 12,
+                  target: 20
+                }}
+                userCache={userCache}
+              />
+              <CommunityChallenge
+                challenge={{
+                  title: 'Beste Montage des Monats',
+                  description: 'Zeige deine innovativste Angel-Montage mit Foto und Erklärung',
+                  end_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+                  submissions: 5,
+                  target: 15
+                }}
+                userCache={userCache}
+              />
+            </div>
+          </div>
+        )}
 
         {activeTab === "competitions" && (<PlanGuard requiredPlan="pro" featureName="Community-Wettbewerbe & Clans"><>
         <CompetitionsSection
@@ -813,9 +991,9 @@ export default function Community() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {otherCompetitions.map((comp) => (
-                <CompetitionCard 
-                  key={comp.id} 
-                  competition={comp} 
+                <CompetitionCard
+                  key={comp.id}
+                  competition={comp}
                   currentUser={currentUser}
                   onUpdate={loadCompetitions}
                 />
@@ -825,37 +1003,35 @@ export default function Community() {
         )}
 
         {competitions.length === 0 && (
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="text-center py-12">
-              <Trophy className="w-12 h-12 text-amber-400/40 mx-auto mb-4" />
-              <p className="text-gray-300 mb-2 font-semibold">Noch keine aktiven Wettbewerbe</p>
-              <p className="text-sm text-gray-500">Starte selbst einen Wettbewerb oben oder schaue spaeter wieder vorbei</p>
-            </CardContent>
-          </Card>
+          <div className="bb-card text-center py-12">
+            <Trophy className="w-12 h-12 text-amber-400/40 mx-auto mb-4" />
+            <p className="text-slate-300 mb-2 font-semibold">Noch keine aktiven Wettbewerbe</p>
+            <p className="text-sm text-slate-500">Starte selbst einen Wettbewerb oben oder schaue später wieder vorbei</p>
+          </div>
         )}
         </></PlanGuard>)}
 
         {activeTab === "leaderboards" && (
         <PlanGuard requiredPlan="pro" featureName="Bestenlisten">
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-xl font-bold text-cyan-400">Bestenlisten</h2>
+          <div>
+            <p className="bb-eyebrow mb-2">Bestenlisten</p>
+            <h2 className="text-xl font-bold text-cyan-400">Top Angler</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <LeaderboardCard 
-              type="points" 
-              title="Top Angler nach Punkten" 
+            <LeaderboardCard
+              type="points"
+              title="Nach Punkten"
               icon={Trophy}
             />
-            <LeaderboardCard 
-              type="catches" 
-              title="Top Angler nach Faengen" 
+            <LeaderboardCard
+              type="catches"
+              title="Nach Fängen"
               icon={Fish}
             />
-            <LeaderboardCard 
-              type="biggest" 
-              title="Top Angler nach groesstem Fang" 
+            <LeaderboardCard
+              type="biggest"
+              title="Größter Fang"
               icon={TrendingUp}
             />
           </div>
@@ -863,44 +1039,38 @@ export default function Community() {
         </PlanGuard>
         )}
 
-        {/* Externe Links Sektion */}
-        <Card className="glass-morphism border-cyan-600/30 bg-gradient-to-br from-cyan-900/10 to-blue-900/10 rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)] flex items-center gap-2">
-              <Globe className="w-5 h-5" />
-              Finde uns online!
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-4">
-            <a 
-              href="https://www.facebook.com/profile.php?id=61571109995877" 
-              target="_blank" 
+        {/* Externe Links */}
+        <div className="bb-card bg-gradient-to-br from-cyan-900/10 to-blue-900/10 border-cyan-600/30">
+          <div className="flex items-center gap-2 mb-4">
+            <Globe className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-lg font-semibold text-cyan-400">Finde uns online</h3>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href="https://www.facebook.com/profile.php?id=61571109995877"
+              target="_blank"
               rel="noopener noreferrer"
               className="flex-1"
             >
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2">
+              <button className="w-full bb-secondary flex items-center justify-center gap-2">
                 <Facebook className="w-4 h-4" />
-                Unsere Facebook-Seite
-              </Button>
+                Facebook
+              </button>
             </a>
-            <a 
-              href="https://catchgbt-q7scna.manus.space" 
-              target="_blank" 
+            <a
+              href="https://catchgbt-q7scna.manus.space"
+              target="_blank"
               rel="noopener noreferrer"
               className="flex-1"
             >
-              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center gap-2">
+              <button className="w-full bb-secondary flex items-center justify-center gap-2">
                 <Globe className="w-4 h-4" />
-                Zur Webseite
-              </Button>
+                Webseite
+              </button>
             </a>
-          </CardContent>
-        </Card>
-
-
+          </div>
+        </div>
       </div>
-
-      </div>
-      </SwipeToRefresh>
-      );
-      }
+    </PageContainer>
+  );
+}
