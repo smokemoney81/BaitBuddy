@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "maxNodeModuleJsDepth": 0,
-    "ignoreDeprecations": "5.0"
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "src/vite-env.d.ts",
