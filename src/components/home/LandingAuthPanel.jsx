@@ -8,6 +8,7 @@ import { buildPublicUrl } from '@/lib/publicUrl';
 import { maybeShowEventPopup, EVENT_POPUP_DWELL_MS } from '@/lib/loginEventPopup';
 import { Browser } from '@capacitor/browser';
 import { Eye, EyeOff } from 'lucide-react';
+import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
 // Aus src/pages/Home.jsx extrahiert: acht zusammenhaengende State-Felder und
@@ -62,6 +63,8 @@ export default function LandingAuthPanel() {
   const [loginError, setLoginError] = useState('');
   const [loginInfo, setLoginInfo] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState(null);
 
   useEffect(() => {
     const onOAuthError = (e) =>
@@ -89,7 +92,18 @@ export default function LandingAuthPanel() {
       } else {
         await auth.register(loginEmail, loginPassword, loginName);
       }
-      await goToDashboard();
+
+      // Nach erfolgreichem Email-Login: User-Daten laden
+      const user = await auth.me();
+      setLoggedInUser(user);
+
+      // Zeige Migration-Modal, falls noch nicht mit OAuth verlinkt
+      if (!user?.oauth_linked) {
+        setShowMigrationModal(true);
+      } else {
+        // Wenn bereits verlinkt: direkt zum Dashboard
+        await goToDashboard();
+      }
     } catch (err) {
       const errorMsg =
         err.data?.error || err.message || 'Anmeldung fehlgeschlagen. Bitte prüfe deine Zugangsdaten.';
@@ -164,7 +178,17 @@ export default function LandingAuthPanel() {
   };
 
   return (
-    <div className="w-full max-w-[320px] bg-black/75 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl pointer-events-auto order-1 lg:order-1">
+    <>
+      {showMigrationModal && (
+        <OAuthMigrationModal
+          user={loggedInUser}
+          onClose={async () => {
+            setShowMigrationModal(false);
+            await goToDashboard();
+          }}
+        />
+      )}
+      <div className="w-full max-w-[320px] bg-black/75 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl pointer-events-auto order-1 lg:order-1">
       <h2 className="text-center text-base font-bold text-white mb-4">
         {loginMode === 'login' ? 'Willkommen bei BaitBuddy' : 'Konto erstellen'}
       </h2>
@@ -283,5 +307,6 @@ export default function LandingAuthPanel() {
         Eingeschränkte Funktionen · Keine Registrierung nötig
       </p>
     </div>
+    </>
   );
 }
