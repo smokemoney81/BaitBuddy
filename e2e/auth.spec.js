@@ -33,6 +33,12 @@ test.describe('Anmeldung', () => {
       password: 'geheim123',
     });
 
+    // OAuth-Migrations-Modal könnte angezeigt werden - klick "Später"
+    const laterButton = page.getByRole('button', { name: 'Später' });
+    if (await laterButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await laterButton.click();
+    }
+
     await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
     const token = await page.evaluate(() => window.localStorage.getItem('bb_token'));
     expect(token).toBe(FIXTURE_TOKEN);
@@ -103,6 +109,13 @@ test.describe('Registrierung', () => {
       email: 'neu@baitbuddy.test',
       full_name: 'Neuer Angler',
     });
+
+    // OAuth-Migrations-Modal könnte angezeigt werden - klick "Später"
+    const laterButton = page.getByRole('button', { name: 'Später' });
+    if (await laterButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await laterButton.click();
+    }
+
     await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
   });
 
