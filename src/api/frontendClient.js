@@ -618,6 +618,19 @@ export const auth = {
       }
       return res;
     }),
+
+  linkOAuth: (provider) =>
+    api.post('/api/auth/link-oauth', { provider }).then(res => {
+      if (res) {
+        // Update cached user with OAuth linking info
+        const cached = getCachedUser() || {};
+        cached.oauth_linked = true;
+        cached.oauth_linked_provider = provider;
+        cached.oauth_linked_at = res.oauth_linked_at;
+        setCachedUser(cached);
+      }
+      return res;
+    }),
 };
 
 // ── Unified User ──────────────────────────────────────────────────────────────

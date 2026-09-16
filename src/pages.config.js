@@ -54,6 +54,7 @@ import { lazyPage } from '@/lib/lazyPage';
 // App.jsx rendert die Routen bereits in <Suspense> mit Fallback.
 const AGB = lazyPage(() => import('./pages/AGB'));
 const AuthCallback = lazyPage(() => import('./pages/AuthCallback'));
+const OAuthLinkingCallback = lazyPage(() => import('./pages/OAuthLinkingCallback'));
 const AI = lazyPage(() => import('./pages/AI'));
 const ARKnotenAssistent = lazyPage(() => import('./pages/ARKnotenAssistent'));
 const ARView = lazyPage(() => import('./pages/ARView'));
@@ -108,6 +109,7 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "AGB": AGB,
     "AuthCallback": AuthCallback,
+    "OAuthLinkingCallback": OAuthLinkingCallback,
     "AI": AI,
     "ARKnotenAssistent": ARKnotenAssistent,
     "ARView": ARView,

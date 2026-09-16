@@ -188,4 +188,42 @@ router.patch('/auth/me', requireAuth, async (req, res) => {
   });
 });
 
+// OAuth-Linking: Markiert, dass der User sich mit Google verlinkt hat.
+// Nach Email-Login wird das Frontend diese API aufrufen, um den Migration-Status zu aktualisieren.
+// Der User hat dann die Möglichkeit, sich zukünftig via Google anzumelden.
+router.post('/auth/link-oauth', requireAuth, async (req, res) => {
+  const { provider } = req.body || {};
+
+  if (!provider || typeof provider !== 'string' || !/^[a-z]+$/.test(provider)) {
+    return res.status(400).json({ error: 'Ungültiger Provider' });
+  }
+
+  try {
+    const current = req.user.user_metadata || {};
+    const merged = {
+      ...current,
+      oauth_linked: true,
+      oauth_linked_provider: provider,
+      oauth_linked_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase.auth.admin.updateUserById(req.user.id, {
+      user_metadata: merged,
+    });
+
+    if (error) return sendDbError(res, error);
+
+    const u = data.user;
+    return res.json({
+      id: u.id,
+      email: u.email,
+      oauth_linked: true,
+      oauth_linked_provider: provider,
+      oauth_linked_at: merged.oauth_linked_at,
+    });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
 export default router;

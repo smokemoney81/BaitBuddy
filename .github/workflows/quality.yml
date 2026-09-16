@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 # Ein PR-Branch loeste bisher zwei Laeufe aus (push + pull_request) und jeder
 # neue Commit stapelte weitere obendrauf. Push nur noch fuer main, und ein

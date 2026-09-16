@@ -33,6 +33,14 @@ test.describe('Anmeldung', () => {
       password: 'geheim123',
     });
 
+    // Der Fixture-Nutzer ist nicht mit Google verknuepft, deshalb zeigt
+    // LandingAuthPanel nach dem Login zwingend das OAuth-Migrations-Modal.
+    // "Später" schliesst es und navigiert weiter ins Dashboard. Bewusst
+    // `click()` statt `isVisible()`: isVisible() prueft sofort und wartet
+    // nicht, haette das erst nach zwei await-Schritten erscheinende Modal also
+    // regelmaessig verpasst.
+    await page.getByRole('button', { name: 'Später' }).click({ timeout: 15_000 });
+
     await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
     const token = await page.evaluate(() => window.localStorage.getItem('bb_token'));
     expect(token).toBe(FIXTURE_TOKEN);
@@ -103,6 +111,11 @@ test.describe('Registrierung', () => {
       email: 'neu@baitbuddy.test',
       full_name: 'Neuer Angler',
     });
+
+    // Auch nach der Registrierung ist das Konto noch nicht mit Google
+    // verknuepft — das Migrations-Modal erscheint, "Später" fuehrt weiter.
+    await page.getByRole('button', { name: 'Später' }).click({ timeout: 15_000 });
+
     await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
   });
 

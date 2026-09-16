@@ -6,6 +6,7 @@ import React from 'react';
 const authMock = {
   login: vi.fn(async () => ({})),
   register: vi.fn(async () => ({})),
+  me: vi.fn(async () => ({ oauth_linked: true })),
 };
 const supabaseMock = {
   auth: {
@@ -205,6 +206,50 @@ describe('LandingAuthPanel — Social Login und Gastzugang', () => {
 
     expect(setGuestSessionMock).toHaveBeenCalledWith({ is_guest: true });
     expect(assignedHref).toBe('/Dashboard');
+  });
+});
+
+describe('LandingAuthPanel — OAuth Migration Modal', () => {
+  it('zeigt die OAuth-Migration-Modal nach E-Mail-Login, wenn noch nicht verlinkt', async () => {
+    authMock.me.mockResolvedValueOnce({ oauth_linked: false });
+    const user = userEvent.setup();
+    render(<LandingAuthPanel />);
+
+    await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
+    await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
+    await user.click(screen.getByRole('button', { name: 'Anmelden' }));
+
+    await waitFor(() => expect(authMock.login).toHaveBeenCalled());
+    await waitFor(() => expect(authMock.me).toHaveBeenCalled());
+    expect(await screen.findByText(/Sicherheit erhöhen/)).toBeInTheDocument();
+    expect(assignedHref).toBeUndefined();
+  });
+
+  it('navigiert direkt zum Dashboard, wenn bereits mit OAuth verlinkt', async () => {
+    authMock.me.mockResolvedValueOnce({ oauth_linked: true });
+    const user = userEvent.setup();
+    render(<LandingAuthPanel />);
+
+    await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
+    await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
+    await user.click(screen.getByRole('button', { name: 'Anmelden' }));
+
+    await waitFor(() => expect(assignedHref).toBe('/Dashboard'));
+  });
+
+  it('schließt Modal ohne Navigieren mit "Später"-Button', async () => {
+    authMock.me.mockResolvedValueOnce({ oauth_linked: false });
+    const user = userEvent.setup();
+    render(<LandingAuthPanel />);
+
+    await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
+    await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
+    await user.click(screen.getByRole('button', { name: 'Anmelden' }));
+
+    await waitFor(() => expect(screen.queryByText(/Sicherheit erhöhen/)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Später' }));
+
+    await waitFor(() => expect(assignedHref).toBe('/Dashboard'));
   });
 });
 
