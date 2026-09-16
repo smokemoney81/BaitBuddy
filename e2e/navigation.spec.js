@@ -7,11 +7,12 @@ import { installApiMocks, dismissSplash } from './fixtures/apiMock.js';
 // nachlaedt, ohne den Zustand zu verlieren oder abzustuerzen.
 
 // Beschriftungen aus BottomTabs.jsx (aria-label = tab.name).
+// Muss mit den Navigation-Items in der Test-Fixture (apiMock.js) übereinstimmen.
 const TABS = [
+  { name: 'Dashboard', url: /Dashboard/i },
   { name: 'Logbook', url: /Logbook/i },
-  { name: 'Wetter', url: /Weather/i },
+  { name: 'Weather', url: /Weather/i },
   { name: 'Community', url: /Community/i },
-  { name: 'Premium', url: /PremiumPlans/i },
 ];
 
 // Die Tab-Leiste ist `md:hidden` — sie existiert nur im Mobil-Layout. Das ist

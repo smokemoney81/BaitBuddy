@@ -22,7 +22,7 @@ export const FIXTURE_USER = {
   user_metadata: { role: 'user' },
   settings: {
     navigation: {
-      bottomNavigation: ['Logbook', 'Weather', 'Community', 'PremiumPlans'],
+      bottomNavigation: ['Dashboard', 'Logbook', 'Weather', 'Community'],
     },
   },
 };
