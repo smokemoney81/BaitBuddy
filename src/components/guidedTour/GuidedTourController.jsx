@@ -12,7 +12,7 @@ import SabrinaTourTooltip from './SabrinaTourTooltip';
  * - Lädt Features basierend auf aktueller Route + User-Level
  * - Tracked element references
  * - Koordiniert Spotlight, Tooltip und Navigationen
- * - Speichert Fortschritt in Supabase via Context
+ * - Speichert den Fortschritt über den Context im Nutzerprofil
  */
 export default function GuidedTourController() {
   const location = useLocation();
@@ -21,12 +21,10 @@ export default function GuidedTourController() {
     isActive,
     currentStep,
     userLevel,
-    tutorialCompleted,
     isLoading,
     nextStep,
     completeTour,
     skipTour,
-    startTour,
   } = useGuidedTour();
 
   // Sammle alle verfügbaren Features für diesen User-Level.
@@ -97,32 +95,10 @@ export default function GuidedTourController() {
     setCurrentFeature(feature);
   }, [currentStep, isActive, language, allAvailableFeatures]);
 
-  // Automatisch starte Tour wenn:
-  // 1. User neu ist (tutorial_completed=false)
-  // 2. Gerade auf Dashboard gekommen (First-Login-Flow)
-  // 3. Tour wurde nicht aktiv übersprungen
-  useEffect(() => {
-    const routeName = getCurrentRouteName();
-    if (
-      routeName === 'Dashboard' &&
-      !tutorialCompleted &&
-      !isActive &&
-      !isLoading &&
-      !localStorage.getItem('bb_tour_skipped')
-    ) {
-      // Auto-start ein klein wenig verzögern damit alles geladen ist
-      const timer = setTimeout(() => {
-        startTour();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    location,
-    tutorialCompleted,
-    isActive,
-    isLoading,
-    startTour,
-  ]);
+  // Kein Auto-Start mehr: Laut §4 ist das Tutorial optional und wird nach dem
+  // Onboarding ANGEBOTEN (FirstLoginTutorialPrompt), nicht erzwungen. Der
+  // frühere Auto-Start ignorierte zudem, ob das Onboarding überhaupt durch war —
+  // beide Overlays konnten gleichzeitig über dem Dashboard liegen.
 
   // Navigations-Logik
   const handleNext = () => {
@@ -140,15 +116,12 @@ export default function GuidedTourController() {
     }
   };
 
-  const handleSkip = () => {
-    localStorage.setItem('bb_tour_skipped', 'true');
-    skipTour();
-  };
+  // Überspringen und Abschluss werden im Nutzerprofil festgehalten
+  // (settings.tutorial), nicht mehr im localStorage — sonst gilt der Stand nur
+  // auf genau diesem Gerät.
+  const handleSkip = () => skipTour();
 
-  const handleComplete = () => {
-    localStorage.removeItem('bb_tour_skipped');
-    completeTour();
-  };
+  const handleComplete = () => completeTour();
 
   // Versuche Element zu finden (via Selector oder Ref)
   const findTargetElement = () => {

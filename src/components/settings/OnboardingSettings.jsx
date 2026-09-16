@@ -8,15 +8,16 @@ import {
   restartOnboarding,
   stepAt,
 } from '@/lib/onboarding';
+import { restartTutorial } from '@/lib/tutorial';
 
 export default function OnboardingSettings() {
-  const { onboarding, saveOnboarding, canSave, saving } = useBuddyPreferences();
+  const { onboarding, saveOnboarding, tutorial, saveTutorial, canSave, saving } = useBuddyPreferences();
   const [busy, setBusy] = useState(false);
 
-  const run = async (next, message) => {
+  const run = async (next, message, save = saveOnboarding) => {
     setBusy(true);
     try {
-      await saveOnboarding(next);
+      await save(next);
       toast.success(message);
     } catch (error) {
       toast.error(error.message || 'Die Einstellung konnte nicht gespeichert werden.');
@@ -72,7 +73,28 @@ export default function OnboardingSettings() {
         <p className="bb-muted">Melde dich an, um das Onboarding zu starten.</p>
       )}
 
-      <div className="pt-2 border-t border-white/10">
+      <div className="pt-4 border-t border-white/10 space-y-3">
+        <div>
+          <h3 className="font-semibold">Interaktives Tutorial</h3>
+          <p className="bb-muted text-sm mt-1">
+            Status: {tutorial.completed
+              ? 'Abgeschlossen'
+              : tutorial.skipped
+                ? `Übersprungen bei Schritt ${tutorial.step + 1}`
+                : `Offen bei Schritt ${tutorial.step + 1}`}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="bb-secondary"
+          disabled={!canSave || busy || saving}
+          onClick={() => run(restartTutorial(tutorial), 'Tutorial startet beim nächsten Dashboard-Besuch.', saveTutorial)}
+        >
+          <RotateCcw size={18} aria-hidden="true" /> Tutorial erneut anbieten
+        </button>
+      </div>
+
+      <div className="pt-4 border-t border-white/10">
         <p className="bb-muted text-sm mb-3">
           Was dein Buddy aus deinen Angaben und Fängen ableitet, siehst du im
           Transparenzbereich — dort lässt sich auch jede Annahme korrigieren oder löschen.
