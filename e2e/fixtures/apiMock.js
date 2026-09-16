@@ -19,6 +19,7 @@ export const FIXTURE_USER = {
   id: 'e2e-user-id',
   email: 'e2e-tester@baitbuddy.test',
   full_name: 'E2E Tester',
+  oauth_linked: true,
   user_metadata: { role: 'user' },
   settings: {
     navigation: {
@@ -145,7 +146,7 @@ export async function installApiMocks(page, options = {}) {
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
-          user: { ...state.user, email },
+          user: { ...state.user, email, oauth_linked: true },
         });
       }
       if (path === '/api/auth/register' && method === 'POST') {
@@ -156,7 +157,7 @@ export async function installApiMocks(page, options = {}) {
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
-          user: { ...state.user, email, full_name: full_name ?? '' },
+          user: { ...state.user, email, full_name: full_name ?? '', oauth_linked: true },
         });
       }
       if (path === '/api/auth/refresh') {
