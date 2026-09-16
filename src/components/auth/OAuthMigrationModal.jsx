@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { auth } from '@/api/auth';
 import { supabase } from '@/api/supabaseClient';
-import { createPageUrl } from '@/utils';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { Browser } from '@capacitor/browser';
 
