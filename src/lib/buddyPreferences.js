@@ -4,12 +4,21 @@ export const BUDDIES = {
   female_default: { gender: 'female', name: 'Marina', avatar: '/assets/buddy/marina-avatar.png', portrait: '/assets/buddy/marina.png', description: 'Freundlich, modern und aufmerksam.' },
   male_default: { gender: 'male', name: 'Finn', avatar: '/assets/buddy/finn.png', portrait: '/assets/buddy/finn.png', description: 'Ruhig, direkt und erfahren.' },
 };
-export const DEFAULT_BUDDY = { gender: 'female', avatarId: 'female_default', voiceId: 'male', tone: 'friendly', speed: 1, voiceEnabled: true };
+// Antwort-Ausfuehrlichkeit (Masterprompt §8). Der Tarif setzt die Obergrenze,
+// diese Einstellung verschiebt die Laenge innerhalb der Stufe. Muss mit
+// DETAIL_LEVELS in backend/src/lib/personalizationEngine.js uebereinstimmen.
+export const DETAIL_OPTIONS = [
+  { id: 'short', label: 'Kurz' },
+  { id: 'normal', label: 'Normal' },
+  { id: 'detailed', label: 'Detailliert' },
+];
+export const DEFAULT_BUDDY = { gender: 'female', avatarId: 'female_default', voiceId: 'male', tone: 'friendly', speed: 1, voiceEnabled: true, detail: 'normal' };
 export function normalizeBuddy(value = {}) {
   const gender = value.gender === 'male' ? 'male' : 'female';
   return { gender, avatarId: `${gender}_default`, voiceId: value.voiceId === 'female' ? 'female' : 'male',
     tone: ['friendly', 'direct', 'casual', 'professional', 'motivating'].includes(value.tone) ? value.tone : 'friendly',
     speed: Number.isFinite(value.speed) ? Math.min(1.2, Math.max(0.8, value.speed)) : 1,
+    detail: DETAIL_OPTIONS.some(o => o.id === value.detail) ? value.detail : 'normal',
     voiceEnabled: value.voiceEnabled !== false, chosen: value.chosen === true };
 }
 export function normalizeNavigation(value) {
@@ -57,4 +66,36 @@ export function normalizeFishing(value = {}) {
     favoriteLures: cleanStringList(v.favoriteLures),
     preferredTime: normalizeTimeWindow(v.preferredTime),
   };
+}
+
+// Angler-Profil (BaitBuddy 2.0): Erfahrung, Region und persönliche Ziele.
+// Liegt wie buddy/navigation/fishing in user_metadata.settings und geht über
+// denselben savePreferences-Pfad. Die Region referenziert `FEDERAL_STATES`
+// (src/components/rules/rule-utils.jsx) — dieselbe Kennung nutzen Regelwerk und
+// Schonzeiten, damit Angaben aus dem Onboarding dort direkt greifen.
+export const EXPERIENCE_OPTIONS = [
+  { id: 'beginner', label: 'Anfänger', description: 'Erste Schritte, Grundlagen stehen noch an.' },
+  { id: 'advanced', label: 'Fortgeschritten', description: 'Regelmäßig unterwegs, Technik sitzt weitgehend.' },
+  { id: 'expert', label: 'Erfahren', description: 'Langjährige Praxis, gezielte Taktik.' },
+];
+
+export const GOAL_OPTIONS = [
+  'Mehr Fänge',
+  'Neue Gewässer entdecken',
+  'Technik verbessern',
+  'Zielfisch gezielt fangen',
+  'Entspannung',
+  'Wettbewerbe',
+];
+
+// No-Gos: was der Buddy NICHT vorschlagen soll (§9). Freitext, weil sich
+// persoenliche Ausschluesse nicht sinnvoll in eine Liste pressen lassen —
+// "keine Nachtangeln", "kein lebender Koederfisch", "keine Bootstouren".
+export const DEFAULT_ANGLER = { experience: null, region: null, goals: [], noGos: [] };
+
+export function normalizeAngler(value = {}) {
+  const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const experience = EXPERIENCE_OPTIONS.some((o) => o.id === v.experience) ? v.experience : null;
+  const region = typeof v.region === 'string' && /^[a-z]{2}$/.test(v.region) ? v.region : null;
+  return { experience, region, goals: cleanStringList(v.goals, 6), noGos: cleanStringList(v.noGos, 10) };
 }

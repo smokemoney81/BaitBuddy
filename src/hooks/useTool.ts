@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { ToolRegistry, type ToolDefinition, type PlanLevel } from '@/lib/toolRegistry';
-import { useAuth } from '@/lib/AuthContext';
+import { usePlan } from '@/components/premium/PlanContext';
 
 export interface UseToolResult {
   // Get all tools accessible to the current user
@@ -21,6 +21,9 @@ export interface UseToolResult {
   // Get tool by ID
   getTool: (toolId: string) => ToolDefinition | undefined;
 
+  // Get tool by its React Router route (e.g. '/Logbook')
+  getToolByRoute: (route: string) => ToolDefinition | undefined;
+
   // Get tools by category that are accessible
   getAccessibleToolsByCategory: (category: string) => ToolDefinition[];
 
@@ -28,27 +31,30 @@ export interface UseToolResult {
   getUserPlanLevel: () => PlanLevel;
 }
 
+// Der Plan kommt aus dem PlanContext (gespeist von GET /api/premium/status).
+// Zuvor las dieser Hook `useAuth().plan` — ein Feld, das der AuthContext gar
+// nicht bereitstellt. `plan` war deshalb IMMER undefined und jeder Nutzer galt
+// als 'free', auch ein zahlender Ultimate-Kunde. Genau der Fehler, den der
+// Release-Audit als "Ultimate darf Premium-Tools nicht faelschlich sperren"
+// fuehrt.
+const PLAN_LEVELS: Record<string, PlanLevel> = {
+  free: 'free',
+  basic: 'basic',
+  pro: 'pro',
+  elite: 'elite',
+  ultimate: 'ultimate',
+  friends: 'friends',
+  friends_monthly: 'elite',
+  trial_10_10: 'ultimate',
+};
+
 export function useTool(): UseToolResult {
-  const { user, plan } = useAuth();
+  const { plan } = usePlan();
 
-  const userPlan = useMemo<PlanLevel>(() => {
-    // Map the effective plan from AuthContext to a PlanLevel
-    // Default to 'free' if plan is undefined
-    if (!plan?.effectiveId) return 'free';
-
-    const planMap: Record<string, PlanLevel> = {
-      free: 'free',
-      basic: 'basic',
-      pro: 'pro',
-      elite: 'elite',
-      ultimate: 'ultimate',
-      friends: 'friends',
-      friends_monthly: 'elite',
-      trial_10_10: 'ultimate',
-    };
-
-    return planMap[plan.effectiveId] || 'free';
-  }, [plan?.effectiveId]);
+  const userPlan = useMemo<PlanLevel>(
+    () => PLAN_LEVELS[plan?.id ?? ''] ?? 'free',
+    [plan?.id]
+  );
 
   const getAccessibleTools = useMemo(
     () => () => ToolRegistry.getToolsByPlanLevel(userPlan),
@@ -69,6 +75,11 @@ export function useTool(): UseToolResult {
     []
   );
 
+  const getToolByRoute = useMemo(
+    () => (route: string) => ToolRegistry.getToolByRoute(route),
+    []
+  );
+
   const getAccessibleToolsByCategory = useMemo(
     () => (category: string) => {
       const tools = ToolRegistry.getToolsByCategory(category as any);
@@ -83,6 +94,7 @@ export function useTool(): UseToolResult {
     getAccessibleTools,
     isToolAccessible,
     getTool,
+    getToolByRoute,
     getAccessibleToolsByCategory,
     getUserPlanLevel,
   };

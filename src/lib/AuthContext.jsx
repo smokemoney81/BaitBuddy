@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth } from "@/api/auth";
 import { supabase } from "@/api/supabaseClient";
+import { entities } from "@/api/frontendClient";
+import { hasGuestData, migrateGuestData } from "@/lib/guestStore";
 
 const AuthContext = createContext(undefined);
 
@@ -37,6 +39,18 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Was ein Gast ohne Konto erfasst hat, gehört ab der Anmeldung ins Konto.
+  // Fehlgeschlagene Datensätze bleiben lokal liegen und werden beim nächsten
+  // Anmelden erneut versucht — deshalb scheitert die Anmeldung hier nie.
+  const adoptGuestData = async () => {
+    if (!hasGuestData()) return;
+    try {
+      await migrateGuestData(entities);
+    } catch (error) {
+      console.error('Übernahme der Gastdaten fehlgeschlagen:', error);
+    }
+  };
+
   const checkAppState = async () => {
     try {
       setIsLoadingAuth(true);
@@ -56,6 +70,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = await auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
+      await adoptGuestData();
     } catch (error) {
       console.error('Auth check failed:', error);
       setIsAuthenticated(false);

@@ -24,6 +24,18 @@ export const FIXTURE_USER = {
     navigation: {
       bottomNavigation: ['Dashboard', 'Logbook', 'Weather', 'Community'],
     },
+    // Der Fixture-Nutzer ist ein eingerichtetes Konto, kein Neuzugang. Ohne
+    // diesen Abschnitt oeffnet OnboardingFlow beim Dashboard-Aufruf seinen
+    // Dialog; Radix nimmt den uebrigen Seiteninhalt dann per aria-hidden aus
+    // dem Accessibility-Baum und die Tab-Leiste ist ueber ihre Rolle nicht
+    // mehr auffindbar. Dass ein NEUER Nutzer das Onboarding bekommt, deckt
+    // onboarding.spec.js ab.
+    onboarding: {
+      completed: true,
+      skipped: false,
+      stepIndex: 15,
+      completedAt: '2026-01-01T00:00:00.000Z',
+    },
   },
 };
 
@@ -177,6 +189,33 @@ export async function installApiMocks(page, options = {}) {
       }
       if (path === '/api/referrals/redeem' && method === 'POST') {
         return fulfillJson(route, { ok: true });
+      }
+      // Aggregierte Dashboard-Daten (BFF). Ohne eigenen Eintrag fiele der
+      // Aufruf auf die GET-Default-Antwort `[]` zurueck — das entspricht nicht
+      // dem Vertrag aus useDashboardData.ts und laesst das Dashboard in einem
+      // undefinierten Zustand rendern.
+      if (path === '/api/dashboard') {
+        if (method === 'GET') {
+          return fulfillJson(route, {
+            data: {
+              next_trip: null,
+              recent_catches: [],
+              top_spots: [],
+              weather: null,
+              buddy_suggestion: null,
+              statistics: {
+                total_catches: state.catches.length,
+                total_weight: 6.9,
+                personal_best: 4.2,
+                species_count: 2,
+                weeks_active: 2,
+              },
+              timestamp: '2026-05-14T06:30:00.000Z',
+            },
+            metadata: { plan: state.plan.plan, cached_at: '2026-05-14T06:30:00.000Z', ttl_seconds: 300 },
+          });
+        }
+        return route.fulfill({ status: 204, body: '' });
       }
       if (path === '/api/catches') {
         if (method === 'GET') return fulfillJson(route, state.catches);

@@ -1,155 +1,79 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-// Der AuthContext liegt in src/lib/, nicht neben dieser Datei — src/contexts/
-// enthaelt sonst nichts. Der relative Import './AuthContext' liess den Build
-// scheitern ("Could not resolve ./AuthContext").
-import { useAuth } from '@/lib/AuthContext';
-import { supabase } from '@/api/supabaseClient';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
+import {
+  normalizeTutorial,
+  startTutorial,
+  advanceTutorial,
+  skipTutorial,
+  completeTutorial,
+  restartTutorial,
+  TUTORIAL_LEVELS,
+} from '@/lib/tutorial';
 
 const GuidedTourContext = createContext();
 
+// Der Tour-Fortschritt liegt in `user_metadata.settings.tutorial` und geht über
+// denselben savePreferences-Pfad wie Onboarding und Präferenzen. Zuvor las und
+// schrieb dieser Context direkt `public.users` aus dem Browser — eine Tabelle,
+// in der für die allermeisten Konten keine Zeile existiert. Lesen lieferte
+// deshalb nichts, Schreiben schlug still fehl, und das Tutorial fing bei jedem
+// Start von vorn an.
+//
+// `isActive` ist bewusst NICHT persistent: dass eine Tour gerade läuft, gehört
+// zur Sitzung. Persistent ist nur, wie weit der Nutzer gekommen ist.
 export function GuidedTourProvider({ children }) {
-  const { user } = useAuth();
-  const [isActive, setIsActive] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [userLevel, setUserLevel] = useState('beginner');
-  const [tutorialCompleted, setTutorialCompleted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { tutorial, saveTutorial, canSave, userId } = useBuddyPreferences();
+  const [isActive, setIsActive] = React.useState(false);
 
-  // Lade User-Level und Tour-Status beim Mount oder User-Wechsel
-  useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+  const persist = useCallback((next) => {
+    if (!canSave) return Promise.resolve();
+    return saveTutorial(next).catch((error) => {
+      console.error('Tutorial-Fortschritt konnte nicht gespeichert werden:', error);
+    });
+  }, [canSave, saveTutorial]);
 
-    const loadUserTourStatus = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('user_level,tutorial_completed,guided_tour_step')
-          .eq('id', user.id)
-          .single();
+  const nextStep = useCallback((newStep) => {
+    persist(advanceTutorial(tutorial, newStep));
+  }, [persist, tutorial]);
 
-        if (error) {
-          console.error('[GuidedTourContext] Error loading status:', error);
-          return;
-        }
-
-        if (data) {
-          setUserLevel(data.user_level || 'beginner');
-          setTutorialCompleted(data.tutorial_completed || false);
-          setCurrentStep(data.guided_tour_step || 0);
-        }
-      } catch (err) {
-        console.error('[GuidedTourContext] Fetch failed:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUserTourStatus();
-  }, [user]);
-
-  // Speichere Tour-Fortschritt in Supabase
-  const updateTourStatus = useCallback(
-    async (step, completed = false) => {
-      if (!user) return;
-
-      try {
-        const { error } = await supabase
-          .from('users')
-          .update({
-            guided_tour_step: step,
-            tutorial_completed: completed,
-          })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('[GuidedTourContext] Update failed:', error);
-        }
-      } catch (err) {
-        console.error('[GuidedTourContext] Update error:', err);
-      }
-    },
-    [user]
-  );
-
-  // Navigiere zum nächsten Schritt
-  const nextStep = useCallback(
-    (newStep) => {
-      setCurrentStep(newStep);
-      updateTourStatus(newStep, false);
-    },
-    [updateTourStatus]
-  );
-
-  // Beende die Tour
   const completeTour = useCallback(async () => {
-    setTutorialCompleted(true);
     setIsActive(false);
-    await updateTourStatus(0, true);
-  }, [updateTourStatus]);
+    await persist(completeTutorial(tutorial));
+  }, [persist, tutorial]);
 
-  // Überspringe die Tour
   const skipTour = useCallback(async () => {
     setIsActive(false);
-    setTutorialCompleted(true);
-    await updateTourStatus(0, true);
-  }, [updateTourStatus]);
+    await persist(skipTutorial(tutorial));
+  }, [persist, tutorial]);
 
-  // Starte/Stoppe die Tour
   const startTour = useCallback(() => {
-    if (!tutorialCompleted) {
-      setCurrentStep(0);
-      setIsActive(true);
-    }
-  }, [tutorialCompleted]);
+    setIsActive(true);
+    persist(startTutorial(tutorial));
+  }, [persist, tutorial]);
 
   const stopTour = useCallback(() => {
     setIsActive(false);
   }, []);
 
-  // Setze User-Level (Admin/Test)
-  const setUserLevelDirectly = useCallback(
-    async (level) => {
-      if (!user) return;
+  const setUserLevelDirectly = useCallback((level) => {
+    if (!TUTORIAL_LEVELS.includes(level)) return Promise.resolve();
+    return persist({ ...normalizeTutorial(tutorial), level });
+  }, [persist, tutorial]);
 
-      setUserLevel(level);
-      try {
-        const { error } = await supabase
-          .from('users')
-          .update({ user_level: level })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('[GuidedTourContext] Level update failed:', error);
-        }
-      } catch (err) {
-        console.error('[GuidedTourContext] Level update error:', err);
-      }
-    },
-    [user]
-  );
-
-  // Resetiere Tour (Testing)
   const resetTour = useCallback(async () => {
-    if (!user) return;
-
-    setCurrentStep(0);
-    setTutorialCompleted(false);
     setIsActive(false);
-    await updateTourStatus(0, false);
-  }, [user, updateTourStatus]);
+    await persist(restartTutorial(tutorial));
+  }, [persist, tutorial]);
 
-  const value = {
-    // State
+  const value = useMemo(() => ({
     isActive,
-    currentStep,
-    userLevel,
-    tutorialCompleted,
-    isLoading,
-
-    // Actions
+    currentStep: tutorial.step,
+    userLevel: tutorial.level,
+    tutorialCompleted: tutorial.completed,
+    // Die Präferenzen kommen mit dem Nutzerobjekt; ein eigener Ladezustand
+    // entfällt. Solange kein Nutzer feststeht, gilt das Tutorial als "lädt" —
+    // sonst würde es einem gerade anmeldenden Nutzer kurz angeboten.
+    isLoading: userId === null,
     startTour,
     stopTour,
     nextStep,
@@ -157,7 +81,10 @@ export function GuidedTourProvider({ children }) {
     skipTour,
     setUserLevelDirectly,
     resetTour,
-  };
+  }), [
+    isActive, tutorial.step, tutorial.level, tutorial.completed, userId,
+    startTour, stopTour, nextStep, completeTour, skipTour, setUserLevelDirectly, resetTour,
+  ]);
 
   return (
     <GuidedTourContext.Provider value={value}>

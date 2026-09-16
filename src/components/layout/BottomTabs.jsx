@@ -28,7 +28,7 @@ export default function BottomTabs() {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { getTool, isToolAccessible, getUserPlanLevel } = useTool();
+  const { getToolByRoute, isToolAccessible } = useTool();
   const activePage = location.pathname.split('/')[1] || 'Dashboard';
 
   const follow = (event, path) => {
@@ -37,13 +37,20 @@ export default function BottomTabs() {
   };
 
   const renderLink = path => {
-    const tool = getTool(path);
+    // Nachschlagen ueber die ROUTE, nicht ueber den Seitennamen: die Tool-IDs
+    // sind kebab-case ('catches', 'ki-buddy'), die Navigationsschluessel aber
+    // Routennamen ('Logbook', 'KiBuddyBeta'). `getTool('Logbook')` traf deshalb
+    // nie ein Tool, und die Zugriffspruefung lief ins Leere.
+    const tool = getToolByRoute(`/${path}`);
     const accessible = tool ? isToolAccessible(tool.id) : true;
     const { name, icon: Icon } = tool || navigationItems[path];
     const ariaLabel = ARIA_LABELS[path] || name;
 
     if (!accessible) {
-      return <div key={path} role="tab" aria-disabled="true" className="bb-bottom-link opacity-50 cursor-not-allowed" title={`Freischalten über ${tool.requires || 'Premium'}`}><Lock size={22} aria-hidden="true"/><span>{name}</span></div>;
+      // Auch die gesperrte Variante braucht einen zugaenglichen Namen — ohne
+      // aria-label meldet ein Screenreader nur "Tab", und die Tab-Leiste war
+      // ueber ihre Rolle nicht mehr auffindbar.
+      return <div key={path} role="tab" aria-label={ariaLabel} aria-disabled="true" className="bb-bottom-link opacity-50 cursor-not-allowed" title={`Freischalten über ${tool.requires || 'Premium'}`}><Lock size={22} aria-hidden="true"/><span>{name}</span></div>;
     }
 
     return <Link key={path} to={`/${path}`} onClick={e => follow(e, path)} role="tab" aria-label={ariaLabel} aria-selected={activePage === path} className="bb-bottom-link" aria-current={activePage === path ? 'page' : undefined}><Icon size={22} aria-hidden="true"/><span>{name}</span></Link>;
@@ -59,8 +66,10 @@ export default function BottomTabs() {
       <SheetHeader><SheetTitle className="text-white">Was möchtest du machen?</SheetTitle><SheetDescription className="bb-muted">Dein nächster Schritt am Wasser.</SheetDescription></SheetHeader>
       <div className="grid gap-3 mt-6 max-w-xl mx-auto">
         <button type="button" className="bb-secondary" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('openCatchDialog')); }}><Fish size={20}/>Fang hinzufügen</button>
-        {[[Calendar, 'Ausflug planen', 'TripPlanner', '/TripPlanner?new=1'], [Brain, 'KI-Buddy', 'KiBuddyBeta', '/KiBuddyBeta'], [MapPin, 'Spot speichern', 'Map', '/Map?addSpot=1']].map(([Icon, label, toolId, to]) => {
-          const tool = getTool(toolId);
+        {[[Calendar, 'Ausflug planen', 'TripPlanner', '/TripPlanner?new=1'], [Brain, 'KI-Buddy', 'KiBuddyBeta', '/KiBuddyBeta'], [MapPin, 'Spot speichern', 'Map', '/Map?addSpot=1']].map(([Icon, label, page, to]) => {
+          // Wie oben ueber die Route nachschlagen: `getTool('TripPlanner')`
+          // traf nie ein Tool, die Pruefung lief also auch hier ins Leere.
+          const tool = getToolByRoute(`/${page}`);
           const accessible = tool ? isToolAccessible(tool.id) : true;
           return accessible ? (
             <Link key={to} className="bb-secondary" to={to} onClick={() => setOpen(false)}><Icon size={20}/>{label}</Link>

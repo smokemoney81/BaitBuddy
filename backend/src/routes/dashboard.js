@@ -44,8 +44,10 @@ router.get(
 
     try {
       // Call Supabase RPC for aggregated data
+      // Die App führt Nutzerdaten über `created_by = <E-Mail>`; `user_id` wird
+      // von keinem Schreibpfad befüllt (siehe catches.js/spots.js/misc.js).
       const { data, error } = await supabase.rpc('get_dashboard_data', {
-        user_id_param: userId,
+        user_email_param: req.user.email,
       });
 
       if (error) {

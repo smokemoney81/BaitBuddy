@@ -13,13 +13,16 @@ export const ALLOWED_PAGES = [
   "BaitMixer", "Koeder3D", "CatchStats", "ARKnotenAssistent", "Shop", "Premium",
   "PremiumPlans", "Help", "Tutorials", "Devices", "DeviceIntegration",
   "StartFishing", "UsedGear", "BathymetricCrowdsourcing",
-  "VoiceLecture"
+  "VoiceLecture", "BuddyKnowsYou"
 ];
 
 // Aliase (immer kleingeschrieben) kanonischer Key.
 // Deckt deutsche Begriffe, englische Begriffe und die Kurz-Bezeichner ab,
 // die der KI-System-Prompt verwendet (home, log, map, chat, ...).
 const PAGE_ALIASES = {
+  "was weißt du über mich": "BuddyKnowsYou", "was weisst du ueber mich": "BuddyKnowsYou",
+  "mein profil beim buddy": "BuddyKnowsYou", "buddy kennt mich": "BuddyKnowsYou",
+  "personalisierung": "BuddyKnowsYou", "meine daten": "BuddyKnowsYou",
   home: "Dashboard", startseite: "Dashboard", dashboard: "Dashboard",
   start: "Dashboard", übersicht: "Dashboard", uebersicht: "Dashboard",
 
@@ -29,6 +32,12 @@ const PAGE_ALIASES = {
   karte: "Map", map: "Map", gewässerkarte: "Map", gewaesserkarte: "Map",
 
   wetter: "Weather", weather: "Weather",
+  // Der Aktions-Katalog des Buddys (backend/src/lib/buddyActionCatalog.js)
+  // fuehrt "warnung" und "voice" als erlaubte Seiten-Werte. Ohne diese Aliase
+  // liefen genau die Navigationen ins Leere, die der Prompt selbst anbietet.
+  // Wetter-Warnungen leben auf der Wetter-Seite, "voice" meint den Sprachchat.
+  warnung: "Weather", warnungen: "Weather", wetterwarnung: "Weather",
+  voice: "VoiceChat",
 
   community: "Community", forum: "Community", feed: "Community",
 

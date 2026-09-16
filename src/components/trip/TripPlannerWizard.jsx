@@ -10,7 +10,7 @@ import { RuleEntry } from '@/entities/RuleEntry';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import {
   WIZARD_STEPS, createInitialWizardState, buildPlanPayload, stepComplete,
-  resolveQuickDate, defaultChecklist,
+  resolveQuickDate, defaultChecklist, missingChecklistItems,
 } from '@/lib/tripWizard';
 import { FISHING_SPECIES_OPTIONS, FISHING_METHOD_OPTIONS } from '@/lib/buddyPreferences';
 
@@ -458,17 +458,35 @@ function ChecklistStep({ state, update }) {
     setDraft('');
   };
   const remove = (item) => update({ checklist: state.checklist.filter((c) => c !== item) });
+  // §14: Was auf der Packliste steht, aber in der erfassten Ausruestung fehlt.
+  const missing = missingChecklistItems(state.checklist, state.gear_items);
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">Deine Checkliste — vorausgefüllt, frei anpassbar.</p>
       <div className="grid gap-1.5 max-h-52 overflow-y-auto">
-        {state.checklist.map((item) => (
-          <div key={item} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5 text-sm text-slate-200">
-            <span className="min-w-0 truncate">{item}</span>
-            <button type="button" aria-label={`${item} entfernen`} onClick={() => remove(item)} className="text-slate-500 hover:text-red-300"><Trash2 size={15} /></button>
-          </div>
-        ))}
+        {state.checklist.map((item) => {
+          const isMissing = missing.includes(item);
+          return (
+            <div key={item} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5 text-sm text-slate-200">
+              <span className="min-w-0 truncate flex items-center gap-2">
+                {item}
+                {isMissing && (
+                  <span className="shrink-0 text-xs text-amber-300" title="Dazu ist bei dir keine Ausrüstung erfasst">
+                    nicht erfasst
+                  </span>
+                )}
+              </span>
+              <button type="button" aria-label={`${item} entfernen`} onClick={() => remove(item)} className="text-slate-500 hover:text-red-300"><Trash2 size={15} /></button>
+            </div>
+          );
+        })}
       </div>
+      {missing.length > 0 && (
+        <p className="text-sm text-amber-300" role="status">
+          Zu {missing.length} {missing.length === 1 ? 'Punkt' : 'Punkten'} ist bei dir keine passende Ausrüstung
+          erfasst. Das heißt nicht, dass du sie nicht hast — prüf vor der Tour, ob alles mitkommt.
+        </p>
+      )}
       <div className="flex gap-2">
         <input type="text" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
           placeholder="Punkt hinzufügen" className="flex-1 min-h-11 rounded-xl bg-[#0b182b] border border-[#8aa4bc30] px-3 text-slate-100" />

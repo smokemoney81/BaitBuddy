@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveQuickDate, defaultChecklist, buildPlanPayload,
   stepComplete, createInitialWizardState, WIZARD_STEPS,
+  missingChecklistItems, ownsChecklistItem,
 } from './tripWizard';
 
 describe('resolveQuickDate', () => {
@@ -106,4 +107,53 @@ describe('stepComplete', () => {
 it('exposes 9 steps ending in summary', () => {
   expect(WIZARD_STEPS).toHaveLength(9);
   expect(WIZARD_STEPS[WIZARD_STEPS.length - 1].id).toBe('summary');
+});
+
+describe('missingChecklistItems', () => {
+  it('meldet ohne erfasste Ausruestung NICHTS als fehlend', () => {
+    // Sonst staende bei jedem neuen Nutzer die komplette Liste als Mangel da,
+    // obwohl er die Sachen sehr wohl besitzt.
+    expect(missingChecklistItems(['Kescher', 'Zange'], [])).toEqual([]);
+    expect(missingChecklistItems(['Kescher'], null)).toEqual([]);
+  });
+
+  it('erkennt vorhandene Ausruestung trotz abweichender Schreibweise', () => {
+    const gear = [{ name: 'Kescher gummiert 70 cm' }, { name: 'Lösezange lang' }];
+    expect(missingChecklistItems(['Kescher', 'Lösezange'], gear)).toEqual([]);
+  });
+
+  it('nennt genau die Punkte ohne passende Ausruestung', () => {
+    const gear = [{ name: 'Kescher gummiert' }];
+    expect(missingChecklistItems(['Kescher', 'Abhakmatte'], gear)).toEqual(['Abhakmatte']);
+  });
+
+  it('akzeptiert Ausruestung auch als reine Zeichenketten', () => {
+    expect(missingChecklistItems(['Kescher'], ['Kescher klein'])).toEqual([]);
+  });
+
+  it('ignoriert Ausruestung ohne Namen', () => {
+    const gear = [{ name: '' }, {}, null, { name: 'Kescher' }];
+    expect(missingChecklistItems(['Kescher', 'Zange'], gear)).toEqual(['Zange']);
+  });
+
+  it('kommt mit unbrauchbarer Checkliste zurecht', () => {
+    expect(missingChecklistItems(null, [{ name: 'Kescher' }])).toEqual([]);
+    expect(missingChecklistItems(['', null, 'Zange'], [{ name: 'Kescher' }])).toEqual(['Zange']);
+  });
+});
+
+describe('ownsChecklistItem', () => {
+  it('trifft ueber einen aussagekraeftigen Wortstamm', () => {
+    expect(ownsChecklistItem('Stahl-/Hardmono-Vorfach', ['Hardmono Vorfach 0,60 mm'])).toBe(true);
+  });
+
+  it('laesst sich nicht von kurzen Allerweltswoertern taeuschen', () => {
+    // "Zange" (5) traegt, "mm" oder "cm" duerfen nicht als Treffer zaehlen.
+    expect(ownsChecklistItem('Zange', ['Spinnrute 2,70 m'])).toBe(false);
+  });
+
+  it('meldet fuer leere Eingaben keinen Besitz', () => {
+    expect(ownsChecklistItem('', ['Kescher'])).toBe(false);
+    expect(ownsChecklistItem('Kescher', [])).toBe(false);
+  });
 });

@@ -305,7 +305,13 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
       <div className="bb-dashboard bb-app">
         {error && <div className="bb-card" role="alert"><p>Dashboard-Daten konnten nicht geladen werden.</p><button type="button" className="bb-secondary mt-3" onClick={loadData}>Erneut versuchen</button></div>}
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
-        <DashboardOverview user={user} nearestSpots={nearestSpots} />
+        <DashboardOverview
+          user={user}
+          nearestSpots={nearestSpots}
+          nextTrip={dashboardData?.next_trip || null}
+          tripsError={!!error}
+          onRetryTrips={refetch}
+        />
         <SuspenseWithErrorBoundary isMinimal={true}><NextTripHero /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><BuddyInsightCard /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><SchonzeitWarner /></SuspenseWithErrorBoundary>
