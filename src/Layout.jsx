@@ -19,6 +19,9 @@ import { Toaster } from "sonner";
 import { LanguageProvider } from "@/components/i18n/LanguageContext";
 import { PlanProvider } from "@/components/premium/PlanContext";
 import TrialBanner from "@/components/premium/TrialBanner";
+import { AdGateProvider, useAdGate } from "@/components/ads/AdGate";
+import InterstitialAd from "@/components/ads/InterstitialAd";
+import BannerAd from "@/components/ads/BannerAd";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/lib/PageTransitionEnhanced";
 import { isGuestAllowedPage } from "@/components/utils/guestMode";
@@ -49,6 +52,32 @@ const SuspenseWithErrorBoundary = ({ children }) => (
     </ErrorBoundary>
   </Suspense>
 );
+
+// Ad-Overlay — zeigt Gast-Interstitial wenn AdGate pending hat
+function AdInterstitialOverlay() {
+  const { pendingInterstitial, dismissInterstitial } = useAdGate();
+  if (!pendingInterstitial) return null;
+  return (
+    <InterstitialAd
+      sourceTool={pendingInterstitial.sourceTool}
+      targetPath={pendingInterstitial.targetPath}
+      onComplete={dismissInterstitial}
+    />
+  );
+}
+
+// Banner-Slot — zeigt dezentes Banner für Basic-Nutzer über der Navigation
+function AdBannerSlot() {
+  const { capabilities } = useAdGate();
+  if (!capabilities.bannerAds) return null;
+  return (
+    <BannerAd
+      ad={null}
+      placement="bottom_nav"
+      userPlan={capabilities.tier}
+    />
+  );
+}
 
 export default function Layout({ children, currentPageName }) {
   usePrefetch();
@@ -371,6 +400,7 @@ function LayoutContent({ children, currentPageName }) {
     <>
       <BackButtonHandler />
       <PlanProvider>
+        <AdGateProvider>
         <LanguageProvider>
           <HapticProvider>
             <SoundProvider>
@@ -437,7 +467,10 @@ function LayoutContent({ children, currentPageName }) {
                   </SwipeToRefresh>
                 </div>
 
+                <AdBannerSlot />
                 <BottomTabs />
+
+                <AdInterstitialOverlay />
 
                 <SuspenseWithErrorBoundary>
                   <AIBuddyWidgetStub />
@@ -733,6 +766,7 @@ function LayoutContent({ children, currentPageName }) {
             </SoundProvider>
           </HapticProvider>
           </LanguageProvider>
+        </AdGateProvider>
         </PlanProvider>
         </>
       );

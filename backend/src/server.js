@@ -30,6 +30,7 @@ import notesRoutes from './routes/notes.js';
 import functionsRoutes from './routes/functions.js';
 import referralsRoutes from './routes/referrals.js';
 import adminRoutes from './routes/admin.js';
+import adsRoutes from './routes/ads.js';
 import dashboardRoutes from './routes/dashboard.js';
 import personalizationRoutes from './routes/personalization.js';
 import { aiRateLimiter, ttsRateLimiter, authRateLimiter } from './middleware/rateLimit.js';
@@ -110,6 +111,7 @@ app.use('/api', notesRoutes);
 app.use('/api', functionsRoutes);
 app.use('/api', referralsRoutes);
 app.use('/api', adminRoutes);
+app.use('/api/ads', adsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/personalization', personalizationRoutes);
 
