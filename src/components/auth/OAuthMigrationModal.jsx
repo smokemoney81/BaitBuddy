@@ -68,7 +68,13 @@ export default function OAuthMigrationModal({ user, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    // pointer-events-auto ist zwingend: Das Modal wird aus LandingAuthPanel
+    // heraus gerendert, das in Home.jsx in einem `pointer-events-none`-Container
+    // haengt. Ohne das Zuruecksetzen erbt das Overlay `pointer-events: none`,
+    // die Klicks fallen durch auf das darunterliegende Anmelde-Panel und weder
+    // "Später" noch "Mit Google fortfahren" sind bedienbar. z-[60] hebt es ueber
+    // die fixierten z-50-Elemente der Landing Page (Sprachwahl, Tutorial-Button).
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60] pointer-events-auto">
       <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 max-w-sm w-full">
         <h2 className="text-xl font-bold text-white mb-2">Sicherheit erhöhen</h2>
         <p className="text-gray-400 text-sm mb-6">

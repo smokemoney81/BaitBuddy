@@ -111,6 +111,13 @@ export async function installApiMocks(page, options = {}) {
     paymentMethods: data.paymentMethods ?? { google_play: true, stripe: true },
   };
 
+  // Der Sitzungszustand muss sich zur Laufzeit aendern koennen: nach einem
+  // erfolgreichen Login/Register liefert das echte Backend bei /auth/me das
+  // Profil und nicht weiter 401. LandingAuthPanel ruft nach dem Login
+  // `auth.me()` auf, um zu entscheiden, ob das OAuth-Migrations-Modal noetig
+  // ist — mit einem festen Flag bliebe es beim 401 und der Login schlueg fehl.
+  let isAuthenticated = authenticated;
+
   if (authenticated) {
     await page.addInitScript(
       ([token, refresh]) => {
@@ -145,7 +152,7 @@ export async function installApiMocks(page, options = {}) {
       }
 
       if (path === '/api/auth/me') {
-        return authenticated
+        return isAuthenticated
           ? fulfillJson(route, state.user)
           : fulfillJson(route, { error: 'Kein Token' }, 401);
       }
@@ -154,6 +161,7 @@ export async function installApiMocks(page, options = {}) {
         if (!email || !password) {
           return fulfillJson(route, { error: 'E-Mail und Passwort sind erforderlich' }, 400);
         }
+        isAuthenticated = true;
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
@@ -165,6 +173,7 @@ export async function installApiMocks(page, options = {}) {
         if (!email || !password) {
           return fulfillJson(route, { error: 'E-Mail und Passwort sind erforderlich' }, 400);
         }
+        isAuthenticated = true;
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
