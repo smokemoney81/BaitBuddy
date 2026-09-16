@@ -4,12 +4,21 @@ export const BUDDIES = {
   female_default: { gender: 'female', name: 'Marina', avatar: '/assets/buddy/marina-avatar.png', portrait: '/assets/buddy/marina.png', description: 'Freundlich, modern und aufmerksam.' },
   male_default: { gender: 'male', name: 'Finn', avatar: '/assets/buddy/finn.png', portrait: '/assets/buddy/finn.png', description: 'Ruhig, direkt und erfahren.' },
 };
-export const DEFAULT_BUDDY = { gender: 'female', avatarId: 'female_default', voiceId: 'male', tone: 'friendly', speed: 1, voiceEnabled: true };
+// Antwort-Ausfuehrlichkeit (Masterprompt §8). Der Tarif setzt die Obergrenze,
+// diese Einstellung verschiebt die Laenge innerhalb der Stufe. Muss mit
+// DETAIL_LEVELS in backend/src/lib/personalizationEngine.js uebereinstimmen.
+export const DETAIL_OPTIONS = [
+  { id: 'short', label: 'Kurz' },
+  { id: 'normal', label: 'Normal' },
+  { id: 'detailed', label: 'Detailliert' },
+];
+export const DEFAULT_BUDDY = { gender: 'female', avatarId: 'female_default', voiceId: 'male', tone: 'friendly', speed: 1, voiceEnabled: true, detail: 'normal' };
 export function normalizeBuddy(value = {}) {
   const gender = value.gender === 'male' ? 'male' : 'female';
   return { gender, avatarId: `${gender}_default`, voiceId: value.voiceId === 'female' ? 'female' : 'male',
     tone: ['friendly', 'direct', 'casual', 'professional', 'motivating'].includes(value.tone) ? value.tone : 'friendly',
     speed: Number.isFinite(value.speed) ? Math.min(1.2, Math.max(0.8, value.speed)) : 1,
+    detail: DETAIL_OPTIONS.some(o => o.id === value.detail) ? value.detail : 'normal',
     voiceEnabled: value.voiceEnabled !== false, chosen: value.chosen === true };
 }
 export function normalizeNavigation(value) {

@@ -18,7 +18,7 @@ import { resolvePlan } from '../lib/planResolver.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 import { getTTSAudio } from '../lib/multiProviderTTS.js';
-import { buddyPersonalization } from '../lib/buddyPersonalization.js';
+import { personalizationContext } from '../lib/personalizationEngine.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
 
@@ -205,6 +205,13 @@ async function buildChatPrompt(req) {
     }))
     .filter(m => m.content.length > 0);
 
+  // Zentrale Personalisierung (§5): Profil, Tarifstufe, Antwortlänge und das
+  // Budget, wie viel Historie überhaupt geladen werden darf. Ohne bezahlten Plan
+  // ist das Budget 0 — dann entfallen die Abfragen unten komplett, statt Daten
+  // zu holen, die der Prompt gar nicht verwenden darf.
+  const personalization = personalizationContext(req.user);
+  const budget = personalization.budget;
+
   const lastMsg = [...safeMessages].reverse().find(m => m.role === 'user')?.content || '';
   const wantsCatches = /fang|fänge|gefangen|fangbuch|logbuch/i.test(lastMsg);
   const wantsRules = /schonzeit|mindestmaß|erlaubt|verboten/i.test(lastMsg);
@@ -217,11 +224,11 @@ async function buildChatPrompt(req) {
   // oder null; die Reihenfolge (Fänge, Schonzeiten, Spots, Wetter) bleibt fix.
   const [catchesPart, rulesPart, spotsPart, weatherPart, planningPart] = await Promise.all([
     optionalContext('Fangbuch', async () => {
-      if (!wantsCatches) return null;
+      if (!wantsCatches || budget.catches === 0) return null;
       const { data: catches } = await supabase
         .from('catches').select('*')
         .eq('created_by', userEmail)
-        .order('catch_time', { ascending: false }).limit(10);
+        .order('catch_time', { ascending: false }).limit(budget.catches);
       if (!catches?.length) return null;
       return 'FANGBUCH:\n' + catches.map(c =>
         `- ${c.species || '?'}, ${c.length_cm || '?'}cm, ${c.weight_kg || '?'}kg, Köder: ${c.bait_used || '?'}`
@@ -238,10 +245,10 @@ async function buildChatPrompt(req) {
       ).join('\n');
     }),
     optionalContext('Spots', async () => {
-      if (!wantsSpots) return null;
+      if (!wantsSpots || budget.spots === 0) return null;
       const { data: spots } = await supabase
         .from('spots').select('name,water_type')
-        .eq('created_by', userEmail).limit(10);
+        .eq('created_by', userEmail).limit(budget.spots);
       if (!spots?.length) return null;
       return 'MEINE SPOTS:\n' + spots.map(s => `- ${s.name} (${s.water_type})`).join('\n');
     }),
@@ -261,10 +268,10 @@ async function buildChatPrompt(req) {
       return `WETTER: ${w.current.temperature_2m}°C, Wind: ${w.current.wind_speed_10m}km/h`;
     }),
     optionalContext('Ausrüstung und Trips', async () => {
-      if (!wantsPlanning) return null;
+      if (!wantsPlanning || budget.plans === 0) return null;
       const [gearResult, plansResult] = await Promise.all([
-        supabase.from('gear_items').select('data').eq('created_by', userEmail).limit(30),
-        supabase.from('fishing_plans').select('title,target_fish,planned_date,spot_info,details,steps').eq('created_by', userEmail).limit(10),
+        supabase.from('gear_items').select('data').eq('created_by', userEmail).limit(budget.gear),
+        supabase.from('fishing_plans').select('title,target_fish,planned_date,spot_info,details,steps').eq('created_by', userEmail).limit(budget.plans),
       ]);
       const gear = (gearResult.data || []).map(row => row.data?.name).filter(Boolean);
       const plans = plansResult.data || [];
@@ -288,7 +295,7 @@ DEINE PERSÖNLICHKEIT:
 
 ${CONVERSATION_STYLE}
 
-${buddyPersonalization(req.user)}
+${personalization.prompt}
 
 ${APP_FEATURE_KNOWLEDGE}
 
@@ -830,6 +837,9 @@ router.post('/ai/realtime-session', requireAuth, async (req, res) => {
       + `Erinnere an Schonzeiten und Events, falls relevant. `
       + `Sei motivierend und positiv – Angeln soll Spaß machen!`
       + `\n\n${CONVERSATION_STYLE}`
+      // Dieselbe zentrale Personalisierung wie im Text-Chat (§5). Ohne sie war
+      // der Sprachmodus der einzige Buddy-Zugang ohne Profilwissen.
+      + `\n\n${personalizationContext(req.user).prompt}`
       + `\n\n${APP_FEATURE_KNOWLEDGE}`
       // Im Sprachmodus gibt es den Aktions-Mechanismus des Text-Chats nicht —
       // ohne diesen Hinweis würde der Voice-Buddy fälschlich behaupten, er habe

@@ -599,3 +599,73 @@ describe('Optionaler App-Kontext bricht die Antwort nicht ab', () => {
     }
   });
 });
+
+// Personalisierungs-Engine (§5/§8) im Chat-Endpunkt: Der Tarif entscheidet, wie
+// viel Kontext ueberhaupt geladen wird und was im System-Prompt steht.
+describe('POST /api/ai/chat — Tarif-Staffelung', () => {
+  const FUTURE = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+  const CATCHES = [{ species: 'Zander', length_cm: 61, weight_kg: 2.7, bait_used: 'Gummifisch' }];
+
+  function mockUser({ plan = null, settings = {} } = {}) {
+    supabaseMock.current = createSupabaseMock({
+      authUser: {
+        id: 'u1',
+        email: 'a@b.de',
+        app_metadata: plan ? { premium_plan_id: plan, premium_expires_at: FUTURE } : {},
+        user_metadata: { settings },
+      },
+      fromResults: { catches: { data: CATCHES, error: null } },
+    });
+  }
+
+  // requireAuth cached den aufgeloesten Nutzer pro Token (60 s). Ein zweiter
+  // Aufruf mit demselben Token bekaeme deshalb das Profil des ersten — jeder
+  // Aufruf braucht ein eigenes.
+  let tokenCounter = 0;
+
+  async function promptFor(user) {
+    mockUser(user);
+    llmMock.invokeLLM = vi.fn().mockResolvedValue('Alles klar.');
+    tokenCounter += 1;
+    await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer tok-${tokenCounter}`)
+      .send({ messages: [{ role: 'user', content: 'Was waren meine letzten Fänge?' }] });
+    return llmMock.invokeLLM.mock.calls[0][0].prompt;
+  }
+
+  // Nur der App-Daten-Block traegt Nutzerdaten. Die statische Wissensbasis
+  // nennt "Fangbuch" und Fischarten ebenfalls — eine Suche im ganzen Prompt
+  // wuerde deshalb immer anschlagen.
+  function appData(prompt) {
+    return prompt.split('--- App-Daten ---')[1] ?? '';
+  }
+
+  it('laedt fuer einen Nutzer ohne Plan keine Fanghistorie', async () => {
+    const prompt = await promptFor({});
+    expect(appData(prompt)).not.toContain('FANGBUCH');
+    expect(prompt).not.toContain('61cm');
+  });
+
+  it('laedt die Fanghistorie ab einem bezahlten Plan', async () => {
+    const prompt = await promptFor({ plan: 'pro' });
+    expect(appData(prompt)).toContain('FANGBUCH');
+    expect(prompt).toContain('61cm');
+  });
+
+  it('nimmt das Angler-Profil erst ab einem bezahlten Plan in den Prompt', async () => {
+    const settings = { fishing: { targetSpecies: ['Hecht'] } };
+    expect(await promptFor({ settings })).not.toContain('Zielfische:');
+    expect(await promptFor({ plan: 'basic', settings })).toContain('Zielfische: Hecht');
+  });
+
+  it('gibt die Satzvorgabe des Tarifs im Prompt vor', async () => {
+    expect(await promptFor({})).toContain('1 bis 2 Sätze');
+    expect(await promptFor({ plan: 'pro' })).toContain('4 bis 8 Sätze');
+  });
+
+  it('beruecksichtigt die Antwortlaengen-Einstellung des Nutzers', async () => {
+    const prompt = await promptFor({ plan: 'pro', settings: { buddy: { detail: 'short' } } });
+    expect(prompt).toContain('2 bis 4 Sätze');
+  });
+});
