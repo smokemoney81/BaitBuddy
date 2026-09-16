@@ -2,6 +2,15 @@
 // Eigener BaitBuddy API-Client — ersetzt @base44/sdk vollständig
 
 import { timeoutSignal, anySignal } from '@/lib/abortCompat';
+import {
+  isGuestEntity,
+  guestList,
+  guestGet,
+  guestFilter,
+  guestCreate,
+  guestUpdate,
+  guestDelete,
+} from '@/lib/guestStore';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'bb_token';
@@ -311,6 +320,13 @@ const ENTITY_MAP = {
   SocialMediaShare: '/api/social-media/shares',
 };
 
+// Ein Gast (kein `bb_token`) kann die geschützten Endpunkte nicht erreichen.
+// Für die Entities aus `GUEST_ENTITIES` übernimmt der lokale Gast-Speicher, statt
+// den Aufrufer in einen 401 laufen zu lassen.
+function isGuestRequest(entityName) {
+  return isGuestEntity(entityName) && !api.getToken();
+}
+
 function makeEntity(entityName) {
   const base = ENTITY_MAP[entityName];
 
@@ -337,6 +353,10 @@ function makeEntity(entityName) {
 
   return {
     list: async (orderBy, limit) => {
+      if (isGuestRequest(entityName)) {
+        const records = guestList(entityName);
+        return limit ? records.slice(0, limit) : records;
+      }
       if (!base) return [];
       const p = new URLSearchParams();
       if (limit) p.set('limit', limit);
@@ -348,6 +368,7 @@ function makeEntity(entityName) {
     },
 
     filter: async (filters = {}) => {
+      if (isGuestRequest(entityName)) return guestFilter(entityName, filters);
       if (!base) return [];
       const p = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => { if (v != null) p.set(k, String(v)); });
@@ -360,11 +381,13 @@ function makeEntity(entityName) {
     },
 
     get: async (id) => {
+      if (isGuestRequest(entityName)) return guestGet(entityName, id);
       if (!base) return null;
       try { return await api.get(`${base}/${id}`); } catch { return null; }
     },
 
     create: async (data) => {
+      if (isGuestRequest(entityName)) return guestCreate(entityName, data);
       if (!base) return { id: generateOfflineId(), ...data };
       const result = await safePost(base, data);
       if (result?.__error) throw new Error(result.message);
@@ -372,17 +395,20 @@ function makeEntity(entityName) {
     },
 
     bulkCreate: async (items = []) => {
+      if (isGuestRequest(entityName)) return items.map((d) => guestCreate(entityName, d));
       if (!base) return items.map((d) => ({ id: generateOfflineId(), ...d }));
       const result = await api.post(`${base}/bulk`, items);
       return Array.isArray(result) ? result : [];
     },
 
     update: async (id, data) => {
+      if (isGuestRequest(entityName)) return guestUpdate(entityName, id, data);
       if (!base) return { id, ...data };
       return await api.patch(`${base}/${id}`, data);
     },
 
     delete: async (id) => {
+      if (isGuestRequest(entityName)) return guestDelete(entityName, id);
       if (!base) return { ok: true };
       return await api.del(`${base}/${id}`);
     },
@@ -935,4 +961,11 @@ export const dashboard = {
   // Single request returns: next_trip, recent_catches, top_spots, weather, buddy_suggestion, statistics
   getData: () => api.get('/api/dashboard'),
   refresh: () => api.post('/api/dashboard/refresh'),
+};
+
+// Transparenzbereich "BaitBuddy kennt dich" (§6). Nur lesend — korrigiert und
+// gelöscht wird über den Präferenz-Pfad (auth.updateMe), damit es dafür genau
+// eine Schreibstelle gibt.
+export const personalization = {
+  getProfile: () => api.get('/api/personalization/me'),
 };

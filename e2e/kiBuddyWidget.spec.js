@@ -22,9 +22,11 @@ test.describe('KI-Buddy Widget', () => {
     // Avatar des Widget-Stubs (schwebt unten rechts). Klick per Koordinaten:
     // Die Endlos-Schwebe-Animation (framer-motion) laesst Playwrights
     // Stabilitaets-Check bei element.click() sonst haengen.
-    // BuddyAvatar.jsx rendert ein <img>-Tag mit alt="{name}, dein KI-Buddy".
-    // Prefix-Match auf alt-Text, damit bei Buddy-Umbenennung der Selector nicht bricht.
-    const avatar = page.locator('.fixed.z-50 img[alt$="dein KI-Buddy"]').last();
+    // BuddyAvatar.jsx rendert ein <img class="buddy-avatar"> (frueher ein
+    // <svg aria-label="KI-Buddy …">). Ueber die Klasse statt ueber den
+    // Alternativtext, weil dieser den gewaehlten Buddy-Namen enthaelt
+    // ("Marina, dein KI-Buddy") und sich mit der Auswahl aendert.
+    const avatar = page.locator('.fixed.z-50 img.buddy-avatar').last();
     await avatar.waitFor({ state: 'visible', timeout: 15_000 });
     const box = await avatar.boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

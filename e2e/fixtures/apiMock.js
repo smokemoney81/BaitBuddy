@@ -19,27 +19,22 @@ export const FIXTURE_USER = {
   id: 'e2e-user-id',
   email: 'e2e-tester@baitbuddy.test',
   full_name: 'E2E Tester',
-  oauth_linked: true,
-  first_open_at: '2026-01-01T00:00:00.000Z',
   user_metadata: { role: 'user' },
   settings: {
     navigation: {
       bottomNavigation: ['Dashboard', 'Logbook', 'Weather', 'Community'],
     },
-    // Ohne `chosen: true` oeffnet BuddyOnboarding.jsx sein Modal, sobald der
-    // AuthContext den Nutzer aufgeloest hat (`canSave && !buddy.chosen`). Das
-    // passiert asynchron und rennt damit gegen die Assertions: das Modal legt
-    // sich ueber die Tab-Leiste und das KI-Buddy-Widget, sodass die Tests je
-    // nach Timing mal gruen und mal rot waren. Ein Fixture-Nutzer mit
-    // gespeicherter Navigation hat das Onboarding laengst hinter sich.
-    buddy: {
-      gender: 'female',
-      avatarId: 'female_default',
-      voiceId: 'male',
-      tone: 'friendly',
-      speed: 1,
-      voiceEnabled: true,
-      chosen: true,
+    // Der Fixture-Nutzer ist ein eingerichtetes Konto, kein Neuzugang. Ohne
+    // diesen Abschnitt oeffnet OnboardingFlow beim Dashboard-Aufruf seinen
+    // Dialog; Radix nimmt den uebrigen Seiteninhalt dann per aria-hidden aus
+    // dem Accessibility-Baum und die Tab-Leiste ist ueber ihre Rolle nicht
+    // mehr auffindbar. Dass ein NEUER Nutzer das Onboarding bekommt, deckt
+    // onboarding.spec.js ab.
+    onboarding: {
+      completed: true,
+      skipped: false,
+      stepIndex: 15,
+      completedAt: '2026-01-01T00:00:00.000Z',
     },
   },
 };
@@ -116,22 +111,6 @@ export async function installApiMocks(page, options = {}) {
     paymentMethods: data.paymentMethods ?? { google_play: true, stripe: true },
   };
 
-  // Tracks auth state at the Node.js level to avoid page.evaluate() inside
-  // route handlers (which can deadlock when the execution context is not yet
-  // stable during page initialisation).
-  let mutableAuthenticated = authenticated;
-
-  // Die Guided Tour startet sich auf dem Dashboard nach 500 ms selbst
-  // (GuidedTourController.jsx), sofern `bb_tour_skipped` nicht gesetzt ist.
-  // Ihren Abschluss-Status liest sie per Browser-Supabase-Client aus der
-  // users-Tabelle — also NICHT ueber /api/, womit die Route-Mocks unten sie
-  // nicht erreichen. Ihr Overlay legt sich ueber Tab-Leiste und KI-Buddy-Avatar
-  // und verschluckt damit Klicks. Der Fixture-Nutzer ist ein eingerichteter
-  // Nutzer, kein Erstbesucher, deshalb das Erstnutzer-Onboarding abschalten.
-  await page.addInitScript(() => {
-    window.localStorage.setItem('bb_tour_skipped', 'true');
-  });
-
   if (authenticated) {
     await page.addInitScript(
       ([token, refresh]) => {
@@ -166,9 +145,7 @@ export async function installApiMocks(page, options = {}) {
       }
 
       if (path === '/api/auth/me') {
-        // Use closure variable — avoids page.evaluate() inside a route handler,
-        // which can deadlock if the browser execution context is not yet stable.
-        return mutableAuthenticated
+        return authenticated
           ? fulfillJson(route, state.user)
           : fulfillJson(route, { error: 'Kein Token' }, 401);
       }
@@ -177,11 +154,10 @@ export async function installApiMocks(page, options = {}) {
         if (!email || !password) {
           return fulfillJson(route, { error: 'E-Mail und Passwort sind erforderlich' }, 400);
         }
-        mutableAuthenticated = true;
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
-          user: { ...state.user, email, oauth_linked: true },
+          user: { ...state.user, email },
         });
       }
       if (path === '/api/auth/register' && method === 'POST') {
@@ -189,11 +165,10 @@ export async function installApiMocks(page, options = {}) {
         if (!email || !password) {
           return fulfillJson(route, { error: 'E-Mail und Passwort sind erforderlich' }, 400);
         }
-        mutableAuthenticated = true;
         return fulfillJson(route, {
           token: FIXTURE_TOKEN,
           refresh_token: FIXTURE_REFRESH,
-          user: { ...state.user, email, full_name: full_name ?? '', oauth_linked: true },
+          user: { ...state.user, email, full_name: full_name ?? '' },
         });
       }
       if (path === '/api/auth/refresh') {
@@ -214,6 +189,33 @@ export async function installApiMocks(page, options = {}) {
       }
       if (path === '/api/referrals/redeem' && method === 'POST') {
         return fulfillJson(route, { ok: true });
+      }
+      // Aggregierte Dashboard-Daten (BFF). Ohne eigenen Eintrag fiele der
+      // Aufruf auf die GET-Default-Antwort `[]` zurueck — das entspricht nicht
+      // dem Vertrag aus useDashboardData.ts und laesst das Dashboard in einem
+      // undefinierten Zustand rendern.
+      if (path === '/api/dashboard') {
+        if (method === 'GET') {
+          return fulfillJson(route, {
+            data: {
+              next_trip: null,
+              recent_catches: [],
+              top_spots: [],
+              weather: null,
+              buddy_suggestion: null,
+              statistics: {
+                total_catches: state.catches.length,
+                total_weight: 6.9,
+                personal_best: 4.2,
+                species_count: 2,
+                weeks_active: 2,
+              },
+              timestamp: '2026-05-14T06:30:00.000Z',
+            },
+            metadata: { plan: state.plan.plan, cached_at: '2026-05-14T06:30:00.000Z', ttl_seconds: 300 },
+          });
+        }
+        return route.fulfill({ status: 204, body: '' });
       }
       if (path === '/api/catches') {
         if (method === 'GET') return fulfillJson(route, state.catches);

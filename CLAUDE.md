@@ -294,6 +294,20 @@ Details in `supabase/README.md`.
 - Secrets `SUPABASE_ACCESS_TOKEN` und `SUPABASE_DB_PASSWORD` müssen in den
   Repository-Secrets gesetzt sein, sonst schlägt der Deploy bewusst fehl.
 
+> ⚠️ **Regel: `USING (true)` ist bei personenbezogenen Daten ein Datenleck.**
+> Eine SELECT-Policy ohne `to`-Klausel gilt für die Rolle `public` — also auch
+> für `anon`. Der Anon-Key liegt im ausgelieferten Client-Bundle; wer ihn dort
+> herauszieht, liest die ganze Tabelle. Dieser Fehler ist bereits **viermal**
+> aufgetreten (`users`, `support_tickets`, `function_ratings`,
+> `depth_data_points`) — dreimal trug die Policy sogar „own" im Namen, während
+> ihre Bedingung `true` lautete. Der Name ist keine Zugriffskontrolle.
+>
+> Für jede Policy auf einer Tabelle mit Nutzerdaten deshalb: Rolle explizit
+> setzen (`to authenticated`) und die Zeile am Nutzer festmachen
+> (`auth.uid() = user_id` bzw. `user_email = auth.jwt() ->> 'email'`). Was nur
+> das Backend liest, braucht gar keine Lese-Policy — die Service-Role umgeht RLS
+> ohnehin. Prüfen lässt sich das direkt: `set local role anon;` und zählen.
+
 ## 📱 Device-Features (Pflicht)
 
 | Feature | Anforderung |

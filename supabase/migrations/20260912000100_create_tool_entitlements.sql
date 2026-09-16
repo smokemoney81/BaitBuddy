@@ -34,6 +34,8 @@ create index if not exists user_tool_unlocks_active_lookup
 
 alter table public.user_tool_unlocks enable row level security;
 
+-- CREATE POLICY kennt kein IF NOT EXISTS (siehe CLAUDE.md, Migrations-Regeln).
+drop policy if exists "users read their own permanent tool unlocks" on public.user_tool_unlocks;
 create policy "users read their own permanent tool unlocks"
   on public.user_tool_unlocks for select to authenticated
   using (auth.uid() = user_id);
@@ -52,6 +54,7 @@ create table if not exists public.tool_usage_monthly (
 
 alter table public.tool_usage_monthly enable row level security;
 
+drop policy if exists "users read their own tool usage" on public.tool_usage_monthly;
 create policy "users read their own tool usage"
   on public.tool_usage_monthly for select to authenticated
   using (auth.uid() = user_id);

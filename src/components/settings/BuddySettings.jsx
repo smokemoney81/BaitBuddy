@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { BUDDIES } from '@/lib/buddyPreferences';
+import { BUDDIES, DETAIL_OPTIONS } from '@/lib/buddyPreferences';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 
 export default function BuddySettings({ onSaved }) {
@@ -24,6 +24,7 @@ export default function BuddySettings({ onSaved }) {
     <div className="grid sm:grid-cols-2 gap-5">
       <label className="bb-settings-field">Stimme<select value={draft.voiceId} onChange={e => set('voiceId', e.target.value)}><option value="male">Daniel</option><option value="female">Matilda (Ultimate)</option></select><span className="text-xs text-slate-400">Die bestehende Audio-Freigabe deines Tarifs gilt weiterhin. Ohne Ultimate wird Daniel verwendet.</span></label>
       <label className="bb-settings-field">Tonalität<select value={draft.tone} onChange={e => set('tone', e.target.value)}><option value="friendly">Freundlich</option><option value="direct">Direkt</option><option value="casual">Locker</option><option value="professional">Professionell</option><option value="motivating">Motivierend</option></select></label>
+      <label className="bb-settings-field">Antwortlänge<select value={draft.detail} onChange={e => set('detail', e.target.value)}>{DETAIL_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select><span className="text-xs text-slate-400">Dein Tarif bestimmt die Obergrenze; diese Einstellung verschiebt die Länge innerhalb davon.</span></label>
       <label className="bb-settings-field">Sprachgeschwindigkeit: {draft.speed.toFixed(1)}×<input type="range" min="0.8" max="1.2" step="0.1" value={draft.speed} onChange={e => set('speed', Number(e.target.value))}/></label>
       <label className="bb-secondary cursor-pointer"><Volume2 size={20}/><span className="flex-1">Voice-Buddy aktivieren</span><input type="checkbox" className="w-5 h-5 accent-cyan-400" checked={draft.voiceEnabled} onChange={e => set('voiceEnabled', e.target.checked)}/></label>
     </div>

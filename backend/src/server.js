@@ -31,6 +31,7 @@ import functionsRoutes from './routes/functions.js';
 import referralsRoutes from './routes/referrals.js';
 import adminRoutes from './routes/admin.js';
 import dashboardRoutes from './routes/dashboard.js';
+import personalizationRoutes from './routes/personalization.js';
 import { aiRateLimiter, ttsRateLimiter, authRateLimiter } from './middleware/rateLimit.js';
 import { getAnthropicKey } from './lib/llm.js';
 import { getAllowedOrigins } from './lib/allowedOrigins.js';
@@ -110,6 +111,7 @@ app.use('/api', functionsRoutes);
 app.use('/api', referralsRoutes);
 app.use('/api', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/personalization', personalizationRoutes);
 
 app.use((req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.path}` }));
 app.use(errorLogger);

@@ -63,6 +63,7 @@ const Analysis = lazyPage(() => import('./pages/Analysis'));
 const AngelscheinPruefungSchonzeiten = lazyPage(() => import('./pages/AngelscheinPruefungSchonzeiten'));
 const BaitMixer = lazyPage(() => import('./pages/BaitMixer'));
 const BathymetricCrowdsourcing = lazyPage(() => import('./pages/BathymetricCrowdsourcing'));
+const BuddyKnowsYou = lazyPage(() => import('./pages/BuddyKnowsYou'));
 const CatchCam = lazyPage(() => import('./pages/CatchCam'));
 const Community = lazyPage(() => import('./pages/Community'));
 const Dashboard = lazyPage(() => import('./pages/Dashboard'));
@@ -117,6 +118,7 @@ export const PAGES = {
     "AngelscheinPruefungSchonzeiten": AngelscheinPruefungSchonzeiten,
     "BaitMixer": BaitMixer,
     "BathymetricCrowdsourcing": BathymetricCrowdsourcing,
+    "BuddyKnowsYou": BuddyKnowsYou,
     "CatchCam": CatchCam,
     "Community": Community,
     "Dashboard": Dashboard,

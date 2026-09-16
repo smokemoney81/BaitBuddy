@@ -65,6 +65,53 @@ export function defaultChecklist(state = {}) {
   return [...new Set(items)];
 }
 
+// Vergleich von Checklisten-Punkt und Ausrüstungsnamen. Beides ist Freitext
+// ("Kescher" gegen "Kescher gummiert 70 cm"), deshalb wird normalisiert und in
+// beide Richtungen auf Teilstrings geprüft. Bewusst einfach und erklärbar: Ein
+// falsch als "fehlend" gemeldeter Punkt ist ärgerlicher als einer, der
+// unerkannt bleibt — der Nutzer hakt ihn dann einfach ab.
+function normalizeItemName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-zäöüß0-9]+/g, ' ')
+    .trim();
+}
+
+// Der signifikante Wortstamm eines Checklisten-Punkts. "Stahl-/Hardmono-Vorfach"
+// trifft so auch "Hardmono Vorfach 0,60 mm".
+function nameTokens(value) {
+  return normalizeItemName(value).split(' ').filter((w) => w.length >= 4);
+}
+
+export function ownsChecklistItem(item, gearNames = []) {
+  const itemNorm = normalizeItemName(item);
+  if (!itemNorm) return false;
+  const tokens = nameTokens(item);
+
+  return gearNames.some((gear) => {
+    const gearNorm = normalizeItemName(gear);
+    if (!gearNorm) return false;
+    if (gearNorm.includes(itemNorm) || itemNorm.includes(gearNorm)) return true;
+    // Mindestens ein aussagekräftiges Wort muss im Ausrüstungsnamen vorkommen.
+    return tokens.some((token) => gearNorm.includes(token));
+  });
+}
+
+/**
+ * Punkte der Packliste, zu denen der Nutzer keine passende Ausrüstung erfasst
+ * hat (§14: „fehlende Gegenstände"). Ohne erfasste Ausrüstung wird bewusst
+ * NICHTS als fehlend gemeldet — sonst stünde bei jedem neuen Nutzer die
+ * komplette Liste als Mangel da, obwohl er die Sachen sehr wohl besitzt.
+ */
+export function missingChecklistItems(checklist = [], gearItems = []) {
+  const names = (Array.isArray(gearItems) ? gearItems : [])
+    .map((g) => (typeof g === 'string' ? g : g?.name))
+    .filter(Boolean);
+  if (names.length === 0) return [];
+  return (Array.isArray(checklist) ? checklist : [])
+    .filter((item) => item && !ownsChecklistItem(item, names));
+}
+
 // Wizard-State aus einem bestehenden Plan (Bearbeiten) oder leer (neu).
 export function createInitialWizardState(plan = null) {
   if (!plan) {

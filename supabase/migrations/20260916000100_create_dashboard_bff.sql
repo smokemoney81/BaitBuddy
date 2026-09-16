@@ -1,174 +1,154 @@
 /**
  * Dashboard BFF (Backend For Frontend) Aggregation
  *
- * Combines multiple dashboard data sources into a single RPC call:
- * - Next trip (soonest upcoming)
- * - Recent catches (last 7 days)
- * - Spots overview
- * - Weather summary
- * - AI Buddy suggestion
+ * Fasst die Dashboard-Daten in einem einzigen RPC-Aufruf zusammen, statt das
+ * Frontend pro Abschnitt eine eigene Anfrage stellen zu lassen.
  *
- * This eliminates the N+1 query problem where the frontend makes
- * separate requests for each dashboard section.
+ * ── Schlüssel: created_by (E-Mail), nicht user_id ──────────────────────────
+ * Die App führt Nutzerdaten durchgehend über `created_by = <E-Mail>`
+ * (catches.js, spots.js, misc.js, ai.js). Die Spalte `user_id` existiert zwar,
+ * wird aber von keinem Schreibpfad befüllt — in der Produktionsdatenbank ist
+ * sie bei allen Fängen und Spots NULL. Eine Aggregation über `user_id` liefert
+ * deshalb für jeden Nutzer ein leeres Dashboard.
+ *
+ * ── Ausführungsrecht ───────────────────────────────────────────────────────
+ * Aufrufer ist ausschließlich `backend/src/routes/dashboard.js` über die
+ * Service-Role; die Authentifizierung ist dort bereits erfolgt (`requireAuth`).
+ * Eine Prüfung per `auth.uid()` wäre hier zwecklos — für die Service-Role ist
+ * `auth.uid()` NULL.
+ *
+ * Damit die Funktion trotz `security definer` kein Datenleck wird, darf sie NUR
+ * die Service-Role ausführen. `authenticated` bekommt bewusst kein EXECUTE:
+ * sonst könnte jeder angemeldete Nutzer eine fremde E-Mail übergeben und deren
+ * Fänge, Spots und Touren lesen.
+ *
+ * Der JSON-Aufbau entspricht dem Vertrag in `src/hooks/useDashboardData.ts`.
  */
 
--- Create the RPC function for dashboard data aggregation
-create or replace function get_dashboard_data(user_id_param uuid)
+-- Die frühere Fassung hatte die Signatur (uuid) und muss weichen, damit kein
+-- überladenes Paar zurückbleibt, bei dem PostgREST die falsche wählt.
+drop function if exists get_dashboard_data(uuid);
+drop function if exists get_dashboard_data(text);
+
+create function get_dashboard_data(user_email_param text)
 returns jsonb
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
-  v_user_id uuid;
-  v_result jsonb;
-  v_next_trip record;
+  v_next_trip jsonb;
   v_recent_catches jsonb;
   v_top_spots jsonb;
-  v_weather jsonb;
-  v_buddy_suggestion jsonb;
-  v_statistics record;
+  v_statistics jsonb;
 begin
-  -- Validate user
-  v_user_id := auth.uid();
-  if v_user_id is null or v_user_id != user_id_param then
-    raise exception 'Unauthorized';
+  if user_email_param is null or user_email_param = '' then
+    raise exception 'user_email_param is required';
   end if;
 
-  -- Get next upcoming trip
-  select
-    id,
-    name,
-    description,
-    start_date,
-    end_date,
-    location,
-    target_species,
-    status,
-    created_at
-  into v_next_trip
-  from fishing_plans
-  where user_id = v_user_id
-    and status = 'active'
-    and start_date > now()
-  order by start_date asc
-  limit 1;
+  -- Nächste geplante Tour.
+  select to_jsonb(t) into v_next_trip
+  from (
+    select
+      fp.id,
+      fp.title            as name,
+      fp.details          as description,
+      fp.planned_date     as start_date,
+      null::timestamptz   as end_date,
+      fp.spot_info        as location,
+      case
+        when fp.target_fish is null or fp.target_fish = '' then '[]'::jsonb
+        else jsonb_build_array(fp.target_fish)
+      end                 as target_species,
+      case when fp.is_active then 'active' else 'planned' end as status
+    from fishing_plans fp
+    where fp.created_by = user_email_param
+      and fp.planned_date > now()
+    order by fp.planned_date asc
+    limit 1
+  ) t;
 
-  -- Get recent catches (last 7 days)
-  select jsonb_agg(
-    jsonb_build_object(
-      'id', id,
-      'species', species,
-      'weight', weight,
-      'length', length,
-      'location', location,
-      'caught_at', caught_at,
-      'photo_urls', photo_urls,
-      'bait_type', bait_type
-    )
-    order by caught_at desc
-  ) into v_recent_catches
-  from catches
-  where user_id = v_user_id
-    and caught_at > now() - interval '7 days'
-  limit 10;
+  -- Fänge der letzten 7 Tage.
+  select coalesce(jsonb_agg(to_jsonb(c) order by c.caught_at desc), '[]'::jsonb)
+    into v_recent_catches
+  from (
+    select
+      id,
+      species,
+      weight_kg   as weight,
+      length_cm   as length,
+      spot_name   as location,
+      catch_time  as caught_at,
+      case when photo_url is null then '[]'::jsonb else jsonb_build_array(photo_url) end as photo_urls,
+      bait_used   as bait_type
+    from catches
+    where created_by = user_email_param
+      and catch_time > now() - interval '7 days'
+    order by catch_time desc
+    limit 10
+  ) c;
 
-  -- Get top spots (most used in last 30 days)
-  select jsonb_agg(
-    jsonb_build_object(
-      'id', spot_id,
-      'name', s.name,
-      'location', s.location,
-      'usage_count', count(*),
-      'avg_success', coalesce(
-        avg(case when catches.id is not null then 1 else 0 end),
-        0
-      )::numeric
-    )
+  -- Meistbefischte Spots der letzten 30 Tage. Gruppiert wird über `spot_name`:
+  -- `catches.spot_id` wird vom Schreibpfad praktisch nicht gesetzt, der Name
+  -- dagegen schon. Die Koordinaten kommen per Namensabgleich aus `spots`, falls
+  -- dort ein passender Eintrag desselben Nutzers existiert.
+  select coalesce(jsonb_agg(to_jsonb(s) order by s.usage_count desc), '[]'::jsonb)
+    into v_top_spots
+  from (
+    select
+      -- min(uuid) gibt es in PostgreSQL nicht, deshalb über die Textdarstellung.
+      coalesce(min(sp.id::text), c.spot_name) as id,
+      c.spot_name as name,
+      concat_ws(', ', min(sp.latitude)::text, min(sp.longitude)::text) as location,
+      count(*)::integer as usage_count,
+      coalesce(avg(case when c.is_released then 0 else 1 end), 0)::numeric as avg_success
+    from catches c
+    left join spots sp
+      on sp.name = c.spot_name
+     and sp.created_by = c.created_by
+    where c.created_by = user_email_param
+      and c.catch_time > now() - interval '30 days'
+      and c.spot_name is not null
+    group by c.spot_name
     order by count(*) desc
-  ) into v_top_spots
-  from fishing_plans fp
-  left join catches on catches.spot_id = fp.spot_id
-    and catches.user_id = v_user_id
-  join spots s on s.id = fp.spot_id
-  where fp.user_id = v_user_id
-    and fp.start_date > now() - interval '30 days'
-  group by fp.spot_id, s.name, s.location
-  limit 5;
+    limit 5
+  ) s;
 
-  -- Get weather summary for user's favorite spot
+  -- Kennzahlen der letzten 90 Tage.
   select jsonb_build_object(
-    'temperature', temperature,
-    'condition', condition,
-    'wind_speed', wind_speed,
-    'precipitation', precipitation,
-    'lunar_phase', lunar_phase,
-    'timestamp', timestamp
-  ) into v_weather
-  from weather_data
-  where user_id = v_user_id
-  order by timestamp desc
-  limit 1;
-
-  -- Get AI Buddy suggestion (can be null if none generated recently)
-  select jsonb_build_object(
-    'suggestion', content,
-    'type', suggestion_type,
-    'generated_at', created_at
-  ) into v_buddy_suggestion
-  from ai_buddy_suggestions
-  where user_id = v_user_id
-  order by created_at desc
-  limit 1;
-
-  -- Get quick statistics
-  select
-    count(*)::integer as total_catches,
-    coalesce(sum(weight)::numeric(10,2), 0) as total_weight,
-    coalesce(max(weight)::numeric(10,2), 0) as personal_best,
-    count(distinct species)::integer as species_count,
-    count(distinct date_trunc('week', caught_at)::date)::integer as weeks_active
-  into v_statistics
+    'total_catches', count(*)::integer,
+    'total_weight', coalesce(sum(weight_kg), 0)::numeric(10,2),
+    'personal_best', coalesce(max(weight_kg), 0)::numeric(10,2),
+    'species_count', count(distinct species)::integer,
+    'weeks_active', count(distinct date_trunc('week', catch_time)::date)::integer
+  ) into v_statistics
   from catches
-  where user_id = v_user_id
-    and caught_at > now() - interval '90 days';
+  where created_by = user_email_param
+    and catch_time > now() - interval '90 days';
 
-  -- Assemble response
-  v_result := jsonb_build_object(
-    'next_trip', case when v_next_trip is null then null else jsonb_build_object(
-      'id', v_next_trip.id,
-      'name', v_next_trip.name,
-      'description', v_next_trip.description,
-      'start_date', v_next_trip.start_date,
-      'end_date', v_next_trip.end_date,
-      'location', v_next_trip.location,
-      'target_species', v_next_trip.target_species,
-      'status', v_next_trip.status
-    ) end,
-    'recent_catches', coalesce(v_recent_catches, '[]'::jsonb),
-    'top_spots', coalesce(v_top_spots, '[]'::jsonb),
-    'weather', v_weather,
-    'buddy_suggestion', v_buddy_suggestion,
-    'statistics', jsonb_build_object(
-      'total_catches', v_statistics.total_catches,
-      'total_weight', v_statistics.total_weight,
-      'personal_best', v_statistics.personal_best,
-      'species_count', v_statistics.species_count,
-      'weeks_active', v_statistics.weeks_active
-    ),
+  return jsonb_build_object(
+    'next_trip', v_next_trip,
+    'recent_catches', v_recent_catches,
+    'top_spots', v_top_spots,
+    -- Wetter liefert das Frontend live über open-meteo (useFishingConditions),
+    -- Buddy-Vorschläge erzeugt das LLM zur Laufzeit. Für beides gibt es keine
+    -- Tabelle; die Schlüssel bleiben im Vertrag, sind aber leer.
+    'weather', null,
+    'buddy_suggestion', null,
+    'statistics', v_statistics,
     'timestamp', now()
   );
-
-  return v_result;
 end;
 $$;
 
--- Create index for faster trip queries
-create index if not exists idx_fishing_plans_user_status_date
-on fishing_plans(user_id, status, start_date);
+create index if not exists idx_fishing_plans_created_by_planned_date
+on fishing_plans(created_by, planned_date);
 
--- Create index for faster catch queries
-create index if not exists idx_catches_user_caught_date
-on catches(user_id, caught_at desc);
+create index if not exists idx_catches_created_by_catch_time
+on catches(created_by, catch_time desc);
 
--- Grant execute permission to authenticated users
-grant execute on function get_dashboard_data(uuid) to authenticated;
+-- Nur die Service-Role darf aggregieren (siehe Kopfkommentar).
+revoke all on function get_dashboard_data(text) from public;
+revoke all on function get_dashboard_data(text) from anon;
+revoke all on function get_dashboard_data(text) from authenticated;
+grant execute on function get_dashboard_data(text) to service_role;
