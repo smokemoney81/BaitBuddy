@@ -7,7 +7,7 @@ import { useLocation } from '@/components/location/LocationManager';
 import { useFishingConditions } from '@/hooks/useFishingConditions';
 import { formatForecastTime, weatherDescription } from '@/lib/fishingConditions';
 import BuddyCard from '@/components/buddy/BuddyCard';
-import BuddyOnboarding from '@/components/buddy/BuddyOnboarding';
+import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 function DataError({ onRetry, children }) { return <div role="alert" className="bb-muted py-3"><p>{children}</p><button className="bb-secondary mt-2" type="button" onClick={onRetry}>Erneut versuchen</button></div>; }
@@ -27,7 +27,7 @@ export default function DashboardOverview({ user, nearestSpots = [] }) {
   const name = user?.nickname || user?.full_name?.split(' ')[0];
   const upcoming = nextTrip ? `Dein nächster Trip: ${nextTrip.title}, ${new Date(nextTrip.planned_date).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}. Lass uns deine Vorbereitung prüfen.` : nextWindow ? `Das günstigste Wetterfenster der nächsten 24 Stunden liegt bei ${formatForecastTime(nextWindow.start, timezone, true)}. Lass uns einen passenden Spot und deine Ausrüstung dazu finden.` : 'Wo, wann und womit möchtest du angeln? Ich helfe dir, deinen nächsten Ausflug vorzubereiten.';
   return <>
-    <BuddyOnboarding/>
+    <OnboardingFlow/>
     <header className="flex items-center justify-between gap-4"><div><p className="bb-eyebrow mb-2">Dein Tag am Wasser</p><h1 className="text-2xl font-semibold tracking-tight">{greeting}{name ? `, ${name}` : ''}.</h1><p className="bb-muted mt-1">Ein guter Ausflug beginnt mit einem guten Plan.</p></div></header>
     <section className="bb-card bb-hero">
       <img src="/assets/buddy/lake-hero.png" alt="" className="bb-hero-image" fetchPriority="high"/>

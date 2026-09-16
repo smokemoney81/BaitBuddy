@@ -58,3 +58,32 @@ export function normalizeFishing(value = {}) {
     preferredTime: normalizeTimeWindow(v.preferredTime),
   };
 }
+
+// Angler-Profil (BaitBuddy 2.0): Erfahrung, Region und persönliche Ziele.
+// Liegt wie buddy/navigation/fishing in user_metadata.settings und geht über
+// denselben savePreferences-Pfad. Die Region referenziert `FEDERAL_STATES`
+// (src/components/rules/rule-utils.jsx) — dieselbe Kennung nutzen Regelwerk und
+// Schonzeiten, damit Angaben aus dem Onboarding dort direkt greifen.
+export const EXPERIENCE_OPTIONS = [
+  { id: 'beginner', label: 'Anfänger', description: 'Erste Schritte, Grundlagen stehen noch an.' },
+  { id: 'advanced', label: 'Fortgeschritten', description: 'Regelmäßig unterwegs, Technik sitzt weitgehend.' },
+  { id: 'expert', label: 'Erfahren', description: 'Langjährige Praxis, gezielte Taktik.' },
+];
+
+export const GOAL_OPTIONS = [
+  'Mehr Fänge',
+  'Neue Gewässer entdecken',
+  'Technik verbessern',
+  'Zielfisch gezielt fangen',
+  'Entspannung',
+  'Wettbewerbe',
+];
+
+export const DEFAULT_ANGLER = { experience: null, region: null, goals: [] };
+
+export function normalizeAngler(value = {}) {
+  const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const experience = EXPERIENCE_OPTIONS.some((o) => o.id === v.experience) ? v.experience : null;
+  const region = typeof v.region === 'string' && /^[a-z]{2}$/.test(v.region) ? v.region : null;
+  return { experience, region, goals: cleanStringList(v.goals, 6) };
+}
