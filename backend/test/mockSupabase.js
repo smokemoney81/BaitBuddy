@@ -43,10 +43,15 @@ export function createQueryBuilderMock(result = { data: null, error: null }) {
 // Antwortform ist bewusst exakt die echte: `listUsers()` liefert
 // `{ data: { users: [...] } }` und ist seitenweise — beides hatte der
 // Produktivcode falsch angenommen.
+// `rpcResults` speist `supabase.rpc(name, args)` — pro Funktionsname ein
+// `{ data, error }`. Ohne Eintrag antwortet der Mock wie Postgres bei einer
+// unbekannten Funktion, damit ein Test den Fehlerpfad nicht versehentlich
+// als Erfolg liest.
 export function createSupabaseMock({
   authUser = null,
   authError = null,
   fromResults = {},
+  rpcResults = {},
   adminUsers = [],
   adminPerPage = 200,
 } = {}) {
@@ -83,6 +88,12 @@ export function createSupabaseMock({
     return { data: { user }, error: null };
   });
 
+  const rpc = vi.fn(async (name) => (
+    name in rpcResults
+      ? rpcResults[name]
+      : { data: null, error: { message: `function ${name} does not exist` } }
+  ));
+
   return {
     auth: {
       getUser: vi.fn(async () => ({
@@ -92,6 +103,7 @@ export function createSupabaseMock({
       admin: { listUsers, getUserById, updateUserById },
     },
     from,
+    rpc,
     __builders: builders,
     __adminUsers: users,
   };
