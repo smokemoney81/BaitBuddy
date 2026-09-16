@@ -10,6 +10,20 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+  			/* BaitBuddy 2.0 Design System */
+  			'bb-main': 'var(--bb-bg-main)',
+  			'bb-card': 'var(--bb-bg-card)',
+  			'bb-cyan': 'var(--bb-brand-cyan)',
+  			'bb-success': 'var(--bb-success-green)',
+  			'bb-warning': 'var(--bb-warning-orange)',
+  			'bb-danger': 'var(--bb-danger-red)',
+  			'bb-text': 'var(--bb-text-primary)',
+  			'bb-text-secondary': 'var(--bb-text-secondary)',
+  			'bb-text-muted': 'var(--bb-text-muted)',
+  			'bb-gray-100': 'var(--bb-gray-100)',
+  			'bb-gray-50': 'var(--bb-gray-50)',
+
+  			/* Legacy shadcn/ui colors (fallback) */
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {

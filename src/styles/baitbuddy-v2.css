@@ -1,18 +1,29 @@
-:root { --bb-background:#0b1324; --bb-surface:rgba(15,30,45,.88); --bb-primary:#22d3ee; --bb-muted:#9caec3; --bb-radius:22px; --bb-shadow:0 12px 36px -20px #0009; }
+:root {
+  /* BaitBuddy 2.0 Design System Colors (exact hex codes) */
+  --bb-background:#08121D;
+  --bb-surface:#112335;
+  --bb-primary:#00D0E2;
+  --bb-muted:#94A3B8;
+  --bb-success:#10B981;
+  --bb-warning:#F59E0B;
+  --bb-danger:#EF4444;
+  --bb-radius:16px;
+  --bb-shadow:0 12px 36px -20px #0009;
+}
 .bb-app { background:var(--bb-background); color:#eef5fa; }
-.bb-card { background:var(--bb-surface); border-radius:var(--bb-radius); box-shadow:var(--bb-shadow); padding:22px; min-width:0; }
+.bb-card { background:var(--bb-surface); border-radius:16px; box-shadow:var(--bb-shadow); padding:16px; min-width:0; }
 .bb-eyebrow { color:var(--bb-primary); font-size:11px; text-transform:uppercase; letter-spacing:.16em; font-weight:700; }
 .bb-title { font-size:clamp(28px,6vw,38px); line-height:1.15; letter-spacing:-.035em; font-weight:750; }
 .bb-muted { color:var(--bb-muted); font-size:14px; line-height:1.6; }
-.bb-action { min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:12px 20px; border-radius:14px; background:var(--bb-primary); color:#062030; font-weight:700; transition:background .2s,transform .2s; }
+.bb-action { min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:12px 20px; border-radius:9999px; background:var(--bb-primary); color:#000000; font-weight:700; transition:background .2s,transform .2s; }
 .bb-action:hover { background:#67e8f9; }.bb-action:active { transform:scale(.98); }.bb-action:disabled { opacity:.5; cursor:wait; }
 .bb-app :is(button,a,input,select,textarea):focus-visible { outline:2px solid #67e8f9; outline-offset:4px; }
-.bb-secondary { min-height:44px; display:inline-flex; gap:8px; align-items:center; padding:10px 14px; border-radius:12px; background:#ffffff08; color:#c8e6ef; }
+.bb-secondary { min-height:44px; display:inline-flex; gap:8px; align-items:center; padding:10px 14px; border-radius:9999px; background:#ffffff08; color:#c8e6ef; }
 .bb-bottom { position:fixed; bottom:0; left:0; right:0; z-index:50; background:rgba(9,20,35,.95); backdrop-filter:blur(16px); padding:8px 8px max(8px,env(safe-area-inset-bottom)); box-shadow:0 -8px 32px #0003; }
 .bb-bottom-items { display:flex; align-items:center; max-width:600px; margin:auto; gap:4px; }
 .bb-bottom-link { flex:1; min-width:0; min-height:50px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; font-size:11px; color:var(--bb-muted); }
-.bb-bottom-link[aria-current=page] { color:#67e8f9; }.bb-bottom-plus { width:52px; height:52px; border-radius:18px; background:var(--bb-primary); color:#062030; display:grid; place-items:center; flex-shrink:0; }
-.bb-settings-field { display:flex; flex-direction:column; gap:8px; font-size:14px; color:#dce8f2; }.bb-settings-field :is(select,input,textarea) { min-height:48px; border-radius:12px; padding:12px; background:#0b182b; border:1px solid #8aa4bc30; color:#f4f8fb; width:100%; }
+.bb-bottom-link[aria-current=page] { color:var(--bb-primary); }.bb-bottom-plus { width:52px; height:52px; border-radius:9999px; background:var(--bb-primary); color:#000000; display:grid; place-items:center; flex-shrink:0; }
+.bb-settings-field { display:flex; flex-direction:column; gap:8px; font-size:14px; color:#dce8f2; }.bb-settings-field :is(select,input,textarea) { min-height:48px; border-radius:12px; padding:12px; background:var(--bb-background); border:1px solid #8aa4bc30; color:var(--bb-text-primary); width:100%; }
 .bb-buddy-photo { object-fit:cover; object-position:center 25%; border-radius:18px; flex-shrink:0; }.bb-buddy-photo[data-speaking=true] { outline:2px solid #22d3ee; outline-offset:4px; }
 .bb-hero { position:relative; isolation:isolate; overflow:hidden; min-height:330px; display:flex; flex-direction:column; justify-content:flex-end; background:#102a38; }
 .bb-hero-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-2; }.bb-hero::after { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(180deg,#06132110,#071525b8 45%,#071525f5); }

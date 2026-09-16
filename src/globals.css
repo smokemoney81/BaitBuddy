@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* BaitBuddy 2.0 Design System */
+@import './styles/baitbuddy-design-tokens.css';
+@import './styles/baitbuddy-v2.css';
+
 /* Import optimized CSS modules */
 @import './styles/hover-states-mobile-first.css';
 @import './styles/gradient-animations-optimized.css';

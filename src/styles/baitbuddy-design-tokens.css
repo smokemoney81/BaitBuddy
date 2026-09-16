@@ -1,0 +1,44 @@
+/**
+ * BaitBuddy 2.0 Design System — Farb-Tokens
+ * Zentrale Definitions-Quelle für die einheitliche Farbpalette
+ * Gilt für beide Dark- und Light-Mode (Dark ist primär)
+ */
+
+:root {
+  /* Primary Background & Card Colors */
+  --bb-bg-main: #08121D;           /* Tiefes Dunkelblau, App-Hintergrund */
+  --bb-bg-card: #112335;           /* Card-Container, Modal-Hintergrund */
+
+  /* Brand Accent (Primary Action) */
+  --bb-brand-cyan: #00D0E2;        /* Aktive Tabs, Icons, Buttons, Slider */
+
+  /* Semantic Colors */
+  --bb-success-green: #10B981;     /* Biss-Index, Checkmarks, positive Werte */
+  --bb-warning-orange: #F59E0B;    /* Warnungen, Sterne-Bewertungen, Alerts */
+  --bb-danger-red: #EF4444;        /* Fehler, Lösch-Aktionen, kritische Werte */
+
+  /* Text Colors */
+  --bb-text-primary: #FFFFFF;      /* Überschriften, Haupttexte */
+  --bb-text-secondary: #94A3B8;    /* Untertitel, Zeitangaben, inaktive Elemente */
+  --bb-text-muted: #64748B;        /* Noch weniger Gewicht (für Abkürzungen, Icons) */
+
+  /* Neutral Grays (für Borders, Dividers) */
+  --bb-gray-100: #1E2937;          /* Leichter Grau-Ton (Divider, Border) */
+  --bb-gray-50: #0F1823;           /* Noch dunkler als bg-main (für Depth) */
+
+  /* Component-specific Colors */
+  --bb-border-color: rgba(255, 255, 255, 0.1);  /* Leichte Borders (Opacity) */
+  --bb-overlay-dark: rgba(0, 0, 0, 0.5);       /* Modals, Bottom-Sheets */
+}
+
+/**
+ * Tailwind Integration: Diese Token sind via CSS-Variablen
+ * auch in Tailwind erreichbar, indem wir sie in tailwind.config.js
+ * als dynamische Farben registrieren (z.B. bg-bb-main, text-bb-primary)
+ */
+
+@layer base {
+  body {
+    @apply bg-bb-main text-bb-text-primary;
+  }
+}

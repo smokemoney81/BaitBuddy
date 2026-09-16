@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* BaitBuddy 2.0 Design System Color Tokens */
+@import './styles/baitbuddy-design-tokens.css';
+
 
 /* :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
