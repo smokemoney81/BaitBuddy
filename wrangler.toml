@@ -7,7 +7,9 @@
 #   Build command:  npm install --legacy-peer-deps && npm run build
 #   Deploy command: npx wrangler deploy   (nutzt diese Datei)
 # Variablen/Secret am Worker:
-#   BACKEND_URL (Var)  — Uebergang: https://bait-buddy.vercel.app, spaeter Container-URL
+#   BACKEND_URL (Var)  — Basis-URL des Express-Backends. Zeigt auf das neue
+#                        Vercel-Projekt (Konto ssbedburg); spaeter Container-URL.
+#                        Im Dashboard als Worker-Variable ueberschreibbar.
 #   CRON_SECRET (Secret) — identisch zum Backend, aktiviert die Cron-Triggers
 #
 # Der reine statische Frontend-Deploy per Pages ist damit abgeloest; die SPA wird
@@ -30,7 +32,9 @@ not_found_handling = "single-page-application"
 [triggers]
 crons = ["0 3 * * *", "0 2 * * *", "0 1 * * *", "0 0 1 * *"]
 
-# Nicht-geheime Variable. BACKEND_URL zeigt auf das Express-Backend. Uebergang:
-# bestehendes Vercel-Backend, damit /api sofort funktioniert; spaeter Container.
+# Nicht-geheime Variable. BACKEND_URL zeigt auf das Express-Backend. Aktuell das
+# neue Vercel-Projekt (Konto ssbedburg), damit /api sofort funktioniert; der
+# Cloudflare-Container folgt spaeter. Der exakte Produktions-Alias ist im neuen
+# Vercel-Dashboard zu verifizieren und ggf. als Worker-Variable zu ueberschreiben.
 [vars]
-BACKEND_URL = "https://bait-buddy.vercel.app"
+BACKEND_URL = "https://bait-buddy-ssbedburg-2361s-projects.vercel.app"

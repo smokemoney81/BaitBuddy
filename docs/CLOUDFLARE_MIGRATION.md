@@ -46,8 +46,12 @@ Die produktive Web-App-Domain ist **`catchgbt.com`** (Apex). Erwartete Origins:
 2. Cloudflare "Workers Builds" (Projekt `baitbuddy`) konfigurieren:
    Build command `npm install --legacy-peer-deps && npm run build`, Deploy ueber
    die Root-`wrangler.toml` (`npx wrangler deploy`).
-3. Am Worker setzen: Variable `BACKEND_URL` (Uebergang: `https://bait-buddy.vercel.app`,
-   spaeter Container-URL) und Secret `CRON_SECRET` (identisch zum Backend).
+3. Am Worker setzen: Variable `BACKEND_URL` (aktuell das **neue Vercel-Projekt**,
+   Konto `ssbedburg` — exakten Produktions-Alias im Vercel-Dashboard verifizieren;
+   spaeter die Container-URL) und Secret `CRON_SECRET` (identisch zum Backend).
+   Hinweis: Der Backend-Container (`docker/backend.Dockerfile`, `[[containers]]`)
+   ist die Ziel-Architektur, aber **zurueckgestellt** — er braucht den Workers
+   Paid Plan. Bis dahin proxyt der Front-Door `/api/*` an das Vercel-Backend.
 4. Worker Custom Domain `catchgbt.com` (und `www` bzw. Redirect `www -> apex`)
    hinzufuegen; alten `www`-CNAME (manus.space) erst danach ersetzen.
 5. Spaeter: Backend-Container (`docker/backend.Dockerfile`) deployen, Secrets aus
