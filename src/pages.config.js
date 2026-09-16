@@ -82,6 +82,7 @@ const LiveTripPage = lazyPage(() => import('./pages/LiveTripPage'));
 const Map = lazyPage(() => import('./pages/Map'));
 const MapPage = lazyPage(() => import('./pages/MapPage'));
 const Match3Game = lazyPage(() => import('./pages/Match3Game'));
+const MyDevices = lazyPage(() => import('./pages/MyDevices'));
 const Premium = lazyPage(() => import('./pages/Premium'));
 const PremiumPlans = lazyPage(() => import('./pages/PremiumPlans'));
 const Profile = lazyPage(() => import('./pages/Profile'));
@@ -137,6 +138,7 @@ export const PAGES = {
     "Map": Map,
     "MapPage": MapPage,
     "Match3Game": Match3Game,
+    "MyDevices": MyDevices,
     "Premium": Premium,
     "PremiumPlans": PremiumPlans,
     "Profile": Profile,
