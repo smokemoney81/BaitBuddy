@@ -12,8 +12,8 @@ export default function ARView() {
       try {
         const currentUser = await auth.me();
         setUser(currentUser);
-      } catch (e) {
-        console.log("User not logged in:", e);
+      } catch {
+        // User nicht angemeldet - normal bei Gästen
       }
     };
     loadUser();
