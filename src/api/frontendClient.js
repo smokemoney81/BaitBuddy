@@ -864,6 +864,8 @@ export const ai = {
     api.post('/api/ai/fish-recipes', { species, weight_g, length_cm, catch_date, keep }),
   recognizeGear:     (image_base64) => api.post('/api/ai/recognize-gear', { image_base64 }),
   gearMaintenanceTips: (gearItems)  => api.post('/api/ai/gear-maintenance-tips', { gearItems }),
+  satelliteAnalysis:   (lat, lng, spot_name = null) =>
+    api.post('/api/ai/satellite-analysis', { latitude: lat, longitude: lng, spot_name }),
 };
 
 export const weather = {
