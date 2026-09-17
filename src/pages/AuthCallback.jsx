@@ -14,6 +14,34 @@ export default function AuthCallback() {
     let unsubscribed = false;
     let attempts = 0;
 
+    // PKCE-Austausch: Wenn die URL einen "code" enthält, muss dieser explizit
+    // gegen eine Session ausgetauscht werden. Das ist zwingend für PKCE in Webbrowsern;
+    // nur auf getSession() zu warten funktioniert nicht.
+    const tryExchangeCode = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+
+      if (!code) {
+        console.log('[AuthCallback] No code in URL, will try getSession directly');
+        return null;
+      }
+
+      console.log('[AuthCallback] Code found in URL, exchanging for session...');
+
+      try {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error('[AuthCallback] Code exchange failed:', error.message);
+          return null;
+        }
+        console.log('[AuthCallback] Code exchange successful');
+        return data?.session;
+      } catch (err) {
+        console.error('[AuthCallback] Code exchange exception:', err.message);
+        return null;
+      }
+    };
+
     // Versucht, die Session zu holen mit Wiederholungslogik.
     // Supabase braucht manchmal kurz, um die Session nach dem Redirect zu setzen.
     const tryGetSession = async () => {
@@ -21,6 +49,23 @@ export default function AuthCallback() {
 
       attempts++;
       console.log('[AuthCallback] Attempt', attempts, 'to get session...');
+
+      // Erst versuchen, den Code auszutauschen (falls vorhanden)
+      if (attempts === 1) {
+        const exchangedSession = await tryExchangeCode();
+        if (exchangedSession?.access_token) {
+          console.log('[AuthCallback] Using exchanged session');
+          console.log('[AuthCallback] Access token:', exchangedSession.access_token.slice(0, 20) + '...');
+          api.setToken(exchangedSession.access_token);
+          if (exchangedSession.refresh_token) api.setRefreshToken(exchangedSession.refresh_token);
+          console.log('[AuthCallback] Tokens set in localStorage, redirecting...');
+          if (!unsubscribed) {
+            window.location.replace('/Dashboard');
+          }
+          return;
+        }
+      }
+
       const { data, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
