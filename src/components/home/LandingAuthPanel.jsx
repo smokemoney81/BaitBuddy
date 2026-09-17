@@ -158,13 +158,21 @@ export default function LandingAuthPanel() {
         }
         if (data?.url) {
           await openOAuthUrl(data.url);
+          // Nach dem Öffnen der OAuth-URL zeige "Warte auf Anmeldung" statt direkt einen Fehler
+          setLoginInfo('Bitte melde dich in deinem Browser an und warte auf die Rückkehr zur App.');
         }
       } else {
+        // Web: signInWithOAuth leitet automatisch weiter
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
           options: { redirectTo: redirectUrl },
         });
-        if (error) setLoginError('Social Login fehlgeschlagen: ' + error.message);
+        if (error) {
+          setLoginError('Social Login fehlgeschlagen: ' + error.message);
+          return;
+        }
+        // Erfolgreicher OAuth-Start: wir werden zu /AuthCallback weitergeleitet
+        setLoginInfo('Du wirst zum Login weitergeleitet...');
       }
     } catch (err) {
       console.error('[OAuth Error]', err);

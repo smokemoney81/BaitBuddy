@@ -49,11 +49,37 @@ export async function initializeDeepLinking() {
           }
 
           console.log('[DeepLink] Exchanging PKCE code...');
-          const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+          let sessionData, exchangeError;
+          let attempts = 0;
+          const maxAttempts = 3;
+
+          // Retry-Logik für Code-Austausch (Netzwerk-Latenzen möglich)
+          while (attempts < maxAttempts) {
+            attempts++;
+            try {
+              const result = await Promise.race([
+                supabase.auth.exchangeCodeForSession(code),
+                new Promise((_, reject) =>
+                  setTimeout(() => reject(new Error('Code exchange timeout')), 10000)
+                ),
+              ]);
+              sessionData = result.data;
+              exchangeError = result.error;
+              break;
+            } catch (err) {
+              if (attempts < maxAttempts) {
+                console.log(`[DeepLink] Retry ${attempts}/${maxAttempts - 1}...`);
+                await new Promise(r => setTimeout(r, 500));
+              } else {
+                exchangeError = err;
+              }
+            }
+          }
 
           if (exchangeError) {
-            console.error('[DeepLink] Code exchange failed:', exchangeError.message);
-            window.dispatchEvent(new CustomEvent('baitbuddy:oauth-error', { detail: { message: exchangeError.message } }));
+            console.error('[DeepLink] Code exchange failed:', exchangeError?.message || exchangeError?.toString?.() || 'Unknown error');
+            window.dispatchEvent(new CustomEvent('baitbuddy:oauth-error', { detail: { message: exchangeError?.message || 'Code-Austausch fehlgeschlagen' } }));
             return;
           }
 
@@ -65,6 +91,9 @@ export async function initializeDeepLinking() {
             }
             console.log('[DeepLink] Redirecting to Dashboard');
             window.location.replace('/Dashboard');
+          } else {
+            console.warn('[DeepLink] No access_token in session');
+            window.dispatchEvent(new CustomEvent('baitbuddy:oauth-error', { detail: { message: 'Keine Authentifizierungsdaten erhalten' } }));
           }
         } catch (e) {
           console.error('[DeepLink] Processing error:', e);

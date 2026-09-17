@@ -3,21 +3,30 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { auth } from '@/api/auth';
 
+const RETRY_DELAY_MS = 500;
+const MAX_RETRIES = 6;
+
 export default function OAuthLinkingCallback() {
   const [status, setStatus] = useState('OAuth-Verknüpfung wird verarbeitet...');
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
     let unsubscribed = false;
+    let attempts = 0;
 
-    const handleOAuthLinking = async () => {
+    const tryLinkOAuth = async () => {
       if (unsubscribed) return;
 
+      attempts++;
       try {
-        // Holt die neue Session von Supabase nach OAuth
         const { data, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
+          // Retry bei Fehler
+          if (attempts < MAX_RETRIES) {
+            setTimeout(tryLinkOAuth, RETRY_DELAY_MS);
+            return;
+          }
           setStatus('Fehler: ' + sessionError.message);
           setTimeout(() => {
             if (typeof window !== 'undefined') {
@@ -28,44 +37,67 @@ export default function OAuthLinkingCallback() {
         }
 
         if (data.session?.access_token) {
-          // Nutzer ist jetzt mit Google in Supabase
-          // Markiere das im Backend, dass der Link vollständig ist
-          await auth.linkOAuth('google');
-
-          if (!unsubscribed) {
-            setStatus('Erfolgreich verbunden! Wird weitergeleitet...');
-            setTimeout(() => {
-              if (typeof window !== 'undefined') {
-                window.location.href = '/Dashboard';
-              }
-            }, 1500);
+          // Session da → mit Linking-Versuch
+          try {
+            await auth.linkOAuth('google');
+            if (!unsubscribed) {
+              setStatus('Erfolgreich verbunden! Wird weitergeleitet...');
+              setTimeout(() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/Dashboard';
+                }
+              }, 1500);
+            }
+          } catch (linkErr) {
+            console.warn('[OAuthLinking] linkOAuth failed, but proceeding:', linkErr);
+            // Auch wenn linkOAuth fehlschlägt, war das OAuth erfolgreich
+            // → weiterleiten ohne zu blockieren
+            if (!unsubscribed) {
+              setStatus('Verknüpfung geklärt. Wird weitergeleitet...');
+              setTimeout(() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/Dashboard';
+                }
+              }, 1000);
+            }
           }
           return;
         }
 
-        // Fallback: Warte auf onAuthStateChange
+        // Session noch nicht da → Retry
+        if (attempts < MAX_RETRIES) {
+          setTimeout(tryLinkOAuth, RETRY_DELAY_MS);
+          return;
+        }
+
+        // Letzter Retry: auf onAuthStateChange warten
+        setStatus('Warte auf Authentifizierung...');
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           (event, session) => {
             if (unsubscribed) return;
             if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.access_token) {
-              auth.linkOAuth('google').then(() => {
-                subscription.unsubscribe();
-                unsubscribed = true;
-                setStatus('Erfolgreich verbunden! Wird weitergeleitet...');
-                setTimeout(() => {
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/Dashboard';
-                  }
-                }, 1500);
-              }).catch((err) => {
-                console.error('linkOAuth failed:', err);
-                setStatus('Fehler beim Speichern. Trotzdem weiterleiten...');
-                setTimeout(() => {
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/Dashboard';
-                  }
-                }, 2000);
-              });
+              auth.linkOAuth('google')
+                .then(() => {
+                  subscription.unsubscribe();
+                  unsubscribed = true;
+                  setStatus('Erfolgreich verbunden! Wird weitergeleitet...');
+                  setTimeout(() => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/Dashboard';
+                    }
+                  }, 1500);
+                })
+                .catch((err) => {
+                  console.error('linkOAuth failed:', err);
+                  subscription.unsubscribe();
+                  unsubscribed = true;
+                  setStatus('Authentifiziert. Wird weitergeleitet...');
+                  setTimeout(() => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/Dashboard';
+                    }
+                  }, 1000);
+                });
             }
           }
         );
@@ -73,14 +105,14 @@ export default function OAuthLinkingCallback() {
         const timeout = setTimeout(() => {
           if (!unsubscribed) {
             subscription.unsubscribe();
-            setStatus('Verknüpfung abgelaufen. Wird zum Dashboard geleitet...');
+            setStatus('Timeout. Wird zum Dashboard geleitet...');
             setTimeout(() => {
               if (typeof window !== 'undefined') {
                 window.location.href = '/Dashboard';
               }
-            }, 2000);
+            }, 1000);
           }
-        }, 15000);
+        }, 10000);
 
         return () => {
           unsubscribed = true;
@@ -89,7 +121,25 @@ export default function OAuthLinkingCallback() {
         };
       } catch (err) {
         console.error('[OAuthLinking Error]', err);
-        setStatus('Fehler: ' + (err.message || 'Unbekannter Fehler'));
+        if (attempts < MAX_RETRIES) {
+          setTimeout(tryLinkOAuth, RETRY_DELAY_MS);
+        } else {
+          setStatus('Fehler: ' + (err.message || 'Unbekannter Fehler'));
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/Dashboard';
+            }
+          }, 2000);
+        }
+      }
+    };
+
+    const handleOAuthLinking = async () => {
+      try {
+        await tryLinkOAuth();
+      } catch (err) {
+        console.error('[OAuthLinking Wrapper Error]', err);
+        setStatus('Ein unerwarteter Fehler ist aufgetreten.');
         setTimeout(() => {
           if (typeof window !== 'undefined') {
             window.location.href = '/Dashboard';
