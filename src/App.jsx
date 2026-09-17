@@ -34,6 +34,9 @@ const EventCreate = lazyPage(() => import('@/pages/EventCreate'));
 const MonthlyLeaderboard = lazyPage(() => import('@/pages/MonthlyLeaderboard'));
 const Koeder3D = lazyPage(() => import('@/pages/Koeder3D'));
 const AnglerMode = lazyPage(() => import('@/pages/AnglerMode'));
+const KITools = lazyPage(() => import('@/pages/KITools'));
+const GuestMigration = lazyPage(() => import('@/pages/GuestMigration'));
+const ClubProfile = lazyPage(() => import('@/pages/ClubProfile'));
 import PageViewTracker from '@/components/utils/PageViewTracker';
 
 const LazyPageFallback = () => (
@@ -126,6 +129,15 @@ const AnimatedRoutes = () => {
           } />
           <Route path="/AnglerMode" element={
             <ErrorBoundary><AnglerMode /></ErrorBoundary>
+          } />
+          <Route path="/KITools" element={
+            <ErrorBoundary><KITools /></ErrorBoundary>
+          } />
+          <Route path="/GuestMigration" element={
+            <ErrorBoundary><GuestMigration /></ErrorBoundary>
+          } />
+          <Route path="/clubs/:clubId" element={
+            <ErrorBoundary><ClubProfile /></ErrorBoundary>
           } />
           <Route path="*" element={<PageNotFound />} />
         </Routes>
