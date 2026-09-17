@@ -1,336 +1,363 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
-import { ChevronRight, Zap, Award } from "lucide-react";
+import {
+  Search, Bell, ChevronRight, Trophy, Heart, MapPin,
+  Calendar, Clock, Users, Loader2, Fish
+} from "lucide-react";
 import EventLauncher from "@/components/events/EventLauncher";
 
-function getCountdown(endDate) {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diff = end - now;
-  if (diff <= 0) return "Beendet";
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  if (days > 0) return `${days}d ${hours}h`;
-  return `${hours}h`;
+const FILTER_TABS = [
+  { id: 'fuer-dich', label: 'Für dich', icon: '⚡' },
+  { id: 'naehe',    label: 'In der Nähe', icon: null, lucide: MapPin },
+  { id: 'freunde',  label: 'Freunde', icon: null, lucide: Users },
+  { id: 'community',label: 'Community', icon: null, lucide: Fish },
+  { id: 'vereine',  label: 'Vereine', icon: '🏛️' },
+  { id: 'meine',    label: 'Meine Events', icon: null, lucide: Calendar },
+];
+
+const EVENT_TYPE_COLORS = {
+  turnier:        '#FFD60A',
+  community:      '#00FF9D',
+  vereins:        '#00E5FF',
+  empfohlen:      '#00FF9D',
+};
+
+function EventTypeTag({ type }) {
+  const color = EVENT_TYPE_COLORS[type?.toLowerCase()] || '#00E5FF';
+  const labels = {
+    turnier: 'Turnier',
+    community: 'Community Event',
+    vereins: 'Vereins-Event',
+    empfohlen: 'Empfohlen für dich',
+  };
+  return (
+    <div
+      className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1"
+      style={{ background: color + '25', border: `1px solid ${color}60`, color }}
+    >
+      {type === 'turnier' && <Trophy size={9} />}
+      {type === 'vereins' && '🌿'}
+      {type === 'community' && <Calendar size={9} />}
+      {labels[type?.toLowerCase()] || type}
+    </div>
+  );
 }
 
-const PointsBreakdown = ({ totalPoints, participatingEvents }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.6 }}
-    className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-cyan-500/20 p-6 mb-8"
-  >
-    <div className="flex items-center gap-2 mb-6">
-      <Zap className="w-5 h-5 text-cyan-400" />
-      <h2 className="text-xl font-bold text-white">Punkte-System</h2>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {[
-        { label: "Fang-Einreichung", points: 100, color: "cyan" },
-        { label: "Längenbonuson (pro cm)", points: 5, color: "blue" },
-        { label: "Community-Likes", points: 1, color: "purple" },
-        { label: "Platzierungsbonus (1.)", points: 500, color: "amber" },
-      ].map((item, idx) => (
-        <motion.div
-          key={idx}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: idx * 0.1, duration: 0.4 }}
-          className={`bg-${item.color}-500/10 border border-${item.color}-500/30 rounded-lg p-4`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-${item.color}-400 font-medium text-sm`}>{item.label}</span>
-            <span className={`text-${item.color}-300 font-bold text-lg`}>+{item.points}</span>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-
-    <div className="mt-6 pt-6 border-t border-slate-700">
-      <div className="bg-slate-950/50 rounded-lg p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Award className="w-4 h-4 text-green-400" />
-          <span className="text-sm text-gray-300">Deine Gesamtpunkte</span>
+function HeroEventCard({ event, onNavigate }) {
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden mb-3"
+      style={{ background: 'linear-gradient(135deg, #0a1f2e 0%, #051018 100%)', border: '1px solid rgba(0,229,255,0.25)' }}
+    >
+      {/* Photo placeholder with gradient */}
+      <div className="relative h-44"
+        style={{ background: 'linear-gradient(160deg, #0D2A3A 0%, #051018 100%)' }}>
+        <div className="absolute inset-0 flex items-end justify-center pb-4 opacity-20">
+          <Fish size={80} className="text-cyan-300" />
         </div>
-        <span className="text-2xl font-bold text-green-400 tabular-nums">
-          {Math.round(totalPoints || 0)}
-        </span>
-      </div>
-      {participatingEvents > 0 && (
-        <p className="text-xs text-gray-500 mt-2">
-          Aus {participatingEvents} {participatingEvents === 1 ? "Veranstaltung" : "Veranstaltungen"}
-        </p>
-      )}
-    </div>
-  </motion.div>
-);
 
-const EventCard = ({ event, isUserJoined, userEntry, onJoin, leaderboard }) => {
-  const isEnded = new Date() > new Date(event.end_date);
-  const countdown = getCountdown(event.end_date);
+        <div className="absolute top-3 left-3">
+          <div className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white flex items-center gap-1"
+            style={{ background: 'rgba(0,255,100,0.2)', border: '1px solid rgba(0,255,100,0.4)' }}>
+            ★ Empfohlen für dich
+          </div>
+        </div>
+        {event.has_prizes && (
+          <div className="absolute top-3 right-10">
+            <div className="px-2 py-0.5 rounded-full text-[10px] font-bold text-amber-300 flex items-center gap-1"
+              style={{ background: 'rgba(180,130,0,0.25)', border: '1px solid rgba(180,130,0,0.5)' }}>
+              <Trophy size={8} /> Tolle Preise!
+            </div>
+          </div>
+        )}
+        <button type="button" className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center border border-white/20 bg-black/30">
+          <Heart size={12} className="text-white/60" />
+        </button>
+
+        {/* Event name overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4"
+          style={{ background: 'linear-gradient(transparent, rgba(5,16,24,0.95))' }}>
+          <h2 className="text-xl font-extrabold text-white leading-tight mb-1">
+            {event.name || 'Zander-Abend am Möhnesee'}
+          </h2>
+        </div>
+      </div>
+
+      {/* Event meta */}
+      <div className="px-4 pt-2 pb-3">
+        <div className="flex flex-wrap gap-3 mb-3">
+          <div className="flex items-center gap-1.5 text-[12px] text-white/60">
+            <Calendar size={12} className="text-cyan-400" />
+            {event.start_date ? new Date(event.start_date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) : 'Sa, 21.09.'}
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px] text-white/60">
+            <Clock size={12} className="text-cyan-400" />
+            {event.start_time || '18:30'}
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px] text-white/60">
+            <MapPin size={12} className="text-cyan-400" />
+            {event.location || 'Möhnesee'}
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="rounded-xl p-2 text-center border border-white/8" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center justify-center mb-0.5">
+              <Fish size={14} className="text-white/40" />
+            </div>
+            <div className="text-[9px] text-white/40">Zielarten</div>
+            <div className="text-[11px] font-bold text-white">{event.target_species || 'Zander'}</div>
+          </div>
+          <div className="rounded-xl p-2 text-center border border-white/8" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center justify-center gap-0.5 mb-0.5">
+              <div className="w-3 h-3 rounded-full bg-cyan-400/60" />
+              <div className="w-3 h-3 rounded-full bg-blue-400/60 -ml-1" />
+            </div>
+            <div className="text-[9px] text-white/40">Teilnehmer</div>
+            <div className="text-[11px] font-bold text-white">{event.participant_count || 24}</div>
+          </div>
+          <div className="rounded-xl p-2 text-center border border-white/8" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <Trophy size={14} className="text-amber-400/60 mx-auto mb-0.5" />
+            <div className="text-[9px] text-white/40">Rewards</div>
+            <div className="text-[9px] font-bold text-amber-400 leading-tight">{event.reward_description || 'Tackle-Paket'}</div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <button
+          type="button"
+          onClick={() => onNavigate(event.id)}
+          className="w-full py-3 rounded-xl font-bold text-black text-sm flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(90deg, #00B4CC, #00E5FF)' }}
+        >
+          <MapPin size={14} /> Trip aus Event erstellen →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EventListCard({ event, onNavigate }) {
+  const typeMap = { tournament: 'turnier', community: 'community', club: 'vereins' };
+  const type = typeMap[event.type] || 'community';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -4 }}
-      className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/40 transition overflow-hidden"
+    <button
+      type="button"
+      onClick={() => onNavigate(event.id)}
+      className="w-full rounded-2xl border border-white/8 overflow-hidden mb-3 text-left"
+      style={{ background: 'rgba(15,30,45,0.75)' }}
     >
-      {/* Header */}
-      <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-b border-cyan-500/20 px-6 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-white mb-1">{event.name}</h3>
-            {event.description && (
-              <p className="text-sm text-gray-400">{event.description}</p>
+      <div className="flex">
+        {/* Thumbnail */}
+        <div
+          className="relative w-28 shrink-0 h-24 flex items-center justify-center"
+          style={{ background: 'linear-gradient(135deg, #0a1f2e, #051018)' }}
+        >
+          <EventTypeTag type={type} />
+          <Fish size={24} className="text-cyan-400/30" />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 p-3">
+          <div className="text-sm font-bold text-white mb-1 leading-tight">{event.name}</div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <div className="flex items-center gap-1 text-[10px] text-white/50">
+              <Calendar size={9} className="text-cyan-400" />
+              {event.start_date ? new Date(event.start_date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) : ''}
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-white/50">
+              <Clock size={9} className="text-cyan-400" />
+              {event.start_time || ''}
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-white/50">
+              <MapPin size={9} className="text-cyan-400" />
+              {event.location || ''}
+            </div>
+          </div>
+
+          {/* Stats inline */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-[10px] text-white/40">
+              <Fish size={9} />
+              <span className="font-semibold text-white/70">{event.target_species || 'Karpfen'}</span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-white/40">
+              <Users size={9} />
+              <span>{event.participant_count || 0} Teilnehmer</span>
+            </div>
+            {event.reward_description && (
+              <div className="flex items-center gap-1 text-[10px] text-amber-400/80">
+                <Trophy size={9} />
+                <span>{event.reward_description}</span>
+              </div>
             )}
           </div>
-          <motion.span
-            animate={{ opacity: [1, 0.6, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-              isEnded
-                ? "bg-gray-700/30 text-gray-400 border border-gray-700/50"
-                : "bg-green-500/20 text-green-400 border border-green-500/40"
-            }`}
-          >
-            {isEnded ? "Beendet" : "Laufend"}
-          </motion.span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6 space-y-5">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-slate-950/50 rounded-lg p-3 border border-slate-700/50"
-          >
-            <div className="text-xs text-gray-500 font-semibold uppercase mb-1">Zeit</div>
-            <div className="text-lg font-bold text-cyan-400">{countdown}</div>
-          </motion.div>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-slate-950/50 rounded-lg p-3 border border-slate-700/50"
-          >
-            <div className="text-xs text-gray-500 font-semibold uppercase mb-1">Teilnehmer</div>
-            <div className="text-lg font-bold text-blue-400">{leaderboard.length}</div>
-          </motion.div>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-slate-950/50 rounded-lg p-3 border border-slate-700/50"
-          >
-            <div className="text-xs text-gray-500 font-semibold uppercase mb-1">Basispunkte</div>
-            <div className="text-lg font-bold text-purple-400">{event.base_points || 100}</div>
-          </motion.div>
         </div>
 
-        {/* User Score */}
-        {isUserJoined && userEntry && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 rounded-lg p-4 text-center"
-          >
-            <div className="text-xs text-cyan-400 font-semibold uppercase mb-1">Deine Punkte</div>
-            <div className="text-3xl font-bold text-cyan-300">
-              {Math.round(userEntry.total_points || 0)}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Join Button */}
-        {!isUserJoined && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onJoin(event.id)}
-            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
-          >
-            Beitreten
-            <ChevronRight className="w-4 h-4" />
-          </motion.button>
-        )}
-
-        {/* Leaderboard */}
-        {leaderboard.length > 0 && (
-          <div className="pt-4 border-t border-slate-700/50">
-            <h4 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-400" />
-              Rangliste (Top 5)
-            </h4>
-            <div className="space-y-2">
-              {leaderboard.slice(0, 5).map((entry, idx) => {
-                const isMe = entry.is_user;
-                const rank = idx + 1;
-                return (
-                  <motion.div
-                    key={entry.user_id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className={`flex items-center gap-3 p-2.5 rounded-lg ${
-                      isMe
-                        ? "bg-cyan-500/15 border border-cyan-500/40"
-                        : "bg-slate-950/30 border border-slate-700/30"
-                    }`}
-                  >
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      rank === 1 ? "bg-amber-500/30 text-amber-300" :
-                      rank === 2 ? "bg-gray-400/30 text-gray-200" :
-                      rank === 3 ? "bg-orange-500/30 text-orange-300" :
-                      "bg-slate-700/30 text-gray-400"
-                    }`}>
-                      {rank}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-100 truncate">
-                        {isMe ? "Du" : entry.user_id.split("@")[0]}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-cyan-400">
-                        {Math.round(entry.total_points || 0)}
-                      </p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <div className="flex items-center pr-3">
+          <ChevronRight size={16} className="text-white/30" />
+        </div>
       </div>
-    </motion.div>
+    </button>
   );
-};
+}
 
 export default function Events() {
   const navigate = useNavigate();
   const [competitions, setCompetitions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [joined, setJoined] = useState(new Set());
-  const [leaderboards, setLeaderboards] = useState({});
-  const [pointsSummary, setPointsSummary] = useState({ total_points: 0, participating_events: 0 });
+  const [activeFilter, setActiveFilter] = useState('fuer-dich');
+  const [showLauncher, setShowLauncher] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [comps, user, points] = await Promise.all([
-        api.get('/api/events'),
+      const [comps, user] = await Promise.all([
+        api.get('/api/events').catch(() => []),
         auth.me().catch(() => null),
-        api.get('/api/events/user/current-points').catch(() => null)
       ]);
-
       setCompetitions(Array.isArray(comps) ? comps : []);
       setCurrentUser(user);
-      if (points) setPointsSummary(points);
-
-      if (Array.isArray(comps) && comps.length > 0 && user) {
-        const leaderboardsMap = {};
-        const joinedSet = new Set();
-        await Promise.all(comps.map(async (comp) => {
-          const lb = await api.get(`/api/events/${comp.id}/leaderboard`).catch(() => []);
-          leaderboardsMap[comp.id] = Array.isArray(lb) ? lb.map((e) => ({
-            ...e,
-            is_user: e.user_id === user.email
-          })) : [];
-          const userJoined = (leaderboardsMap[comp.id] || []).some(entry => entry.user_id === user.email);
-          if (userJoined) joinedSet.add(comp.id);
-        }));
-        setLeaderboards(leaderboardsMap);
-        setJoined(joinedSet);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const handleJoin = async (compId) => {
-    try {
-      await api.post(`/api/events/${compId}/join`, {});
-      setJoined(prev => new Set([...prev, compId]));
-      await loadData();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const handleNavigate = (id) => navigate(`/events/${id}`);
+
+  const heroEvent = competitions[0] || null;
+  const listEvents = competitions.slice(1, 4);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-3 border-cyan-500/30 border-t-cyan-500 rounded-full"
-        />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080F16' }}>
+        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 px-4 py-8 max-w-4xl mx-auto pb-32">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center mb-12"
+    <div className="min-h-screen" style={{ background: '#080F16', color: '#eef5fa' }}>
+      {/* Hero */}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #0A1E2E 0%, #07131D 55%, #080F16 100%)',
+          paddingTop: 'env(safe-area-inset-top)',
+        }}
       >
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">Veranstaltungen</h1>
-        <p className="text-gray-400 text-lg">Nimm an Wettbewerben teil und sammle Punkte</p>
-      </motion.div>
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 70% 30%, rgba(0,180,255,0.09) 0%, transparent 60%)' }} />
 
-      {/* Points System */}
-      <PointsBreakdown
-        totalPoints={pointsSummary.total_points}
-        participatingEvents={pointsSummary.participating_events}
-      />
+        {/* Top bar */}
+        <div className="relative flex items-center justify-between px-4 pt-4 pb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Fish size={16} className="text-cyan-400" />
+              <span className="text-base font-extrabold text-white">BaitBuddy</span>
+            </div>
+            <div className="text-2xl font-extrabold text-white">Events</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center border border-white/15 bg-white/5">
+              <Search size={16} className="text-white/60" />
+            </button>
+            <button type="button" className="w-9 h-9 rounded-full flex items-center justify-center border border-white/15 bg-white/5 relative">
+              <Bell size={16} className="text-white/60" />
+              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: '#00E5FF' }} />
+            </button>
+          </div>
+        </div>
 
-      {/* Event-Auswahl: Vorlage wählen und Event starten */}
-      <div className="mb-8">
-        <EventLauncher currentUser={currentUser} onStarted={loadData} />
+        {/* Subtitle */}
+        <div className="relative px-4 pb-5">
+          <p className="text-sm text-white/50">Gemeinsam mehr erleben.<br />Angeln verbindet.</p>
+        </div>
       </div>
 
-      {/* Events */}
-      {competitions.length > 0 ? (
-        <div className="space-y-6">
-          {competitions.map((event, idx) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              isUserJoined={joined.has(event.id)}
-              userEntry={(leaderboards[event.id] || []).find(e => e.user_id === currentUser?.email)}
-              onJoin={handleJoin}
-              leaderboard={leaderboards[event.id] || []}
-            />
-          ))}
+      <div className="px-3" style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
+        {/* Filter tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+          {FILTER_TABS.map((tab) => {
+            const Icon = tab.lucide;
+            const isActive = activeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveFilter(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold whitespace-nowrap shrink-0 transition-all ${
+                  isActive ? 'text-black' : 'text-white/60 border border-white/15'
+                }`}
+                style={isActive ? { background: '#00E5FF' } : { background: 'rgba(255,255,255,0.05)' }}
+              >
+                {tab.icon && <span>{tab.icon}</span>}
+                {Icon && <Icon size={11} />}
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12"
-        >
-          <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-8 h-8 text-slate-600" />
+
+        {/* Event launcher (create event) */}
+        {showLauncher && (
+          <div className="mb-4">
+            <EventLauncher currentUser={currentUser} onStarted={() => { loadData(); setShowLauncher(false); }} />
           </div>
-          <p className="text-gray-400 text-lg">Keine aktiven Veranstaltungen</p>
-          <p className="text-gray-500 text-sm mt-1">Komm später zurück für neue Wettbewerbe</p>
-        </motion.div>
-      )}
+        )}
+
+        {/* Hero event */}
+        {heroEvent ? (
+          <HeroEventCard event={heroEvent} onNavigate={handleNavigate} />
+        ) : (
+          <div
+            className="rounded-2xl border border-white/8 p-8 text-center mb-3"
+            style={{ background: 'rgba(15,30,45,0.75)' }}
+          >
+            <Trophy size={32} className="text-white/20 mx-auto mb-3" />
+            <div className="text-sm text-white/40">Noch keine Events verfügbar</div>
+            <button
+              type="button"
+              onClick={() => setShowLauncher(true)}
+              className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold text-black"
+              style={{ background: '#00E5FF' }}
+            >
+              Event erstellen
+            </button>
+          </div>
+        )}
+
+        {/* List events */}
+        {listEvents.map((event) => (
+          <EventListCard key={event.id} event={event} onNavigate={handleNavigate} />
+        ))}
+
+        {competitions.length > 4 && (
+          <button
+            type="button"
+            onClick={() => navigate('/events-catalog')}
+            className="w-full py-3 rounded-xl text-sm font-semibold text-cyan-400 border border-cyan-500/20 mb-3"
+            style={{ background: 'rgba(0,229,255,0.05)' }}
+          >
+            Alle Events anzeigen <ChevronRight size={14} className="inline" />
+          </button>
+        )}
+
+        {/* Create event button */}
+        <button
+          type="button"
+          onClick={() => setShowLauncher(!showLauncher)}
+          className="w-full py-3 rounded-xl text-sm font-semibold text-white/70 border border-white/15"
+          style={{ background: 'rgba(255,255,255,0.04)' }}
+        >
+          + Eigenes Event erstellen
+        </button>
+      </div>
     </div>
   );
 }

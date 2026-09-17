@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  Crown, Zap, Star, Sparkles, ChevronLeft, Loader2,
+  RefreshCw, AlertTriangle, Smartphone, User, Fish, Check
+} from "lucide-react";
 import { functions, premium } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import {
@@ -14,11 +14,6 @@ import {
 } from "@/components/premium/googlePlayBilling";
 import WebCheckoutButton from "@/components/premium/WebCheckoutButton";
 
-// Offener Stripe-Kauf, dessen Aktivierung noch nicht bestätigt ist. Zwischen
-// "bei Stripe bezahlt" und "serverseitig freigeschaltet" liegt ein API-Aufruf;
-// scheitert der (Funkloch, Server kurz weg), wäre das Geld weg und der Plan
-// nicht aktiv. Deshalb wird der Kauf lokal gemerkt und bei jedem Öffnen der
-// Seite erneut aktiviert, bis der Server ihn bestätigt oder eindeutig ablehnt.
 const PENDING_CHECKOUT_KEY = 'bb_pending_checkout';
 const PENDING_CHECKOUT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -33,33 +28,88 @@ function readPendingCheckout() {
       return null;
     }
     return parsed;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function writePendingCheckout(planId, sessionId) {
   try {
-    localStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify({
-      planId, sessionId, createdAt: Date.now()
-    }));
-  } catch { /* Ohne localStorage bleibt nur der direkte Versuch */ }
+    localStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify({ planId, sessionId, createdAt: Date.now() }));
+  } catch {}
 }
 
 function clearPendingCheckout() {
-  try {
-    localStorage.removeItem(PENDING_CHECKOUT_KEY);
-  } catch { /* ignore */ }
+  try { localStorage.removeItem(PENDING_CHECKOUT_KEY); } catch {}
 }
 
-// 400/403 sind endgültige Ablehnungen (Zahlung gehört zu anderem Plan/Konto) —
-// ein erneuter Versuch würde daran nichts ändern. Alles andere (Netzfehler,
-// 402 noch nicht verbucht, 5xx) darf und soll wiederholt werden.
 function isPermanentActivationRejection(error) {
   return error?.status === 400 || error?.status === 403;
 }
 
+// KI comparison table data
+const KI_FEATURES = [
+  {
+    icon: '🗄️',
+    name: 'Kontexttiefe',
+    gast:     { dots: 1, color: 'orange', label: 'Begrenzt\n(1–2 Quellen)' },
+    basic:    { dots: 1, color: 'yellow', label: 'Standard\n(3–5 Quellen)' },
+    pro:      { dots: 2, color: 'green',  label: 'Erweitert\n(5–10 Quellen)' },
+    ultimate: { dots: 3, color: 'green',  label: 'Maximal\n(Alle Quellen)' },
+  },
+  {
+    icon: '👤',
+    name: 'Personalisierung',
+    gast:     { dots: 1, color: 'orange', label: 'Keine\n(Standard)' },
+    basic:    { dots: 1, color: 'yellow', label: 'Grundlegend\n(Profil)' },
+    pro:      { dots: 2, color: 'green',  label: 'Erweitert\n(Verhalten & Spots)' },
+    ultimate: { dots: 3, color: 'green',  label: 'Vollständig\n(KI lernt mit dir)' },
+  },
+  {
+    icon: '⚡',
+    name: 'Actions',
+    gast:     { dots: 1, color: 'orange', label: 'Keine\n(Nur Antworten)' },
+    basic:    { dots: 1, color: 'yellow', label: 'Begrenzt\n(einfache Aufgaben)' },
+    pro:      { dots: 2, color: 'green',  label: 'Erweitert\n(z.B. Spots, Pläne)' },
+    ultimate: { dots: 3, color: 'green',  label: 'Alle verfügbar\n(Automationen)' },
+  },
+  {
+    icon: '🎤',
+    name: 'Voice',
+    gast:     { dots: 0, color: 'orange', label: 'Nicht\nverfügbar' },
+    basic:    { dots: 1, color: 'yellow', label: 'Begrenzt\n(Kurze Eingaben)' },
+    pro:      { dots: 2, color: 'green',  label: 'Vollständig\n(Spracheingabe & Antworten)' },
+    ultimate: { dots: 3, color: 'green',  label: 'Erweitert\n(Voice + Live-Assistant)' },
+  },
+  {
+    icon: '📊',
+    name: 'Datenanalyse',
+    gast:     { dots: 0, color: 'orange', label: 'Nicht\nverfügbar' },
+    basic:    { dots: 1, color: 'yellow', label: 'Basis\n(Wetter & Spots)' },
+    pro:      { dots: 2, color: 'green',  label: 'Erweitert\n(Muster, Prognosen)' },
+    ultimate: { dots: 3, color: 'green',  label: 'Alle Analysen\n(KI-Modelle & Deep Insights)' },
+  },
+];
+
+function DotIndicator({ count, color }) {
+  const dotColor = color === 'green' ? '#00FF9D' : color === 'yellow' ? '#FFD60A' : '#FF6B35';
+  return (
+    <div className="flex gap-0.5 justify-center mb-0.5">
+      {count === 0 ? (
+        <div className="w-2 h-2 rounded-full" style={{ background: '#FF4560', opacity: 0.8 }} />
+      ) : (
+        Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="w-2 h-2 rounded-full"
+            style={{ background: i < count ? dotColor : 'rgba(255,255,255,0.12)' }}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
 export default function PremiumPlans() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +118,7 @@ export default function PremiumPlans() {
   const [restoring, setRestoring] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [answerLength, setAnswerLength] = useState('normal');
 
   useEffect(() => {
     loadData();
@@ -75,15 +126,9 @@ export default function PremiumPlans() {
     setBillingAvailable(isGooglePlayBillingAvailable());
   }, []);
 
-  // Rücksprung vom Stripe-Checkout: /PremiumPlans?checkout=success&plan_id=...
-  // &session_id=cs_... — die Aktivierung läuft serverseitig verifiziert über
-  // /api/premium/activate. Params sofort entfernen, damit ein Reload die
-  // Aktivierung nicht erneut anstößt (der Server ist zusätzlich idempotent).
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (!checkout) {
-      // Kein Rücksprung, aber evtl. ein Kauf, dessen Aktivierung beim letzten
-      // Mal nicht durchkam: still nachholen.
       const pending = readPendingCheckout();
       if (pending) finalizeStripeCheckout(pending.planId, pending.sessionId, { silent: true });
       return;
@@ -91,83 +136,51 @@ export default function PremiumPlans() {
     const planId = searchParams.get('plan_id');
     const sessionId = searchParams.get('session_id');
     setSearchParams({}, { replace: true });
-
-    if (checkout === 'cancelled') {
-      toast.info('Kauf abgebrochen');
-      return;
-    }
-    if (checkout === 'success' && planId && sessionId) {
-      finalizeStripeCheckout(planId, sessionId);
-    }
+    if (checkout === 'cancelled') { toast.info('Kauf abgebrochen'); return; }
+    if (checkout === 'success' && planId && sessionId) finalizeStripeCheckout(planId, sessionId);
   }, []);
 
   const finalizeStripeCheckout = async (planId, sessionId, { silent = false } = {}) => {
-    // Zuerst merken, dann aktivieren: bricht der Aufruf ab, ist der bezahlte
-    // Kauf trotzdem festgehalten.
     writePendingCheckout(planId, sessionId);
     setProcessingPlan(planId);
     try {
       const response = await functions.invoke('activatePlan', {
-        plan_id: planId,
-        transaction_id: sessionId,
-        payment_method: 'stripe'
+        plan_id: planId, transaction_id: sessionId, payment_method: 'stripe'
       });
       const data = response?.data ?? response;
-      if (!data?.ok) {
-        throw new Error(data?.error || 'Plan-Aktivierung fehlgeschlagen');
-      }
+      if (!data?.ok) throw new Error(data?.error || 'Plan-Aktivierung fehlgeschlagen');
       clearPendingCheckout();
-      toast.success('Plan aktiviert', {
-        description: 'Deine Zahlung wurde bestätigt. Dein Premium-Plan ist jetzt aktiv.'
-      });
+      toast.success('Plan aktiviert', { description: 'Deine Zahlung wurde bestätigt.' });
       await loadData();
       window.dispatchEvent(new CustomEvent('plan-updated'));
     } catch (error) {
       if (isPermanentActivationRejection(error)) {
         clearPendingCheckout();
-        toast.error('Aktivierung fehlgeschlagen', {
-          description: `${error.message} — bitte kontaktiere den Support.`,
-          duration: 10000
-        });
+        toast.error('Aktivierung fehlgeschlagen', { description: error.message, duration: 10000 });
       } else if (!silent) {
-        // Der Kauf bleibt gespeichert und wird beim nächsten Öffnen erneut
-        // versucht — das muss der Nutzer wissen, damit er nicht doppelt zahlt.
         toast.error('Aktivierung noch nicht bestätigt', {
-          description: 'Deine Zahlung ist bei Stripe eingegangen. Die Freischaltung wird automatisch erneut versucht, sobald du die Premium-Seite öffnest.',
+          description: 'Deine Zahlung ist eingegangen. Die Freischaltung wird automatisch erneut versucht.',
           duration: 10000
         });
       }
-    } finally {
-      setProcessingPlan(null);
-    }
+    } finally { setProcessingPlan(null); }
   };
 
-  // Welche Zahlungswege der Server verifizieren kann. Bei einem Fehler bleibt
-  // der Wert null und die Kauf-Schaltflächen werden nicht gesperrt (fail-open):
-  // ein Ausfall dieser Abfrage darf keinen Verkauf verhindern.
   const loadPaymentMethods = async () => {
     try {
       const config = await premium.config();
       if (config?.payment_methods) setPaymentMethods(config.payment_methods);
-    } catch (error) {
-      console.error('[PremiumPlans] Zahlungswege konnten nicht geladen werden:', error);
-    }
+    } catch {}
   };
 
   const loadData = async () => {
     try {
       const currentUser = await auth.me();
       setUser(currentUser);
-
       const planStatusResponse = await functions.invoke('getPlanStatus');
       const planPayload = planStatusResponse?.data ?? planStatusResponse;
-      if (planPayload && planPayload.plan) {
-        setCurrentPlan(planPayload.plan);
-      } else {
-        setCurrentPlan({ id: 'free', name: 'Kostenlos' });
-      }
-    } catch (error) {
-      console.error("[PremiumPlans] Fehler beim Laden:", error);
+      setCurrentPlan(planPayload?.plan || { id: 'free', name: 'Kostenlos' });
+    } catch {
       setCurrentPlan({ id: 'free', name: 'Kostenlos' });
     }
     setLoading(false);
@@ -177,418 +190,329 @@ export default function PremiumPlans() {
     setProcessingPlan(planId);
     try {
       const result = await startGooglePlayPurchase(planId);
-
       if (result.success && result.activated) {
-        toast.success('Plan aktiviert', {
-          description: 'Dein Premium-Plan ist jetzt aktiv.'
-        });
+        toast.success('Plan aktiviert');
         await loadData();
         window.dispatchEvent(new CustomEvent('plan-updated'));
       } else if (result.cancelled) {
         toast.info('Kauf abgebrochen');
       } else if (result.pending) {
-        toast.info('Kauf wird verarbeitet', {
-          description: 'Falls der Kauf erfolgreich war, nutze "Käufe wiederherstellen".',
-          duration: 8000
-        });
+        toast.info('Kauf wird verarbeitet', { duration: 8000 });
       } else {
-        toast.error('Kauf nicht möglich', {
-          description: result.error || 'Unbekannter Fehler',
-          duration: 6000
-        });
+        toast.error('Kauf nicht möglich', { description: result.error });
       }
     } catch (error) {
-      toast.error('Fehler', {
-        description: error.message || 'Unbekannter Fehler'
-      });
-    } finally {
-      setProcessingPlan(null);
-    }
+      toast.error('Fehler', { description: error.message });
+    } finally { setProcessingPlan(null); }
   };
 
   const handleRestorePurchases = async () => {
     setRestoring(true);
     try {
       const result = await restoreGooglePlayPurchases();
-
       if (result.success && result.restored > 0) {
-        toast.success('Käufe wiederhergestellt', {
-          description: result.message || `Plan ${result.planId} aktiviert.`
-        });
+        toast.success('Käufe wiederhergestellt');
         await loadData();
         window.dispatchEvent(new CustomEvent('plan-updated'));
       } else if (result.success) {
-        toast.info('Keine Käufe gefunden', {
-          description: result.message || 'Es wurden keine aktiven Google Play Käufe gefunden.'
-        });
+        toast.info('Keine Käufe gefunden');
       } else {
-        toast.error('Wiederherstellung fehlgeschlagen', {
-          description: result.error,
-          duration: 6000
-        });
+        toast.error('Wiederherstellung fehlgeschlagen', { description: result.error });
       }
     } catch (error) {
-      toast.error('Fehler', {
-        description: error.message || 'Unbekannter Fehler'
-      });
-    } finally {
-      setRestoring(false);
-    }
+      toast.error('Fehler', { description: error.message });
+    } finally { setRestoring(false); }
   };
 
-  // Pläne bewusst nach Funktionswert priorisiert: Free ist werbefinanziert und
-  // enthält nur die Einstiegs-Funktionen (der KI-Buddy ist dabei, aber
-  // eingeschränkt). Die wirklich starken KI-, AR- und Analyse-Features steigen
-  // mit dem Preis. Preise sind Source-of-Truth-gespiegelt in
-  // backend/src/routes/premium.js (CHECKOUT_PLANS/PRODUCTS).
-  const plans = [
-    {
-      id: 'free',
-      name: 'Free',
-      price: 0,
-      icon: Check,
-      color: 'from-gray-600 to-gray-700',
-      description: 'Kostenlos mit Werbung - zum Reinschnuppern',
-      features: [
-        'Mit Werbeeinblendungen',
-        'KI-Buddy Chat eingeschraenkt (5 Nachrichten/Tag)',
-        'Digitales Fangbuch (unbegrenzt)',
-        'Angelkarte mit Community-Spots (Basis)',
-        'Schonzeiten & Mindestmasse nachschlagen',
-        'Angelschein-Pruefungsvorbereitung (Quiz)',
-        'Tutorials & AR-Knotenassistent',
-        'Aktuelles Wetter (heute)',
-        'Community-Feed lesen'
-      ]
-    },
-    {
-      id: 'basic',
-      name: 'Basic',
-      price: 8.99,
-      icon: Zap,
-      color: 'from-blue-600 to-cyan-600',
-      description: 'Werbefrei mit vollem KI-Buddy',
-      popular: false,
-      features: [
-        'Alles aus Free - komplett werbefrei',
-        'KI-Buddy Chat unbegrenzt - BaitBuddy',
-        'KI-Foto-Analyse von Faengen',
-        'Wetter 5 Tage + Wetter-Alarme',
-        'Eigene Spots speichern & verwalten',
-        'Fang-Statistiken (CatchStats)',
-        'Gewaesser-Wasseranalyse',
-        'Trip-Planer mit KI-Unterstuetzung',
-        'Angelbedarf-Marktplatz (UsedGear)'
-      ]
-    },
-    {
-      id: 'pro',
-      name: 'Pro',
-      price: 18,
-      icon: Star,
-      color: 'from-purple-600 to-violet-600',
-      description: 'Vollstaendige KI- & AR-Power',
-      popular: true,
-      features: [
-        'Alles aus Basic',
-        'KI-Fangprognosen & Hotspot-Erkennung',
-        'Satelliten-Gewaesseranalyse (Echtdaten)',
-        'AR-Gewaesser-Ansicht 3D & 3D-Koederanimation',
-        'Tiefenkarten & Bathymetrie-Crowdsourcing',
-        'Geraete-Integration (Echolot, Bissanzeiger)',
-        'KI-Koeder-Mischer',
-        'Digitale Lizenzverwaltung',
-        'Community-Ranking, Clans & Events',
-        'Fang-Export (PDF)',
-        'KI-Trip-Detailbericht'
-      ]
-    },
-    {
-      id: 'elite',
-      name: 'Ultimate',
-      price: 36,
-      icon: Crown,
-      color: 'from-amber-500 to-orange-600',
-      description: 'Alles inklusive - jede Funktion ohne Limit',
-      popular: false,
-      features: [
-        'Alles aus Pro - jede Funktion ohne Einschraenkung',
-        'KI Voice Live Chat (nur Ultimate)',
-        'Live-Bissanzeiger per Smartphone-Kamera',
-        'KI-Kamera: Echtzeit-Fischerkennung',
-        'CatchCam - KI-Analyse direkt vom Foto',
-        'Weibliche KI-Stimme "Matilda" (ElevenLabs)',
-        'KI-Buddy Chat & Foto-Analyse unbegrenzt',
-        'KI-Fangprognosen & Gewaesseranalyse (Open-Meteo)',
-        '3D-Koederfuehrung, AR-Gewaesser & AR-Knotenassistent',
-        'Tiefenkarten, Wasseranalyse & KI-Koeder-Mischer',
-        'Geraete-Integration (Echolot, Bissanzeiger)',
-        'Live-Trip-Tracking, Trip-Planer & Lizenzverwaltung',
-        'Community-Ranking, Clans, Events & Marktplatz',
-        'Spot-Gruppen teilen, Profi-Analyse & Fang-Export',
-        'Priorisierte KI-Antworten & frueher Feature-Zugang',
-        '3 Freundes-Einladungen inklusive',
-        '10 EUR Rabatt auf deinen naechsten Ultimate-Plan pro Freund, der Basic kauft (bis zu 3x = 30 EUR)',
-        'Alle weiteren App-Funktionen ohne Einschraenkung'
-      ]
-    },
-    {
-      id: 'friends',
-      name: 'Freundschaft',
-      price: 150,
-      priceLabel: '150 / Jahr',
-      icon: Sparkles,
-      color: 'from-emerald-600 to-teal-600',
-      description: 'Ultimate als Jahresabo mit Einladungen',
-      popular: false,
-      yearly: true,
-      features: [
-        'Alles aus Ultimate (12 Monate)',
-        'Freundes-Einladungen inklusive',
-        'Gemeinsame Spot-Gruppen mit Freunden',
-        'Geteilte Fangbuecher & Statistiken',
-        'Freunde zu Clans & Events einladen',
-        'Gruppen-Ranking & Team-Challenges',
-        '~72% Ersparnis gegenueber monatlichem Ultimate'
-      ]
-    }
-  ];
-
-  // Kann der Server den hier angebotenen Zahlungsweg überhaupt verifizieren?
-  // Wenn nicht, würde der Nutzer erst bezahlen und danach eine Fehlermeldung
-  // bekommen — dann lieber vorher sperren. null = noch unbekannt/Abfrage
-  // fehlgeschlagen: dann nicht sperren.
   const purchasesEnabled = paymentMethods === null
     ? true
     : Boolean(billingAvailable ? paymentMethods.google_play : paymentMethods.stripe);
 
+  const plans = [
+    { id: 'free',    name: 'Gast',     sub: 'Einfach testen',      price: 0,    priceLabel: '0 €',      Icon: User,     color: 'border-white/10', btnLabel: 'Aktueller Plan', gold: false, rec: false },
+    { id: 'basic',   name: 'Basic',    sub: 'Solide Basis',         price: 8.99, priceLabel: '8,99 €',   Icon: Fish,     color: 'border-cyan-500/20', btnLabel: 'Upgrade', gold: false, rec: false },
+    { id: 'pro',     name: 'Pro',      sub: 'Für ambitionierte\nAngler', price: 18, priceLabel: '18,00 €', Icon: Star,   color: 'border-cyan-400', btnLabel: 'Jetzt upgraden', gold: false, rec: true },
+    { id: 'elite',   name: 'Ultimate', sub: 'Maximale Power',       price: 36,   priceLabel: '36,00 €',  Icon: Crown,    color: 'border-amber-400/60', btnLabel: 'Upgrade', gold: true, rec: false },
+  ];
+
+  const kiData = {
+    free:    KI_FEATURES.map(f => f.gast),
+    basic:   KI_FEATURES.map(f => f.basic),
+    pro:     KI_FEATURES.map(f => f.pro),
+    elite:   KI_FEATURES.map(f => f.ultimate),
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-cyan-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Lädt...</span>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080F16' }}>
+        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-950 p-6 pb-32">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)] mb-4">
-            Premium-Pläne
-          </h1>
-          <p className="text-gray-400 text-lg">
-            Wähle den Plan, der am besten zu deinem Angel-Abenteuer passt
-          </p>
-          {currentPlan && currentPlan.id !== 'free' && (
-            <div className="mt-4">
-              <Badge className="bg-emerald-600 text-white">
-                Aktueller Plan: {currentPlan.name}
-                {currentPlan.remaining_days && ` - Noch ${currentPlan.remaining_days} Tage`}
-              </Badge>
-            </div>
-          )}
+  const discountEuro = Math.min((currentPlan?.ultimate_discount_cents || 0) / 100, 30);
 
-          {billingAvailable && (
-            <div className="mt-6">
-              <Button
-                onClick={handleRestorePurchases}
-                disabled={restoring}
-                variant="outline"
-                className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
-              >
-                {restoring ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Wird wiederhergestellt...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Käufe wiederherstellen
-                  </>
-                )}
-              </Button>
+  return (
+    <div className="min-h-screen" style={{ background: '#080F16', color: '#eef5fa' }}>
+      {/* Hero */}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #0D2137 0%, #0a1a2b 55%, #080F16 100%)',
+          paddingTop: 'env(safe-area-inset-top)',
+        }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 75% 30%, rgba(0,180,255,0.10) 0%, transparent 55%)' }}
+        />
+        {/* Back + logo */}
+        <div className="relative flex items-center gap-3 px-4 pt-4 pb-0">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="w-9 h-9 rounded-full flex items-center justify-center border border-white/15 bg-white/5"
+          >
+            <ChevronLeft size={20} className="text-white/80" />
+          </button>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Fish size={14} className="text-cyan-400" />
+              <span className="text-[13px] font-extrabold text-white leading-none">BaitBuddy</span>
             </div>
-          )}
+            <div className="text-[9px] text-cyan-400/80 tracking-widest uppercase">Mehr als Angeln</div>
+          </div>
         </div>
 
+        {/* Title area */}
+        <div className="relative px-4 pt-5 pb-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h1 className="text-3xl font-extrabold text-white leading-tight mb-2">
+                Tarif &amp; KI-Zugriff
+              </h1>
+              <p className="text-sm text-white/60 leading-relaxed max-w-[220px]">
+                Wähle den passenden Plan für dein Angelerlebnis. Mehr Möglichkeiten. Mehr Fänge.
+              </p>
+            </div>
+            <div className="text-right ml-3">
+              <div className="text-[13px] italic font-semibold leading-snug" style={{ color: '#00E5FF' }}>
+                Bessere<br />Entscheidungen.<br />Mehr Fische.
+              </div>
+            </div>
+          </div>
+
+          {billingAvailable && (
+            <button
+              type="button"
+              onClick={handleRestorePurchases}
+              disabled={restoring}
+              className="mt-3 flex items-center gap-1.5 text-[11px] text-cyan-400/80 border border-cyan-500/20 rounded-full px-3 py-1"
+            >
+              {restoring ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+              Käufe wiederherstellen
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="px-3" style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
+
+        {/* Warning banner */}
         {!purchasesEnabled && (
-          <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-amber-700/50 bg-amber-900/20 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-100">
-              <strong className="block mb-1">Kauf derzeit nicht moeglich</strong>
-              {billingAvailable
-                ? 'Die Kaufabwicklung ueber Google Play ist gerade nicht verfuegbar. Bitte versuche es spaeter erneut oder kontaktiere den Support.'
-                : 'Die Bezahlung im Browser ist gerade nicht verfuegbar. Bitte versuche es spaeter erneut oder kontaktiere den Support.'}
+          <div className="mb-4 p-3 rounded-2xl border border-amber-600/40 flex items-start gap-2.5"
+            style={{ background: 'rgba(255,159,10,0.08)' }}>
+            <AlertTriangle size={16} className="text-amber-400 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-100/80">
+              <strong className="block mb-0.5">Kauf derzeit nicht möglich</strong>
+              Bitte versuche es später erneut oder kontaktiere den Support.
             </div>
           </div>
         )}
 
-        {!billingAvailable && purchasesEnabled && (
-          <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-cyan-700/50 bg-cyan-900/20 flex items-start gap-3">
-            <Smartphone className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-cyan-100">
-              <strong className="block mb-1">Bezahlung im Browser</strong>
-              Du kannst Premium-Plaene direkt hier mit Kreditkarte (Visa, Mastercard, Amex), Google Pay oder Apple Pay bezahlen.
-              In der Android-App ist zusaetzlich Google Play Billing verfuegbar.
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Plan cards */}
+        <div className="grid grid-cols-4 gap-2 mb-5">
           {plans.map((plan) => {
-            const Icon = plan.icon;
-            const isCurrentPlan = currentPlan?.id === plan.id;
+            const Icon = plan.Icon;
+            const isActive = currentPlan?.id === plan.id;
             const isProcessing = processingPlan === plan.id;
-
-            // Referral-Rabatt (10€ je eingeladenem Freund, der Basic kauft) gilt
-            // nur für den Ultimate-Plan und nur beim Web-Checkout. Betrag kommt
-            // aus dem Plan-Status (ultimate_discount_cents).
-            const discountEuro = Math.min(
-              (currentPlan?.ultimate_discount_cents || 0) / 100,
-              30
-            );
-            const showUltimateDiscount = plan.id === 'elite' && !billingAvailable && discountEuro > 0;
-            const discountedPrice = showUltimateDiscount
-              ? Math.max(plan.price - discountEuro, 9.99).toFixed(2)
-              : null;
+            const showDiscount = plan.id === 'elite' && !billingAvailable && discountEuro > 0;
+            const discountedPrice = showDiscount ? Math.max(plan.price - discountEuro, 9.99).toFixed(2) : null;
 
             return (
-              <Card
+              <div
                 key={plan.id}
-                className={`glass-morphism relative overflow-hidden ${
-                  isCurrentPlan ? 'border-emerald-500 border-2' : 'border-gray-800'
-                } ${plan.popular ? 'ring-2 ring-purple-500' : ''}`}
+                className={`relative rounded-2xl border flex flex-col items-center text-center p-2.5 transition-all ${plan.color}`}
+                style={{
+                  background: plan.rec
+                    ? 'rgba(0,229,255,0.07)'
+                    : plan.gold
+                    ? 'rgba(180,130,0,0.08)'
+                    : 'rgba(15,30,45,0.75)',
+                  boxShadow: plan.rec ? '0 0 0 1.5px #00E5FF, 0 0 20px rgba(0,229,255,0.15)' : undefined,
+                }}
               >
-                {plan.popular && (
-                  <div className="absolute top-4 right-4">
-                    <Badge className="bg-purple-600 text-white">
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      Beliebt
-                    </Badge>
+                {plan.rec && (
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold text-black"
+                    style={{ background: '#00E5FF', whiteSpace: 'nowrap' }}
+                  >
+                    EMPFOHLEN
                   </div>
                 )}
 
-                <CardHeader>
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4`}>
-                    <Icon className="w-6 h-6 text-white" />
+                <div className={`w-10 h-10 rounded-xl mb-2 flex items-center justify-center ${
+                  plan.gold ? 'bg-amber-500/15' : plan.rec ? 'bg-cyan-500/15' : 'bg-white/8'
+                }`}>
+                  <Icon size={18} className={plan.gold ? 'text-amber-400' : plan.rec ? 'text-cyan-400' : 'text-white/60'} />
+                </div>
+
+                <div className={`text-xs font-bold mb-0.5 ${plan.gold ? 'text-amber-400' : plan.rec ? 'text-cyan-400' : 'text-white'}`}>
+                  {plan.name}
+                </div>
+                <div className="text-[9px] text-white/40 leading-tight mb-2 whitespace-pre-line">{plan.sub}</div>
+
+                <div className={`text-base font-extrabold mb-0.5 ${plan.gold ? 'text-amber-300' : 'text-white'}`}>
+                  {showDiscount ? `${discountedPrice} €` : plan.priceLabel}
+                </div>
+                {plan.price > 0 && (
+                  <div className="text-[9px] text-white/40 mb-2">/ Monat</div>
+                )}
+
+                {isActive ? (
+                  <div className="w-full py-1.5 rounded-xl text-[10px] font-bold text-white/80 border border-white/15 bg-white/5">
+                    Aktueller Plan
                   </div>
-                  <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
-                    {plan.name}
-                  </CardTitle>
-                  <p className="text-xs text-gray-400 mt-1">{plan.description}</p>
-                  <CardDescription>
-                    <div className="text-3xl font-bold text-white mt-2">
-                      {plan.price === 0 ? 'Gratis' : (
-                        <>
-                          {showUltimateDiscount && (
-                            <span className="text-lg text-gray-500 line-through mr-2 font-normal">
-                              {plan.price}€
-                            </span>
-                          )}
-                          {`${showUltimateDiscount ? discountedPrice : plan.price}€`}
-                        </>
-                      )}
-                      {plan.price > 0 && (
-                        <span className="text-sm text-gray-400 font-normal">
-                          {plan.yearly ? '/Jahr' : '/Monat'}
-                        </span>
-                      )}
-                    </div>
-                    {showUltimateDiscount && (
-                      <div className="mt-2 text-sm text-emerald-400 font-semibold">
-                        Freundschafts-Rabatt: {discountEuro.toFixed(2)}€ gespart
-                      </div>
-                    )}
-                    {plan.yearly && (
-                      <div className="mt-1">
-                        <Badge className="bg-emerald-700 text-white text-xs">Jahresplan</Badge>
-                      </div>
-                    )}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
-                        <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {isCurrentPlan ? (
-                    <Badge className="w-full justify-center py-2 bg-emerald-600 text-white">
-                      ✓ Aktiver Plan
-                    </Badge>
-                  ) : plan.price === 0 ? (
-                    <Badge variant="secondary" className="w-full justify-center py-2">
-                      Kostenlos verfügbar
-                    </Badge>
-                  ) : (
-                    <div className="space-y-2">
-                      {billingAvailable && (
-                        <Button
-                          onClick={() => handlePlayStorePurchase(plan.id)}
-                          disabled={isProcessing || !purchasesEnabled}
-                          className={`w-full bg-gradient-to-r ${plan.color} hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50`}
-                        >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Kauf wird gestartet...
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingBag className="w-4 h-4" />
-                              Im Play Store kaufen
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      {!billingAvailable && (
-                        <WebCheckoutButton planId={plan.id} disabled={isProcessing || !purchasesEnabled} />
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                ) : plan.price === 0 ? (
+                  <div className="w-full py-1.5 rounded-xl text-[10px] font-bold text-white/40 border border-white/10">
+                    Verfügbar
+                  </div>
+                ) : billingAvailable ? (
+                  <button
+                    type="button"
+                    onClick={() => handlePlayStorePurchase(plan.id)}
+                    disabled={isProcessing || !purchasesEnabled}
+                    className={`w-full py-1.5 rounded-xl text-[10px] font-bold transition-all disabled:opacity-50 ${
+                      plan.rec
+                        ? 'text-black'
+                        : plan.gold
+                        ? 'text-amber-900 border border-amber-400/60'
+                        : 'text-white border border-white/15 bg-white/5'
+                    }`}
+                    style={plan.rec ? { background: '#00E5FF' } : plan.gold ? { background: 'rgba(180,130,0,0.25)' } : undefined}
+                  >
+                    {isProcessing ? <Loader2 size={10} className="animate-spin mx-auto" /> : plan.btnLabel}
+                  </button>
+                ) : (
+                  <WebCheckoutButton
+                    planId={plan.id}
+                    disabled={isProcessing || !purchasesEnabled}
+                    className={`w-full py-1.5 rounded-xl text-[10px] font-bold ${
+                      plan.rec ? 'text-black' : 'text-white border border-white/15 bg-white/5'
+                    }`}
+                    style={plan.rec ? { background: '#00E5FF' } : undefined}
+                    label={isProcessing ? '...' : plan.btnLabel}
+                  />
+                )}
+              </div>
             );
           })}
         </div>
 
-        <div className="mt-12 text-center space-y-4">
-          <div className="p-6 bg-gray-900/50 border border-gray-800 rounded-xl max-w-2xl mx-auto">
-            <h3 className="text-xl font-semibold text-white mb-2 flex items-center justify-center gap-2">
-              <Mail className="w-5 h-5 text-cyan-400" />
-              Fragen zu Premium?
-            </h3>
-            <p className="text-gray-400 mb-4">
-              Kontaktiere uns per E-Mail bei Fragen zu den Premium-Plänen oder zum Google Play Kauf.
-            </p>
-            <Button
-              onClick={() => {
-                window.location.href = `mailto:support@catchgbt.app?subject=Premium Anfrage&body=Hallo,%0D%0A%0D%0AIch interessiere mich für einen Premium-Plan.%0D%0A%0D%0AMeine E-Mail: ${user?.email || ''}`;
-              }}
-              variant="outline"
-              className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
-            >
-              <Mail className="w-4 h-4 mr-2" />
-              Support kontaktieren
-            </Button>
+        {/* KI-FUNKTIONEN comparison table */}
+        <div className="rounded-2xl border border-white/8 overflow-hidden mb-5" style={{ background: 'rgba(15,30,45,0.75)' }}>
+          {/* Table header */}
+          <div className="grid grid-cols-5 border-b border-white/8">
+            <div className="px-3 py-2.5">
+              <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">KI-FUNKTIONEN</span>
+            </div>
+            {['Gast', 'Basic', 'Pro', 'Ultimate'].map((h, i) => (
+              <div key={h} className={`py-2.5 text-center border-l border-white/8 ${i === 2 ? 'text-cyan-400' : i === 3 ? 'text-amber-400' : 'text-white/60'}`}>
+                <span className="text-[10px] font-bold">{h}</span>
+              </div>
+            ))}
           </div>
 
-          <p className="text-gray-500 text-sm">
-            {billingAvailable
-              ? 'Alle Kaeufe erfolgen ueber deinen Google Play Account. Verwaltung & Kuendigung in den Play Store Einstellungen.'
-              : 'Bezahlung per Kreditkarte, Google Pay oder Apple Pay laeuft sicher ueber Stripe.'}
+          {/* Feature rows */}
+          {KI_FEATURES.map((feature, rowIdx) => {
+            const cells = [feature.gast, feature.basic, feature.pro, feature.ultimate];
+            return (
+              <div
+                key={feature.name}
+                className={`grid grid-cols-5 border-b border-white/5 ${rowIdx === KI_FEATURES.length - 1 ? 'border-b-0' : ''}`}
+              >
+                <div className="px-3 py-3 flex items-start gap-1.5">
+                  <span className="text-[12px] mt-0.5">{feature.icon}</span>
+                  <span className="text-[11px] font-medium text-white/80">{feature.name}</span>
+                </div>
+                {cells.map((cell, colIdx) => (
+                  <div key={colIdx} className="py-3 px-1 text-center border-l border-white/5 flex flex-col items-center justify-center">
+                    <DotIndicator count={cell.dots} color={cell.color} />
+                    <div className="text-[9px] text-white/40 leading-tight whitespace-pre-line">{cell.label}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Antwortlänge selector */}
+        <div className="rounded-2xl border border-white/8 p-4 mb-5" style={{ background: 'rgba(15,30,45,0.75)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-sm font-bold text-white">Antwortlänge</div>
+              <div className="text-[11px] text-white/40">(für diesen Plan)</div>
+            </div>
+            <div className="flex gap-1.5">
+              {['kurz', 'normal', 'detailliert'].map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setAnswerLength(opt)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-semibold capitalize transition-all ${
+                    answerLength === opt
+                      ? 'text-black'
+                      : 'text-white/60 border border-white/15 bg-white/5'
+                  }`}
+                  style={answerLength === opt ? { background: '#00E5FF' } : undefined}
+                >
+                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[11px] text-white/40 leading-relaxed">
+            Legt die Länge und Detailtiefe der KI-Antworten fest. Die Verfügbarkeit hängt von deinem Tarif ab.
           </p>
         </div>
+
+        {/* Ultimate banner */}
+        <div
+          className="rounded-2xl border border-amber-400/30 p-4 flex items-center gap-3"
+          style={{ background: 'rgba(180,130,0,0.08)' }}
+        >
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+            <Crown size={20} className="text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-amber-400 mb-0.5">Ultimate: Premium-KI-Tools aktiv</div>
+            <div className="text-[11px] text-white/50 leading-relaxed">
+              Du erhältst Zugriff auf alle KI-Funktionen, Analysen, Actions und den erweiterten Voice-Assistant.
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-white/30 rotate-180 shrink-0" />
+        </div>
+
+        {/* Payment method info */}
+        {!billingAvailable && (
+          <div className="mt-4 p-3 rounded-2xl border border-cyan-500/20 flex items-start gap-2.5"
+            style={{ background: 'rgba(0,229,255,0.05)' }}>
+            <Smartphone size={14} className="text-cyan-400 mt-0.5 shrink-0" />
+            <div className="text-[11px] text-white/60">
+              Im Browser kannst du mit Kreditkarte, Google Pay oder Apple Pay bezahlen.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
