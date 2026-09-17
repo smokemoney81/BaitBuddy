@@ -102,6 +102,12 @@ const UsedGear = lazyPage(() => import('./pages/UsedGear'));
 const VoiceChat = lazyPage(() => import('./pages/VoiceChat'));
 const VoiceLecture = lazyPage(() => import('./pages/VoiceLecture'));
 const WaterAnalysis = lazyPage(() => import('./pages/WaterAnalysis'));
+const FishRecipes = lazyPage(() => import('./pages/FishRecipes'));
+const GearRecognition = lazyPage(() => import('./pages/GearRecognition'));
+const NotificationCenter = lazyPage(() => import('./pages/NotificationCenter'));
+const GearMaintenance = lazyPage(() => import('./pages/GearMaintenance'));
+const OfflineFishingPack = lazyPage(() => import('./pages/OfflineFishingPack'));
+const RuleAssistant = lazyPage(() => import('./pages/RuleAssistant'));
 const Weather = lazyPage(() => import('./pages/Weather'));
 import __Layout from './Layout.jsx';
 
@@ -153,6 +159,12 @@ export const PAGES = {
     "VoiceLecture": VoiceLecture,
     "WaterAnalysis": WaterAnalysis,
     "Weather": Weather,
+    "FishRecipes": FishRecipes,
+    "GearRecognition": GearRecognition,
+    "NotificationCenter": NotificationCenter,
+    "GearMaintenance": GearMaintenance,
+    "OfflineFishingPack": OfflineFishingPack,
+    "RuleAssistant": RuleAssistant,
 }
 
 export const pagesConfig = {

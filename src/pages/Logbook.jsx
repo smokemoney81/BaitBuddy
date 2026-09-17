@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import SwipeToRefresh from "@/components/utils/SwipeToRefresh";
 import { toast } from "sonner";
 import { Upload, X, Loader2, Share2, BarChart2, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { UploadFile } from "@/integrations/Core";
 import CatchHistory from "@/components/log/CatchHistory";
 import PendingPhotoCard from '@/components/log/PendingPhotoCard';
@@ -30,6 +30,7 @@ import { mergeRecognitionNote } from "@/lib/fishRecognition";
 export default function Logbook() {
   useFeatureTracking("catch_log");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // ---- Data fetching via TanStack Query ----
   // Ohne explizites Limit liefert das Backend nur die letzten 50 Fänge — das
@@ -188,7 +189,18 @@ export default function Logbook() {
       queryClient.setQueryData(['catches'], (old = []) =>
         old.map(c => (c.id?.startsWith('tmp-') ? savedCatch : c))
       );
-      toast.success("Fang gespeichert!");
+      toast.success("Fang gespeichert!", {
+        action: {
+          label: "Rezepte",
+          onClick: () => {
+            const params = new URLSearchParams({ species: savedCatch.species || "" });
+            if (savedCatch.weight_kg) params.set("weight_g", Math.round(savedCatch.weight_kg * 1000));
+            if (savedCatch.length_cm) params.set("length_cm", savedCatch.length_cm);
+            if (savedCatch.catch_time) params.set("catch_date", savedCatch.catch_time);
+            navigate(`/FishRecipes?${params.toString()}`);
+          },
+        },
+      });
       resetForm();
       setSavedCatchData(savedCatch);
 

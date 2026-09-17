@@ -912,4 +912,184 @@ Antworte prägnant (3-5 Sätze), als würdest du einem Freund am Wasser helfen.`
   }
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Rezeptvorschläge nach Fang
+// ──────────────────────────────────────────────────────────────────────────────
+router.post('/ai/fish-recipes', requireAuth, async (req, res) => {
+  try {
+    const { species, weight_g, length_cm, catch_date, keep } = req.body;
+    if (!species) return res.status(400).json({ error: 'species erforderlich' });
+
+    // Catch & Release: kein Rezept, nur kurze Info
+    if (keep === false) {
+      return res.json({
+        ok: true,
+        catchAndRelease: true,
+        message: `${species} wurde zurückgesetzt – gut so! Genuss ohne Fang ist auch ein Fang.`,
+        recipes: [],
+      });
+    }
+
+    const weightInfo = weight_g ? ` (${(weight_g / 1000).toFixed(2)} kg)` : '';
+    const lengthInfo = length_cm ? `, ca. ${length_cm} cm` : '';
+
+    const prompt = `Du bist ein erfahrener Koch und Angler. Erstelle Rezeptvorschläge für einen frisch gefangenen Fisch.
+
+FISCH: ${species}${weightInfo}${lengthInfo}
+DATUM: ${catch_date ? new Date(catch_date).toLocaleDateString('de-DE') : 'Heute'}
+
+AUFGABE:
+1. Empfiehl 3 Zubereitungsarten für diese Fischart (passend zur Größe/Gewicht)
+2. Gib für jede Methode: Name, kurze Beschreibung, benötigte Zutaten, Zubereitungszeit
+3. Nenne wichtige Vorverarbeitung (Schuppen, Filetieren, Entgräten)
+4. Portionsempfehlung basierend auf dem Gewicht
+5. Schonmaß/Nachhaltigkeit: Weise kurz auf nachhaltige Nutzung hin
+
+ANTWORT-FORMAT (JSON):
+{
+  "prepNotes": "Kurze Verarbeitungshinweise",
+  "portionCount": 2,
+  "recipes": [
+    {
+      "name": "Rezeptname",
+      "method": "Braten|Grillen|Räuchern|Dünsten|Beizen|Sashimi",
+      "description": "Kurze Beschreibung",
+      "ingredients": ["Zutat 1", "Zutat 2"],
+      "prepTimeMin": 20,
+      "difficulty": "Einfach|Mittel|Anspruchsvoll",
+      "tip": "Profi-Tipp"
+    }
+  ],
+  "sustainabilityNote": "Kurze Nachhaltigkeitsinfo"
+}
+
+Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
+
+    const raw = await invokeLLM({ prompt });
+
+    let parsed;
+    try {
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      parsed = { prepNotes: raw, recipes: [], portionCount: null, sustainabilityNote: '' };
+    }
+
+    return res.json({ ok: true, species, ...parsed });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Ausrüstungserkennung per Foto
+// ──────────────────────────────────────────────────────────────────────────────
+router.post('/ai/recognize-gear', requireAuth, async (req, res) => {
+  try {
+    const { image_base64 } = req.body;
+    if (typeof image_base64 !== 'string' || image_base64.length === 0) {
+      return res.status(400).json({ error: 'image_base64 erforderlich' });
+    }
+    if (image_base64.length > MAX_VISION_IMAGE_BASE64_CHARS) {
+      return res.status(413).json({ error: 'Bild ist zu groß' });
+    }
+
+    const prompt = `Du bist ein Angelausrüstungs-Experte. Analysiere dieses Foto von Angelausrüstung.
+
+AUFGABE:
+1. Erkenne alle sichtbaren Ausrüstungsgegenstände (Rute, Rolle, Köder, Schnur, Zubehör)
+2. Schätze Marke/Typ wenn erkennbar
+3. Gib den wahrscheinlichsten Zweck/Einsatzbereich an
+4. Bewerte Zustand (Neu/Gut/Gebraucht/Wartungsbedürftig)
+
+ANTWORT-FORMAT (JSON):
+{
+  "items": [
+    {
+      "category": "Rute|Rolle|Köder|Schnur|Zubehör|Sonstiges",
+      "name": "Erkannter Name/Typ",
+      "brand": "Marke oder null",
+      "description": "Kurze Beschreibung",
+      "condition": "Neu|Gut|Gebraucht|Wartungsbedürftig",
+      "useCase": "Empfohlener Einsatz",
+      "confidence": 0.85
+    }
+  ],
+  "generalNotes": "Allgemeine Beobachtungen zum Setup"
+}
+
+Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
+
+    const raw = await invokeLLM({ prompt, imageBase64: image_base64 });
+
+    let parsed;
+    try {
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      parsed = { items: [], generalNotes: raw };
+    }
+
+    return res.json({ ok: true, ...parsed });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Ausrüstungswartungs-Empfehlungen
+// ──────────────────────────────────────────────────────────────────────────────
+router.post('/ai/gear-maintenance-tips', requireAuth, async (req, res) => {
+  try {
+    const { gearItems = [] } = req.body;
+    if (!Array.isArray(gearItems) || gearItems.length === 0) {
+      return res.status(400).json({ error: 'gearItems erforderlich' });
+    }
+
+    const itemList = gearItems
+      .slice(0, 20)
+      .map(g => `- ${g.name || 'Unbekannt'} (${g.category || 'Sonstiges'}, ${g.tripCount || 0} Trips, zuletzt gewartet: ${g.lastMaintained || 'Nie'})`)
+      .join('\n');
+
+    const prompt = `Du bist ein Angelausrüstungs-Experte. Analysiere diese Ausrüstungsliste und gib Wartungsempfehlungen.
+
+AUSRÜSTUNG:
+${itemList}
+
+AUFGABE:
+Erstelle für jedes Gerät eine Wartungsempfehlung basierend auf Nutzung und letzter Wartung.
+
+ANTWORT-FORMAT (JSON):
+{
+  "recommendations": [
+    {
+      "itemName": "Name des Geräts",
+      "urgency": "Sofort|Bald|Routinemäßig|OK",
+      "action": "Was zu tun ist",
+      "reason": "Warum",
+      "estimatedTimeMin": 15
+    }
+  ],
+  "generalTip": "Allgemeiner Wartungstipp"
+}
+
+Antworte NUR mit dem JSON-Objekt.`;
+
+    const raw = await invokeLLM({ prompt });
+
+    let parsed;
+    try {
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      parsed = { recommendations: [], generalTip: raw };
+    }
+
+    return res.json({ ok: true, ...parsed });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
 export default router;
+

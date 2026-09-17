@@ -13,7 +13,9 @@ export const ALLOWED_PAGES = [
   "BaitMixer", "Koeder3D", "CatchStats", "ARKnotenAssistent", "Shop", "Premium",
   "PremiumPlans", "Help", "Tutorials", "Devices", "DeviceIntegration",
   "StartFishing", "UsedGear", "BathymetricCrowdsourcing",
-  "VoiceLecture", "BuddyKnowsYou"
+  "VoiceLecture", "BuddyKnowsYou",
+  "FishRecipes", "GearRecognition", "NotificationCenter",
+  "GearMaintenance", "OfflineFishingPack", "RuleAssistant",
 ];
 
 // Aliase (immer kleingeschrieben) kanonischer Key.
@@ -116,7 +118,32 @@ const PAGE_ALIASES = {
   tiefenkarte: "BathymetricCrowdsourcing",
   bathymetriccrowdsourcing: "BathymetricCrowdsourcing",
 
-  vorlesung: "VoiceLecture", voicelecture: "VoiceLecture", lehrgang: "VoiceLecture"
+  vorlesung: "VoiceLecture", voicelecture: "VoiceLecture", lehrgang: "VoiceLecture",
+
+  rezept: "FishRecipes", rezepte: "FishRecipes", fishrecipes: "FishRecipes",
+  fischrezept: "FishRecipes", fischrezepte: "FishRecipes", kochen: "FishRecipes",
+  küche: "FishRecipes", kueche: "FishRecipes",
+
+  ausrüstungserkennung: "GearRecognition", ausruestungserkennung: "GearRecognition",
+  gearrecognition: "GearRecognition", fotoerkennung: "GearRecognition",
+  fotoanalyse: "GearRecognition", geräteerkennung: "GearRecognition",
+
+  benachrichtigungen: "NotificationCenter", notificationcenter: "NotificationCenter",
+  notifications: "NotificationCenter", nachrichten: "NotificationCenter",
+  mitteilungen: "NotificationCenter", meldungen: "NotificationCenter",
+
+  wartung: "GearMaintenance", gearmaintenance: "GearMaintenance",
+  ausrüstungswartung: "GearMaintenance", ausruestungswartung: "GearMaintenance",
+  rollenpflege: "GearMaintenance", wartungsprotokoll: "GearMaintenance",
+
+  offline: "OfflineFishingPack", offlinepack: "OfflineFishingPack",
+  offlinefishingpack: "OfflineFishingPack", angelpack: "OfflineFishingPack",
+  offlineangeln: "OfflineFishingPack",
+
+  schonzeit: "RuleAssistant", schonzeiten: "RuleAssistant",
+  ruleassistant: "RuleAssistant", regelassistent: "RuleAssistant",
+  regeln: "RuleAssistant", mindestmaß: "RuleAssistant", mindestmass: "RuleAssistant",
+  fischregeln: "RuleAssistant", angelregeln: "RuleAssistant",
 };
 
 /**
