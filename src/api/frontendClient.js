@@ -164,9 +164,6 @@ class ApiClient {
     // kombiniert. `_retried` verhindert Endlos-Refresh-Schleifen bei 401.
     const { signal: externalSignal, _retried = false, _attempt = 0 } = options;
     const token = this.getToken();
-    if (path.includes('/auth/me')) {
-      console.log('[ApiClient.request] GET /auth/me - token present:', !!token, 'token preview:', token?.slice?.(0, 20) + '...');
-    }
     const opts = {
       method,
       headers: {

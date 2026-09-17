@@ -27,15 +27,11 @@ export const AuthProvider = ({ children }) => {
   // SIGNED_OUT nach bb_token/bb_refresh; TOKEN_REFRESHED feuert von diesem
   // Client praktisch nicht, wird aber sicherheitshalber mit behandelt.
   useEffect(() => {
-    console.log('[AuthContext] Setting up onAuthStateChange listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthContext] onAuthStateChange event:', event, 'has token:', !!session?.access_token);
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.access_token) {
-        console.log('[AuthContext] Setting tokens from Supabase session');
         auth.setToken(session.access_token);
         if (session.refresh_token) auth.setRefreshToken(session.refresh_token);
       } else if (event === 'SIGNED_OUT') {
-        console.log('[AuthContext] Clearing tokens due to SIGNED_OUT');
         auth.setToken(null);
         auth.setRefreshToken?.(null);
       }
@@ -61,9 +57,7 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
 
       const token = auth.getToken();
-      console.log('[AuthContext] checkAppState: token present:', !!token, 'token:', token?.slice?.(0, 20) + '...');
       if (!token) {
-        console.log('[AuthContext] No token found, user is unauthenticated');
         setIsAuthenticated(false);
         setUser(null);
         setIsLoadingAuth(false);
@@ -73,22 +67,17 @@ export const AuthProvider = ({ children }) => {
       // auth.me() liefert offline (Netzwerkfehler) das zwischengespeicherte
       // Profil zurück, sofern ein Token vorliegt — ein zuvor angemeldeter Nutzer
       // bleibt damit ohne Verbindung angemeldet.
-      console.log('[AuthContext] Calling auth.me() to fetch current user...');
       const currentUser = await auth.me();
-      console.log('[AuthContext] auth.me() returned:', currentUser?.id, currentUser?.email);
       setUser(currentUser);
       setIsAuthenticated(true);
-      console.log('[AuthContext] User authenticated:', currentUser?.email);
       await adoptGuestData();
     } catch (error) {
-      console.error('[AuthContext] Auth check failed:', error?.message, 'status:', error?.status);
       setIsAuthenticated(false);
       setUser(null);
       // Nur bei einer echten Ablehnung (401/403) die Tokens verwerfen. Bei einem
       // reinen Netzwerkfehler ohne gecachtes Profil bleibt das Token erhalten,
       // damit die Anmeldung nach Wiederkehr des Netzes automatisch greift.
       if (error.status === 401 || error.status === 403) {
-        console.log('[AuthContext] Auth error 401/403, clearing tokens');
         auth.setToken(null);
         auth.setRefreshToken?.(null);
       }

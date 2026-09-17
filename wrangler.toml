@@ -45,11 +45,15 @@ crons = ["0 3 * * *", "0 2 * * *", "0 1 * * *", "0 0 1 * *"]
 
 # --- Environment Variables (Non-Secret) ---
 # BACKEND_URL: Basis-URL des Express-Backends
-#   Übergangslösung: neues Vercel-Projekt (ssbedburg)
+#   Übergangslösung: `https://api.catchgbt.com` existiert nicht (keine DNS-
+#   Auflösung) — der Worker proxyte damit jede /api/*-Anfrage gegen eine tote
+#   Origin (Cloudflare-530, u. a. Login/Registrierung komplett down). Bis die
+#   Cloudflare-Container-Migration steht, zeigt BACKEND_URL auf die echte,
+#   erreichbare Vercel-Produktions-URL.
 #   Ziel: Cloudflare Container URL (nach Paid Plan Migration)
 # DOMAIN: Produktions-Domain, für Logging/Verification
 [vars]
-BACKEND_URL = "https://api.catchgbt.com"
+BACKEND_URL = "https://bait-buddy.vercel.app"
 DOMAIN = "catchgbt.com"
 
 # --- Rate-Limit Store (optional) ---
