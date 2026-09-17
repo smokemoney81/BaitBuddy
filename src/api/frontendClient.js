@@ -49,7 +49,11 @@ function clearCachedUser() {
 // Nur solche Fehler rechtfertigen den Offline-Fallback — ein 401/403 ist eine
 // echte Ablehnung und muss zum Logout führen.
 function isNetworkError(error) {
-  return error != null && error.status == null;
+  if (error == null) return false;
+  if (error.status == null) return true;
+  // Cloudflare-Infrastrukturfehler (520–530): Origin nicht erreichbar. Für den
+  // Client verhält sich das wie ein Netzwerkausfall — der Offline-Cache greift.
+  return error.status >= 520 && error.status <= 530;
 }
 
 // ── Resilienz: Exponential Backoff bei transienter Serverüberlast ───────────────
