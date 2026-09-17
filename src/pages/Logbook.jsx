@@ -13,7 +13,7 @@ import { MobileSelect } from "@/components/ui/mobile-select";
 import { Textarea } from "@/components/ui/textarea";
 import SwipeToRefresh from "@/components/utils/SwipeToRefresh";
 import { toast } from "sonner";
-import { Upload, X, Loader2, Share2, BarChart2, Plus, ChefHat } from "lucide-react";
+import { Upload, X, Loader2, Share2, BarChart2, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { UploadFile } from "@/integrations/Core";
 import CatchHistory from "@/components/log/CatchHistory";

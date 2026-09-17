@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { AlertTriangle, Shield, MapPin, Phone, Pause, Navigation, X, ChevronRight, Wind, Zap, Thermometer, Waves } from "lucide-react";
+import { AlertTriangle, Shield, MapPin, Phone, Pause, X, ChevronRight, Wind, Zap, Thermometer, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { weather } from "@/api/frontendClient";

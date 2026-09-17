@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Bell, BellOff, Fish, CloudLightning, Trophy, Users,
-  Wrench, Loader2, Info, Clock, Trash2, CheckCheck, ChevronDown, ChevronUp
+  Wrench, Info, Clock, Trash2, CheckCheck, ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";

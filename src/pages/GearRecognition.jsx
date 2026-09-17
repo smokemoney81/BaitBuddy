@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, Upload, ArrowLeft, Loader2, Check, X, AlertCircle, Plus, Wrench } from "lucide-react";
+import { Camera, Upload, ArrowLeft, Loader2, X, AlertCircle, Plus, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { ai, entities } from "@/api/frontendClient";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
