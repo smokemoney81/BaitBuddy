@@ -5,6 +5,7 @@ import { resolve } from 'path'
 export default defineConfig({
   logLevel: 'error',
   plugins: [react()],
+  publicDir: 'public',
   resolve: {
     alias: {
       '@': resolve('./src'),
