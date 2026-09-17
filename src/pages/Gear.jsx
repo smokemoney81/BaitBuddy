@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
-import { Compass, Fish, MapPin, RefreshCcw, Wand2, Search, CloudSun, Loader2 } from "lucide-react";
+import { Compass, Fish, MapPin, RefreshCcw, Wand2, Search, CloudSun, Loader2, Camera, Wrench, ChevronRight } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { catchgbtChat } from "@/functions/catchgbtChat";
 import { useHaptic } from "@/components/utils/HapticFeedback";
@@ -193,6 +194,7 @@ function GearContent({ user }){ // Renamed from App to GearContent
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   const { triggerHaptic } = useHaptic(); // Initialized useHaptic
+  const navigate = useNavigate();
 
   // Daten bei Änderung speichern
   useEffect(() => { saveLocal("reelBrand", reelBrand); }, [reelBrand]);
@@ -613,6 +615,38 @@ Sei konkret und praxisorientiert!`;
 
           <button type="button" onClick={resetAll} className="w-full p-2 text-xs text-red-400/70 bg-red-900/20 rounded-xl hover:bg-red-900/40 flex items-center justify-center gap-2 transition-colors border border-red-900/30">
             <RefreshCcw className="h-3 w-3"/> Zurücksetzen
+          </button>
+        </div>
+
+        {/* --- Schnellzugriff Ausrüstungs-Tools --- */}
+        <div className="md:col-span-2 lg:col-span-3 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/GearMaintenance")}
+            className="flex items-center justify-between p-3 rounded-xl bg-amber-900/20 border border-amber-700/40 hover:bg-amber-900/30 transition text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-white">Wartungsprotokoll</p>
+                <p className="text-xs text-gray-400">Pflege & Intervalle</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/GearRecognition")}
+            className="flex items-center justify-between p-3 rounded-xl bg-cyan-900/20 border border-cyan-700/40 hover:bg-cyan-900/30 transition text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Camera className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-white">Foto-Erkennung</p>
+                <p className="text-xs text-gray-400">KI erkennt Ausrüstung</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-600" />
           </button>
         </div>
 

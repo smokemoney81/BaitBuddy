@@ -7,6 +7,7 @@ import { InvokeLLM } from "@/integrations/Core";
 import { events } from "@/api/frontendClient";
 import { useEventActivityTracking } from "@/hooks/useEventActivityTracking";
 import WeatherWarnings from "@/components/weather/WeatherWarnings";
+import SafetyMode from "@/components/weather/SafetyMode";
 import { toast } from "sonner";
 import { speakWithFallback, cancelElevenLabs } from "@/components/utils/elevenLabsTTS";
 import { timeoutSignal } from "@/lib/abortCompat";
@@ -575,7 +576,14 @@ Sei konkret, praktisch und detailliert!`;
             </Card>
 
             {currentLocation?.lat && currentLocation?.lon && (
-              <WeatherWarnings lat={currentLocation.lat} lon={currentLocation.lon} />
+              <>
+                <SafetyMode
+                  lat={currentLocation.lat}
+                  lon={currentLocation.lon}
+                  className="mb-2"
+                />
+                <WeatherWarnings lat={currentLocation.lat} lon={currentLocation.lon} />
+              </>
             )}
 
           </TabsContent>

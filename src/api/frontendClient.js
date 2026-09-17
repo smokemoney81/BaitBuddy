@@ -853,6 +853,10 @@ export const ai = {
     latitude: lat,
     longitude: lng
   }),
+  fishRecipes:       (species, weight_g, length_cm, catch_date, keep) =>
+    api.post('/api/ai/fish-recipes', { species, weight_g, length_cm, catch_date, keep }),
+  recognizeGear:     (image_base64) => api.post('/api/ai/recognize-gear', { image_base64 }),
+  gearMaintenanceTips: (gearItems)  => api.post('/api/ai/gear-maintenance-tips', { gearItems }),
 };
 
 export const weather = {
@@ -968,4 +972,13 @@ export const dashboard = {
 // eine Schreibstelle gibt.
 export const personalization = {
   getProfile: () => api.get('/api/personalization/me'),
+};
+
+export const gearMaintenance = {
+  list:           ()          => api.get('/api/gear/maintenance'),
+  log:            (entry)     => api.post('/api/gear/maintenance', entry),
+  remove:         (id)        => api.del(`/api/gear/maintenance/${id}`),
+  usage:          ()          => api.get('/api/gear/usage'),
+  incrementUsage: (gear_item_id, gear_name) =>
+    api.post('/api/gear/usage/increment', { gear_item_id, gear_name }),
 };

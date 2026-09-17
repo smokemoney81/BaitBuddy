@@ -129,4 +129,92 @@ registerCrud('gear_rules', 'rules');
 registerCrud('loadouts', 'loadouts');
 registerCrud('pack_sessions', 'sessions');
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Wartungsprotokoll
+// ──────────────────────────────────────────────────────────────────────────────
+
+router.get('/gear/maintenance', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('gear_maintenance_log')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('performed_at', { ascending: false })
+    .limit(200);
+  if (error) return sendDbError(res, error);
+  return res.json(data || []);
+});
+
+router.post('/gear/maintenance', requireAuth, async (req, res) => {
+  const { gear_item_id, gear_name, category, action, notes, next_due_at, trip_count_at_time } = req.body;
+  if (!gear_item_id || !gear_name || !action) {
+    return res.status(400).json({ error: 'gear_item_id, gear_name und action erforderlich' });
+  }
+  const { data, error } = await supabase
+    .from('gear_maintenance_log')
+    .insert({
+      user_id: req.user.id,
+      gear_item_id,
+      gear_name,
+      category: category || 'Sonstiges',
+      action,
+      notes: notes || null,
+      next_due_at: next_due_at || null,
+      trip_count_at_time: trip_count_at_time || 0,
+    })
+    .select()
+    .single();
+  if (error) return sendDbError(res, error);
+  return res.status(201).json(data);
+});
+
+router.delete('/gear/maintenance/:id', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('gear_maintenance_log')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
+  if (error) return sendDbError(res, error);
+  return res.json({ ok: true });
+});
+
+// Tripzähler
+router.post('/gear/usage/increment', requireAuth, async (req, res) => {
+  const { gear_item_id, gear_name } = req.body;
+  if (!gear_item_id || !gear_name) return res.status(400).json({ error: 'gear_item_id und gear_name erforderlich' });
+
+  const { data: existing } = await supabase
+    .from('gear_trip_usage')
+    .select('id, trip_count')
+    .eq('user_id', req.user.id)
+    .eq('gear_item_id', gear_item_id)
+    .single();
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('gear_trip_usage')
+      .update({ trip_count: (existing.trip_count || 0) + 1, last_used_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select().single();
+    if (error) return sendDbError(res, error);
+    return res.json(data);
+  } else {
+    const { data, error } = await supabase
+      .from('gear_trip_usage')
+      .insert({ user_id: req.user.id, gear_item_id, gear_name, trip_count: 1, last_used_at: new Date().toISOString() })
+      .select().single();
+    if (error) return sendDbError(res, error);
+    return res.status(201).json(data);
+  }
+});
+
+router.get('/gear/usage', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('gear_trip_usage')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('trip_count', { ascending: false });
+  if (error) return sendDbError(res, error);
+  return res.json(data || []);
+});
+
 export default router;

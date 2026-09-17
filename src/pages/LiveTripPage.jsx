@@ -8,6 +8,7 @@ import SolunarWidget from '../components/LiveTrip/SolunarWidget';
 import PredictionWidget from '../components/LiveTrip/PredictionWidget';
 import NotificationSettings from '../components/LiveTrip/NotificationSettings';
 import TripHistory from '../components/LiveTrip/TripHistory';
+import SafetyMode from '../components/weather/SafetyMode';
 
 /**
  * LiveTripPage - Live-Angeltour mit GPS-Tracking
@@ -290,6 +291,19 @@ function LiveTripPage() {
           </button>
         </div>
       </div>
+
+      {/* Sicherheitsmodus */}
+      {currentLocation && (
+        <div className="max-w-7xl mx-auto px-4 pt-3">
+          <SafetyMode
+            lat={currentLocation.latitude}
+            lon={currentLocation.longitude}
+            tripActive={isRecording}
+            onPauseTrip={!isPaused ? pauseTrip : resumeTrip}
+            onEndTrip={endTrip}
+          />
+        </div>
+      )}
 
       {/* Hauptbereich */}
       <div className="max-w-7xl mx-auto p-4">
