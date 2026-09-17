@@ -10,6 +10,15 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+  			/* BaitBuddy design-system tokens */
+  			'bb-bg':      '#080F16',
+  			'bb-surface': 'rgba(15,30,45,0.75)',
+  			'bb-cyan':    '#00E5FF',
+  			'bb-green':   '#00FF9D',
+  			'bb-orange':  '#FF9F0A',
+  			'bb-red':     '#FF4560',
+  			'bb-muted':   '#7a96ae',
+  			'bb-border':  'rgba(0,229,255,0.15)',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {

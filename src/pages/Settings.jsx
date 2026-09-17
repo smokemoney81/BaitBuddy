@@ -9,7 +9,7 @@ export default function Settings() {
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-950 w-full">
+    <div className="min-h-screen w-full bb-app">
       <TutorialButton onClick={() => setTutorialOpen(true)} />
       <SettingsPageTabbed />
       <TutorialModal isOpen={tutorialOpen} onClose={() => setTutorialOpen(false)} />

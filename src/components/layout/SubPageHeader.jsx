@@ -24,23 +24,33 @@ export default function SubPageHeader({ title }) {
   };
 
   return (
-    <div className="md:hidden sticky top-0 z-40 bg-gray-950/60 backdrop-blur-xl border-b border-gray-800">
+    <div
+      className="md:hidden sticky top-0 z-40"
+      style={{
+        background: 'rgba(6,14,24,0.92)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(0,229,255,0.12)',
+      }}
+    >
       <div
-        className="flex items-center h-12 px-4"
+        className="flex items-center h-14 px-3 gap-2"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
+          type="button"
           onClick={handleBack}
           aria-label="Zurueck"
-          className="text-gray-400 hover:text-white"
+          className="bb-back-btn flex-shrink-0"
+          style={{ minWidth: 40, minHeight: 40 }}
         >
           <ArrowLeft aria-hidden="true" className="w-5 h-5" />
-        </Button>
-        <h1 className="flex-1 text-center text-lg font-semibold text-white pr-10">
+        </button>
+        <h1 className="flex-1 text-center text-base font-semibold text-white">
           {title || currentPage}
         </h1>
+        {/* Spacer to balance left button */}
+        <div style={{ width: 40, flexShrink: 0 }} />
       </div>
     </div>
   );

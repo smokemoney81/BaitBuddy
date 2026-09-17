@@ -59,7 +59,15 @@ export default function BottomTabs() {
   return <>
     <nav className="bb-bottom" role="tablist" aria-label="Hauptnavigation"><div className="bb-bottom-items">
       {navigation.slice(0, split).map(renderLink)}
-      <button type="button" className="bb-bottom-plus" aria-label="Schnellaktionen öffnen" onClick={() => setOpen(true)}><Plus size={28}/></button>
+      <button
+        type="button"
+        className="bb-bottom-plus bb-glow-pulse"
+        aria-label="Schnellaktionen öffnen"
+        onClick={() => setOpen(true)}
+        style={{ margin: '0 4px' }}
+      >
+        <Plus size={26} strokeWidth={2.5}/>
+      </button>
       {navigation.slice(split).map(renderLink)}
     </div></nav>
     <Sheet open={open} onOpenChange={setOpen}><SheetContent side="bottom" className="bb-app rounded-t-3xl border-0 pb-[calc(24px+env(safe-area-inset-bottom))] [&>button]:h-11 [&>button]:w-11">

@@ -72,7 +72,8 @@
     @apply border-border outline-ring/50;
   }
   html, body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background: #080F16;
     overscroll-behavior: none;
     -webkit-overscroll-behavior: none;
     /* Use full viewport - safe areas handled per component (header/bottom tabs) */
@@ -270,6 +271,15 @@ input.input-sm,
 select.select-sm {
   min-height: 40px;
 }
+
+/* ===== Dark-theme overrides: map old gray-950/900 → BaitBuddy dark ===== */
+/* These ensure pages still using bg-gray-950 / bg-gray-900 stay on-brand  */
+.bg-gray-950 { background-color: #080F16 !important; }
+.bg-gray-950\/60 { background-color: rgba(8,15,22,0.60) !important; }
+.bg-gray-900 { background-color: #0c1a28 !important; }
+.bg-gray-900\/80 { background-color: rgba(12,26,40,0.80) !important; }
+.border-gray-800 { border-color: rgba(0,229,255,0.10) !important; }
+.border-gray-700 { border-color: rgba(0,229,255,0.15) !important; }
 
 /* ===== THEME MODES ===== */
 
