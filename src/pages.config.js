@@ -108,6 +108,7 @@ const NotificationCenter = lazyPage(() => import('./pages/NotificationCenter'));
 const GearMaintenance = lazyPage(() => import('./pages/GearMaintenance'));
 const OfflineFishingPack = lazyPage(() => import('./pages/OfflineFishingPack'));
 const RuleAssistant = lazyPage(() => import('./pages/RuleAssistant'));
+const SatelliteAnalysis = lazyPage(() => import('./pages/SatelliteAnalysis'));
 const Weather = lazyPage(() => import('./pages/Weather'));
 import __Layout from './Layout.jsx';
 
@@ -165,6 +166,7 @@ export const PAGES = {
     "GearMaintenance": GearMaintenance,
     "OfflineFishingPack": OfflineFishingPack,
     "RuleAssistant": RuleAssistant,
+    "SatelliteAnalysis": SatelliteAnalysis,
 }
 
 export const pagesConfig = {

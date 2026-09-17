@@ -1091,5 +1091,145 @@ Antworte NUR mit dem JSON-Objekt.`;
   }
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Satellitenanalyse 2.0 — KI-gestützte Gewässerqualitätsanalyse
+// ──────────────────────────────────────────────────────────────────────────────
+router.post('/ai/satellite-analysis', requireAuth, async (req, res) => {
+  try {
+    const { latitude, longitude, spot_name = null } = req.body || {};
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: 'latitude und longitude erforderlich' });
+    }
+
+    // Open-Meteo: aktuell + 5 Tage historisch für Trendanalyse
+    const forecastUrl = new URL('https://api.open-meteo.com/v1/forecast');
+    forecastUrl.searchParams.set('latitude', String(lat));
+    forecastUrl.searchParams.set('longitude', String(lng));
+    forecastUrl.searchParams.set('current', 'temperature_2m,weather_code,precipitation,wind_speed_10m,relative_humidity_2m,uv_index');
+    forecastUrl.searchParams.set('hourly', 'temperature_2m,precipitation,uv_index,visibility');
+    forecastUrl.searchParams.set('past_days', '5');
+    forecastUrl.searchParams.set('forecast_days', '1');
+    forecastUrl.searchParams.set('timezone', 'auto');
+
+    const marineUrl = new URL('https://marine-api.open-meteo.com/v1/marine');
+    marineUrl.searchParams.set('latitude', String(lat));
+    marineUrl.searchParams.set('longitude', String(lng));
+    marineUrl.searchParams.set('hourly', 'sea_surface_temperature,wave_height');
+    marineUrl.searchParams.set('past_days', '5');
+    marineUrl.searchParams.set('forecast_days', '1');
+    marineUrl.searchParams.set('timezone', 'auto');
+
+    const [forecastRes, marineRes] = await Promise.all([
+      fetchWithTimeout(forecastUrl.toString(), {}, 10000),
+      fetchWithTimeout(marineUrl.toString(), {}, 10000).catch(() => null),
+    ]);
+
+    if (!forecastRes.ok) {
+      return res.status(502).json({ error: 'Wetterdaten nicht verfügbar' });
+    }
+    const forecast = await forecastRes.json();
+    const marine = marineRes?.ok ? await marineRes.json() : null;
+
+    const cur = forecast.current || {};
+    const hourly = forecast.hourly || {};
+    const times = hourly.time || [];
+
+    // Letzte 5 Tage: täglich aggregiert für Trend
+    const dailyMap = {};
+    times.forEach((t, i) => {
+      const day = t.slice(0, 10);
+      if (!dailyMap[day]) dailyMap[day] = { temps: [], precip: [], vis: [] };
+      if (hourly.temperature_2m?.[i] != null) dailyMap[day].temps.push(hourly.temperature_2m[i]);
+      if (hourly.precipitation?.[i] != null)  dailyMap[day].precip.push(hourly.precipitation[i]);
+      if (hourly.visibility?.[i] != null)      dailyMap[day].vis.push(hourly.visibility[i]);
+    });
+    const trend = Object.entries(dailyMap).slice(-6).map(([date, d]) => ({
+      date,
+      avg_temp: d.temps.length ? +(d.temps.reduce((a, b) => a + b, 0) / d.temps.length).toFixed(1) : null,
+      total_precip: d.precip.length ? +d.precip.reduce((a, b) => a + b, 0).toFixed(1) : 0,
+      avg_visibility_m: d.vis.length ? Math.round(d.vis.reduce((a, b) => a + b, 0) / d.vis.length) : null,
+    }));
+
+    const marineSurfaceTemps = (marine?.hourly?.sea_surface_temperature || []).filter(v => v != null);
+    const avgMarineTemp = marineSurfaceTemps.length
+      ? +(marineSurfaceTemps.reduce((a, b) => a + b, 0) / marineSurfaceTemps.length).toFixed(1)
+      : null;
+
+    const contextText = `
+Standort: ${spot_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
+Aktuelle Luft-Temperatur: ${cur.temperature_2m ?? 'unbekannt'} °C
+Aktueller Niederschlag: ${cur.precipitation ?? 0} mm/h
+Wind: ${cur.wind_speed_10m ?? 'unbekannt'} km/h
+Luftfeuchtigkeit: ${cur.relative_humidity_2m ?? 'unbekannt'} %
+UV-Index: ${cur.uv_index ?? 'unbekannt'}
+Meeres-/Wasseroberfläche Ø: ${avgMarineTemp ?? 'unbekannt'} °C
+Niederschlag der letzten 5 Tage (täglich): ${trend.map(d => `${d.date}: ${d.total_precip} mm`).join(', ')}
+Durchschnittstemperaturen: ${trend.map(d => `${d.date}: ${d.avg_temp}°C`).join(', ')}
+`.trim();
+
+    const prompt = `Du bist ein Gewässeranalyse-Experte und gibst Anglern eine Satellitenanalyse-ähnliche Bewertung der Wasserqualität.
+
+UMWELTDATEN:
+${contextText}
+
+AUFGABE:
+Analysiere die Gewässerqualität und gib eine strukturierte Bewertung zurück. Stütze dich auf die Wetterdaten.
+Hoher Niederschlag in den letzten Tagen → erhöhte Trübung, reduzierte Sichttiefe.
+Hohe Temperaturen + Sonne → Algenrisiko steigt.
+Niedrige Temperaturen → geringes Algenrisiko, gute Sichttiefe.
+
+ANTWORT-FORMAT (JSON):
+{
+  "surface_temperature_c": 14.5,
+  "turbidity": "gering|mittel|hoch",
+  "turbidity_index": 25,
+  "algae_risk": "gering|mittel|hoch",
+  "algae_risk_index": 15,
+  "visibility_depth_m": 3.5,
+  "water_quality_score": 78,
+  "risk_indicators": [
+    { "type": "Hochwasser", "level": "gering|mittel|kritisch", "description": "kurze Beschreibung" }
+  ],
+  "trend_summary": "1-2 Sätze über Veränderungen der letzten Tage",
+  "fishing_conditions": "gut|mittel|schlecht",
+  "fishing_conditions_reason": "Kurze Begründung",
+  "buddy_explanation": "2-3 Sätze, die ein Angler-Buddy einem Fischer erklärt",
+  "recommendations": ["Empfehlung 1", "Empfehlung 2"],
+  "data_confidence": "hoch|mittel|gering",
+  "data_confidence_reason": "warum die Konfidenz so ist"
+}
+
+Antworte NUR mit dem JSON-Objekt.`;
+
+    const raw = await invokeLLM({ prompt });
+    let parsed;
+    try {
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      parsed = { fishing_conditions: 'mittel', buddy_explanation: raw };
+    }
+
+    return res.json({
+      ok: true,
+      location: { latitude: lat, longitude: lng, spot_name },
+      weather: {
+        air_temp_c: cur.temperature_2m ?? null,
+        precipitation_mm: cur.precipitation ?? 0,
+        wind_kmh: cur.wind_speed_10m ?? null,
+        uv_index: cur.uv_index ?? null,
+      },
+      trend,
+      analysis: parsed,
+      data_source: 'Open-Meteo + Anthropic Claude',
+      fetched_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
 export default router;
 
