@@ -3,7 +3,7 @@
 **Status: Phase 1 abgeschlossen (2026-09-17)** ✅
 - ✅ `wrangler.toml` optimiert & finalisiert
 - ✅ GitHub Actions Deploy-Pipeline (`deploy-cloudflare.yml`) konfiguriert
-- ✅ `public/_redirects` für SPA-Fallback erstellt
+- ✅ SPA-Fallback via `not_found_handling = "single-page-application"` in `wrangler.toml` (kein `_redirects` nötig)
 - ✅ Backend-CORS für `catchgbt.com` vorkonfiguriert
 - ✅ Rate-Limiter auf Cloudflare-Header (`cf-connecting-ip`) angepasst
 
@@ -41,7 +41,6 @@ umsatzkritischen Premium-/KI-Pfad.
   "Workers Builds"-Integration liest: `main = cloudflare/worker.js`, Assets (`dist`),
   Cron Triggers, `BACKEND_URL`-Var; `CRON_SECRET` als Secret setzen.
 - `public/_headers` — Cache-Header (Aequivalent zu `vercel.json > headers`).
-- `public/_redirects` — SPA-Fallback (bereits vorhanden).
 - `docker/backend.Dockerfile` — Backend-Image fuer den Cloudflare-Container.
 
 ## Ziel-Domain

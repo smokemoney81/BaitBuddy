@@ -18,6 +18,12 @@ main = "cloudflare/worker.js"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
+# --- Build-Befehl für Cloudflare Workers Builds (Git-Integration) ---
+# Cloudflare führt diesen Befehl aus, bevor es den Worker deployt.
+# Erzeugt dist/ mit SPA + _headers + _redirects.
+[build]
+command = "npm install --legacy-peer-deps && npm run build"
+
 # --- Statische Assets: Vite-Build (dist/) ---
 # _headers: Cache-Policy pro Path
 # _redirects: SPA-Fallback (/* -> /index.html)
