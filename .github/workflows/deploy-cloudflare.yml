@@ -1,0 +1,52 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install backend dependencies
+        run: cd backend && npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Deploy to Cloudflare
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying health check endpoint..."
+          for i in {1..30}; do
+            if curl -s https://catchgbt.com/api/health | grep -q '"ok"'; then
+              echo "✅ Deployment successful"
+              exit 0
+            fi
+            echo "Attempt $i/30: Waiting for deployment..."
+            sleep 2
+          done
+          echo "❌ Deployment verification failed"
+          exit 1

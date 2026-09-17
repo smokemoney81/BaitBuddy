@@ -1,9 +1,20 @@
 # Cloudflare-Migration (Vercel -> Cloudflare)
 
-Status: **in Arbeit**. Der Code ist Cloudflare-tauglich vorbereitet; der eigentliche
-Deploy (Container-Provisioning, DNS/Domain, Secrets) erfolgt in der Cloudflare-Konsole
-bzw. per Wrangler und ist noch nicht abgeschlossen. Bis zur Umstellung laeuft die
-Live-Site unveraendert auf Vercel.
+**Status: Phase 1 abgeschlossen (2026-09-17)** ✅
+- ✅ `wrangler.toml` optimiert & finalisiert
+- ✅ GitHub Actions Deploy-Pipeline (`deploy-cloudflare.yml`) konfiguriert
+- ✅ `public/_redirects` für SPA-Fallback erstellt
+- ✅ Backend-CORS für `catchgbt.com` vorkonfiguriert
+- ✅ Rate-Limiter auf Cloudflare-Header (`cf-connecting-ip`) angepasst
+
+**Status Phase 2 (Ausstehend):** Dashboard-Setup & Domain-Umschaltung
+- ⏳ Zone `catchgbt.com` aktivieren (Nameserver beim Registrar ändern)
+- ⏳ Worker-Secrets in Cloudflare setzen (`CRON_SECRET`, `BACKEND_URL`)
+- ⏳ Custom Domain `catchgbt.com` dem Worker zuordnen
+- ⏳ Container-Backend (Phase 3, später, benötigt Paid Plan)
+
+Produktives Go-Live nach Nameserver-Umschaltung. Bis dahin: Vercel läuft parallel mit
+Übergangslösung (`BACKEND_URL` -> neues Vercel-Projekt in `wrangler.toml`).
 
 ## Zielarchitektur
 

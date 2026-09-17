@@ -1,40 +1,54 @@
-# Cloudflare Worker (Front-Door) fuer BaitBuddy — autoritative Deploy-Config.
-# Wird von der Cloudflare "Workers Builds"-Git-Integration (Projekt "baitbuddy")
-# gelesen. Zuvor stand hier eine Pages-artige Config (pages_build_output_dir),
-# die zum Workers-Build nicht passte und sofort fehlschlug.
+# Cloudflare Worker (Front-Door) — BaitBuddy Production Deploy
+# Vollständiger Deploy-Override für Vercel. Alle Infrastruktur zentralisiert auf
+# Cloudflare: Frontend (SPA), Backend (Worker + später Container), Crons, KV/Redis.
 #
-# Cloudflare-Build-Einstellungen (im Dashboard zu setzen):
-#   Build command:  npm install --legacy-peer-deps && npm run build
-#   Deploy command: npx wrangler deploy   (nutzt diese Datei)
-# Variablen/Secret am Worker:
-#   BACKEND_URL (Var)  — Basis-URL des Express-Backends. Zeigt auf das neue
-#                        Vercel-Projekt (Konto ssbedburg); spaeter Container-URL.
-#                        Im Dashboard als Worker-Variable ueberschreibbar.
-#   CRON_SECRET (Secret) — identisch zum Backend, aktiviert die Cron-Triggers
+# Deploy-Kanäle:
+#   1. GitHub Actions: push main → npx wrangler deploy (nutzt diese Datei)
+#   2. Manuell: npx wrangler deploy --env production
 #
-# Der reine statische Frontend-Deploy per Pages ist damit abgeloest; die SPA wird
-# vom Worker ueber das Assets-Binding ausgeliefert, /api/* wird ans Backend
-# geproxyt (SSE unveraendert durchgereicht). Details: docs/CLOUDFLARE_MIGRATION.md
+# Environment: production (Standard, kein Fallback auf staging nötig)
+#
+# Secrets werden im Cloudflare Dashboard gesetzt oder via Env-Datei:
+#   wrangler secret put CRON_SECRET
+#   wrangler secret put BACKEND_CONTAINER_SECRET  (später für Container)
+# Vars können hier definiert oder im Dashboard überschrieben werden.
 
 name = "baitbuddy"
 main = "cloudflare/worker.js"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Statische SPA aus dem Vite-Build (dist/). _headers/_redirects in dist/ werden
-# ausgewertet; not_found_handling liefert die SPA-index.html (Client-Routing).
+# --- Statische Assets: Vite-Build (dist/) ---
+# _headers: Cache-Policy pro Path
+# _redirects: SPA-Fallback (/* -> /index.html)
+# not_found_handling: Alle 404 gehen zu index.html (React Router)
 [assets]
 directory = "dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-# Cron Triggers (UTC) — identisch zu vercel.json > crons und docker/cron/crontab.
+# --- Cron Triggers (UTC) ---
+# Jeweils 4 Admin-Endpunkte:
+#   0 3 * * * (03:00) -> /api/admin/premium/check-expiry
+#   0 2 * * * (02:00) -> /api/admin/events/auto-archive
+#   0 1 * * * (01:00) -> /api/admin/rewards/auto-activate
+#   0 0 1 * * (00:00 1. des Monats) -> /api/admin/leaderboards/monthly/generate
+# Muss synchron bleiben mit: vercel.json (Referenz), docker/cron/crontab
 [triggers]
 crons = ["0 3 * * *", "0 2 * * *", "0 1 * * *", "0 0 1 * *"]
 
-# Nicht-geheime Variable. BACKEND_URL zeigt auf das Express-Backend. Aktuell das
-# neue Vercel-Projekt (Konto ssbedburg), damit /api sofort funktioniert; der
-# Cloudflare-Container folgt spaeter. Der exakte Produktions-Alias ist im neuen
-# Vercel-Dashboard zu verifizieren und ggf. als Worker-Variable zu ueberschreiben.
+# --- Environment Variables (Non-Secret) ---
+# BACKEND_URL: Basis-URL des Express-Backends
+#   Übergangslösung: neues Vercel-Projekt (ssbedburg)
+#   Ziel: Cloudflare Container URL (nach Paid Plan Migration)
+# DOMAIN: Produktions-Domain, für Logging/Verification
 [vars]
-BACKEND_URL = "https://bait-buddy-ssbedburg-2361s-projects.vercel.app"
+BACKEND_URL = "https://api.catchgbt.com"
+DOMAIN = "catchgbt.com"
+
+# --- Rate-Limit Store (optional) ---
+# Falls Upstash Redis/Vercel KV gesetzt, wird es für instanzübergreifende
+# Rate-Limits genutzt. Ohne KV_URL greift In-Memory-Fallback im Backend.
+# Kann im Dashboard als Secret gesetzt werden: wrangler secret put KV_URL
+# [secrets]
+# KV_URL = "redis://..."  # nur wenn Redis/Upstash konfiguriert
