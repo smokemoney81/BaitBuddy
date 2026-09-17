@@ -16,7 +16,7 @@ export default function PageContainer({
   );
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div className="min-h-screen" style={{ background: '#080F16' }}>
       {enableSwipeRefresh && onRefresh ? (
         <SwipeToRefresh onRefresh={onRefresh}>
           {containerContent}

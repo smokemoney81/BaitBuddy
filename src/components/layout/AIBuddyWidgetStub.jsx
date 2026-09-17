@@ -369,7 +369,7 @@ function SimpleAvatar({ onClickAvatar, lastTouchRef, bubbleText, showBubble, onB
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
-            className="bg-white border-2 border-blue-300 rounded-2xl px-4 py-3 shadow-lg max-w-xs whitespace-normal cursor-pointer hover:border-blue-400 transition-colors"
+            className="bg-[rgba(12,30,45,0.96)] border-2 border-[rgba(0,229,255,0.35)] rounded-2xl px-4 py-3 shadow-lg max-w-xs whitespace-normal cursor-pointer hover:border-cyan-400 transition-colors backdrop-blur-md"
             style={bubbleStyle}
             role="button"
             tabIndex={0}
@@ -384,9 +384,9 @@ function SimpleAvatar({ onClickAvatar, lastTouchRef, bubbleText, showBubble, onB
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
-            <p className="text-sm text-gray-800 leading-relaxed">{bubbleText}</p>
-            <p className="text-xs text-blue-500 mt-1">Tippen zum Chatten</p>
-            <div className={`absolute ${isOnRight ? 'right-8' : 'left-8'} -bottom-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-blue-300`} />
+            <p className="text-sm text-slate-200 leading-relaxed">{bubbleText}</p>
+            <p className="text-xs text-cyan-400 mt-1">Tippen zum Chatten</p>
+            <div className={`absolute ${isOnRight ? 'right-8' : 'left-8'} -bottom-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[rgba(0,229,255,0.35)]`} />
           </motion.div>
         )}
       </AnimatePresence>

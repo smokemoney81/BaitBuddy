@@ -281,6 +281,12 @@ select.select-sm {
 .border-gray-800 { border-color: rgba(0,229,255,0.10) !important; }
 .border-gray-700 { border-color: rgba(0,229,255,0.15) !important; }
 
+/* Vollständige Abdeckung: kein weißer Leer-Raum */
+html, body, #root {
+  background: #080F16 !important;
+  min-height: 100dvh;
+}
+
 /* ===== THEME MODES ===== */
 
 /* Light Mode */

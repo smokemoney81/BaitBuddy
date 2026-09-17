@@ -406,7 +406,7 @@ function LayoutContent({ children, currentPageName }) {
             <SoundProvider>
               <LocationProvider>
                 <OfflineWrapper>
-            <div className="bb-app min-h-screen text-slate-50 relative overflow-hidden">
+            <div className="bb-app dark min-h-screen text-slate-50 relative" style={{ background: '#080F16' }}>
               <SEO />
               
               {/* PWA Components */}
