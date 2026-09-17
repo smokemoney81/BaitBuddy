@@ -20,11 +20,8 @@ export function LocationProvider({ children }) {
 
   // GPS-Standort abrufen
   const requestGpsLocation = async () => {
-    console.log("[LocationManager] requestGpsLocation aufgerufen");
-
     if (!navigator.geolocation) {
       const msg = "GPS wird von diesem Browser nicht unterstützt";
-      console.error("[LocationManager]", msg);
       setError(msg);
       toast.error(msg);
       return;
@@ -34,7 +31,6 @@ export function LocationProvider({ children }) {
     setError(null);
 
     try {
-      console.log("[LocationManager] Starte Geolocation.getCurrentPosition");
 
       const position = await new Promise((resolve, reject) => {
         // Harter JS-Fallback zusaetzlich zur nativen timeout-Option: In
@@ -42,18 +38,15 @@ export function LocationProvider({ children }) {
         // der Berechtigungsdialog offen ist bzw. die Berechtigung in einem
         // unklaren Zustand haengt — die Standortsuche lud dann endlos.
         const fallbackTimer = setTimeout(() => {
-          console.error("[LocationManager] Fallback-Timeout nach 15s");
           reject({ code: 3, message: 'GPS-Timeout (Fallback nach 15s)' });
         }, 15000);
 
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            console.log("[LocationManager] Geolocation erfolgreich", pos.coords);
             clearTimeout(fallbackTimer);
             resolve(pos);
           },
           (err) => {
-            console.error("[LocationManager] Geolocation-Fehler:", err.code, err.message);
             clearTimeout(fallbackTimer);
             reject(err);
           },
@@ -74,16 +67,18 @@ export function LocationProvider({ children }) {
         source: "gps"
       };
 
-      console.log("[LocationManager] Speichere Location:", location);
-
       setGpsLocation(location);
       setCurrentLocation(location);
       setIsGpsEnabled(true);
 
-      // GPS-Standort im localStorage speichern
-      localStorage.setItem("fm_gps_location", JSON.stringify(location));
-      localStorage.setItem("fm_current_location", JSON.stringify(location));
-      localStorage.setItem("fm_gps_fetched", "true");
+      // GPS-Standort im localStorage speichern (Fehlertoleranz für Private-Mode)
+      try {
+        localStorage.setItem("fm_gps_location", JSON.stringify(location));
+        localStorage.setItem("fm_current_location", JSON.stringify(location));
+        localStorage.setItem("fm_gps_fetched", "true");
+      } catch {
+        // localStorage ist im Private-Mode nicht verfügbar — ignorieren
+      }
 
       toast.success(
         "Standort erfolgreich ermittelt",
@@ -94,9 +89,6 @@ export function LocationProvider({ children }) {
       );
 
     } catch (err) {
-      const errorMsg = String(err?.message || err || "Unbekannter GPS-Fehler");
-      console.error("[LocationManager] GPS-Fehler:", errorMsg, err);
-
       let userMessage = "GPS-Standort konnte nicht ermittelt werden.";
 
       if (err.code === 1) {
@@ -125,7 +117,6 @@ export function LocationProvider({ children }) {
   // Spot als aktuellen Standort setzen
   const setSpotAsLocation = async (spot) => {
     if (!spot || spot.latitude == null || spot.longitude == null) {
-      console.warn('Spot ohne gültige Koordinaten:', spot);
       return;
     }
     
@@ -139,8 +130,12 @@ export function LocationProvider({ children }) {
       timestamp: new Date().toISOString()
     };
     setCurrentLocation(location);
-    localStorage.setItem("fm_current_location", JSON.stringify(location));
-    
+    try {
+      localStorage.setItem("fm_current_location", JSON.stringify(location));
+    } catch {
+      // localStorage-Fehler ignorieren (Private-Mode)
+    }
+
     toast.info(
       "Spot als Standort gesetzt",
       {
@@ -160,8 +155,12 @@ export function LocationProvider({ children }) {
       timestamp: new Date().toISOString()
     };
     setCurrentLocation(location);
-    localStorage.setItem("fm_current_location", JSON.stringify(location));
-    
+    try {
+      localStorage.setItem("fm_current_location", JSON.stringify(location));
+    } catch {
+      // localStorage-Fehler ignorieren (Private-Mode)
+    }
+
     toast.info(
       "Standort manuell gesetzt",
       {
@@ -203,13 +202,12 @@ export function LocationProvider({ children }) {
 
       // Nur beim allerersten App-Start GPS automatisch abrufen
       if (!gpsFetched && !savedLocation) {
-        console.log("Erster App-Start: GPS wird automatisch abgerufen...");
         setTimeout(() => {
           requestGpsLocation();
         }, 1000);
       }
-    } catch (error) {
-      console.error("Fehler beim Laden des gespeicherten Standorts:", error);
+    } catch {
+      // Fehler beim Laden gespeicherter Standorte ignorieren
     }
   }, []); // Nur einmal beim Mount ausführen
 
