@@ -24,6 +24,7 @@ import ReferralInvitePopup from "@/components/referral/ReferralInvitePopup";
 import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function Dashboard() {
+  console.log('[Dashboard] Component mounted');
   const { buddy } = useBuddyPreferences();
   const queryClient = useQueryClient();
   usePredictivePrefetch('Dashboard');
@@ -43,19 +44,23 @@ export default function Dashboard() {
       if (!isMountedRef.current) return;
 
       // Load user data
+      console.log('[Dashboard] loadData: Calling auth.me()...');
       const currentUser = await auth.me().catch(authError => {
-        console.error('Dashboard: Authentifizierung fehlgeschlagen:', authError);
+        console.error('[Dashboard] auth.me() failed:', authError?.message, 'status:', authError?.status);
         return null;
       });
 
       if (isMountedRef.current && currentUser) {
+        console.log('[Dashboard] auth.me() succeeded, user:', currentUser.email);
         setUser(currentUser);
+      } else if (!currentUser) {
+        console.log('[Dashboard] auth.me() returned null, user is not authenticated');
       }
 
       // Refresh dashboard data (aggregated endpoint handles spots, weather, etc.)
       await refetch();
     } catch (error) {
-      console.error('Dashboard: Daten konnten nicht geladen werden:', error);
+      console.error('[Dashboard] Daten konnten nicht geladen werden:', error);
     }
   };
 
@@ -135,6 +140,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     isMountedRef.current = true;
+    console.log('[Dashboard] useEffect: Starting loadData...');
 
     const cleanupSessions = async () => {
       try {

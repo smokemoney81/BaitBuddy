@@ -20,17 +20,22 @@ export default function AuthCallback() {
       if (unsubscribed) return;
 
       attempts++;
+      console.log('[AuthCallback] Attempt', attempts, 'to get session...');
       const { data, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
+        console.error('[AuthCallback] Session error:', sessionError.message);
         setStatus('Fehler: ' + sessionError.message);
         return;
       }
 
       if (data.session?.access_token) {
         // Session vorhanden → Token speichern und zum Dashboard gehen
+        console.log('[AuthCallback] Session found! Setting tokens and redirecting to Dashboard');
+        console.log('[AuthCallback] Access token:', data.session.access_token.slice(0, 20) + '...');
         api.setToken(data.session.access_token);
         if (data.session.refresh_token) api.setRefreshToken(data.session.refresh_token);
+        console.log('[AuthCallback] Tokens set in localStorage, redirecting...');
         if (!unsubscribed) {
           window.location.replace('/Dashboard');
         }
@@ -39,16 +44,20 @@ export default function AuthCallback() {
 
       // Retry: Session noch nicht da, aber wir haben noch Versuche
       if (attempts < MAX_RETRIES) {
+        console.log('[AuthCallback] No session yet, retrying in', RETRY_DELAY_MS, 'ms...');
         setTimeout(tryGetSession, RETRY_DELAY_MS);
         return;
       }
 
       // Letzer Versuch fehlgeschlagen → auf onAuthStateChange warten
+      console.log('[AuthCallback] Max retries reached, waiting for onAuthStateChange...');
       setStatus('Warte auf Authentifizierung...');
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         (event, session) => {
           if (unsubscribed) return;
+          console.log('[AuthCallback] onAuthStateChange:', event, 'has token:', !!session?.access_token);
           if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.access_token) {
+            console.log('[AuthCallback] Setting tokens from auth state change and redirecting');
             api.setToken(session.access_token);
             if (session.refresh_token) api.setRefreshToken(session.refresh_token);
             subscription.unsubscribe();
