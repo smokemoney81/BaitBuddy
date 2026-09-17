@@ -343,7 +343,7 @@ function LayoutContent({ children, currentPageName }) {
   // Auth noch nicht aufgelöst Spinner statt Gast-Redirect
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080F16' }}>
         <div className="w-8 h-8 border-4 border-gray-700 border-t-cyan-400 rounded-full animate-spin" />
       </div>
     );
@@ -360,7 +360,7 @@ function LayoutContent({ children, currentPageName }) {
           <HapticProvider>
             <SoundProvider>
               <LocationProvider>
-                <div className="min-h-screen bg-gray-950 text-slate-50 flex items-center justify-center p-6">
+                <div className="min-h-screen text-slate-50 flex items-center justify-center p-6" style={{ background: '#080F16' }}>
                   <SEO />
                   <Toaster />
                   <div className="max-w-md w-full text-center space-y-6">

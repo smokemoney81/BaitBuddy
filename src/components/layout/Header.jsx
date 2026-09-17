@@ -98,132 +98,108 @@ export default function Header({
   };
 
   return (
-    <header 
-      className="sticky top-0 z-50 bg-gray-950/60 backdrop-blur-xl border-b border-gray-800 shadow-lg relative"
-      style={{ 
+    <header
+      className="sticky top-0 z-50 border-b"
+      style={{
+        background: 'rgba(6, 14, 24, 0.92)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderColor: 'rgba(0, 229, 255, 0.12)',
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      <div className="px-4 h-16 flex items-center justify-between">
+      <div className="px-3 h-14 flex items-center gap-2">
 
-        {/* Left Side - Back/Menu Button + Event Timer */}
-        <div className="flex items-center gap-3 relative z-20">
-          {canGoBack && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
+        {/* Left — back or menu */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {canGoBack ? (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="rounded-lg"
+              onClick={handleBack}
+              aria-label="Zurueck zur vorherigen Seite"
+              className="bb-back-btn"
+              style={{ minWidth: 40, minHeight: 40 }}
             >
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleBack}
-                aria-label="Zurueck zur vorherigen Seite"
-                className="text-emerald-400 active:scale-95 active:bg-emerald-500/20 focus:ring-2 focus:ring-emerald-400 transition-all duration-200 min-h-[44px] min-w-[44px]"
-              >
-                <ArrowLeft className="w-5 h-5" aria-hidden="true" />
-              </Button>
-            </motion.div>
-          )}
-          
-          <motion.div
-            animate={{ 
-              scale: [1, 1.05, 1],
-              boxShadow: [
-                '0 0 0 0 rgba(34, 211, 238, 0)',
-                '0 0 20px 5px rgba(34, 211, 238, 0.4)',
-                '0 0 0 0 rgba(34, 211, 238, 0)'
-              ]
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="rounded-lg"
-          >
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+            </motion.button>
+          ) : (
             <Button
               variant="ghost"
               size="icon"
               onClick={handleLeftSidebarToggle}
-              aria-label={isSidebarOpen ? "Menü schliessen" : "Menü öffnen"}
+              aria-label={isSidebarOpen ? 'Menü schliessen' : 'Menü öffnen'}
               aria-expanded={isSidebarOpen}
-              className="text-cyan-400 active:scale-95 active:bg-cyan-500/20 focus:ring-2 focus:ring-cyan-400 transition-all duration-200 text-base font-bold relative overflow-hidden group min-h-[44px] min-w-[44px]"
+              style={{
+                color: '#00E5FF',
+                minWidth: 44,
+                minHeight: 44,
+                borderRadius: 12,
+                background: 'rgba(0,229,255,0.08)',
+                border: '1px solid rgba(0,229,255,0.20)',
+              }}
             >
-              <span className="relative z-10" aria-hidden="true">Menü</span>
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-emerald-500/20"
-                initial={{ opacity: 0 }}
-                whileHover={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              />
+              <span className="text-sm font-bold" aria-hidden="true">Menü</span>
             </Button>
-          </motion.div>
+          )}
 
-          {/* Plan Status Badge */}
-          {!planLoading && currentPlan && (
+          {/* Plan badge */}
+          {!planLoading && currentPlan && currentPlan.id !== 'free' && (
             <Badge
-              className={`text-[10px] font-semibold whitespace-nowrap ${
-                currentPlan.id === 'free' ? 'bg-gray-700 text-gray-200' :
-                currentPlan.id === 'basic' ? 'bg-blue-600 text-white' :
-                currentPlan.id === 'pro' ? 'bg-purple-600 text-white' :
-                'bg-amber-600 text-white'
-              }`}
+              className="text-[10px] font-semibold whitespace-nowrap border-0"
+              style={{
+                background: currentPlan.id === 'basic' ? 'rgba(59,130,246,.25)' :
+                            currentPlan.id === 'pro'   ? 'rgba(168,85,247,.25)' :
+                                                         'rgba(251,191,36,.20)',
+                color: currentPlan.id === 'basic' ? '#93c5fd' :
+                       currentPlan.id === 'pro'   ? '#d8b4fe' : '#fcd34d',
+              }}
             >
               {currentPlan.name}
             </Badge>
           )}
-
           <EventTimer />
         </div>
 
-        {/* Center - Letzte Buddy-Nachricht (klickbar zum Voice Control) */}
-        <div className="flex items-center gap-2 relative z-20">
+        {/* Center — buddy message / demo badge */}
+        <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
           <LastBuddyMessage />
-          
           {isDemo && (
-            <Badge className="bg-amber-500 text-black text-xs font-bold">
+            <Badge className="bg-amber-500 text-black text-xs font-bold border-0">
               DEMO
             </Badge>
           )}
         </div>
 
-        {/* Right Side - Trip-Alarm, Wake Word */}
-        <div className="flex items-center gap-2 relative z-20">
-
+        {/* Right — alerts + wake word */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           {activeTripsCount > 0 && (
             <Link to={createPageUrl('TripPlanner')}>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative"
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`${activeTripsCount} aktive Angeltouren`}
+                style={{ color: '#00FF9D', minWidth: 44, minHeight: 44, position: 'relative' }}
+                onClick={() => { triggerHaptic('light'); playSound('click'); }}
               >
-                <Button
-                   variant="ghost"
-                   size="icon"
-                   aria-label={`${activeTripsCount} aktive Angeltouren`}
-                   className="text-emerald-400 active:scale-95 active:bg-emerald-500/10 focus:ring-2 focus:ring-emerald-400 relative min-h-[44px] min-w-[44px]"
-                   onClick={() => {
-                     triggerHaptic('light');
-                     playSound('click');
-                   }}
-                 >
-                   <Bell aria-hidden="true" className="w-5 h-5" />
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute -top-1 -right-1 bg-emerald-500 text-black text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-gray-950"
-                  >
-                    {activeTripsCount}
-                  </motion.div>
-                </Button>
-              </motion.div>
+                <Bell aria-hidden="true" className="w-5 h-5" />
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  style={{
+                    position: 'absolute', top: 4, right: 4,
+                    background: '#00FF9D', color: '#04111a',
+                    fontSize: 10, fontWeight: 700,
+                    borderRadius: '50%', width: 18, height: 18,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {activeTripsCount}
+                </motion.span>
+              </Button>
             </Link>
           )}
-
           <EventHeaderWidget />
           <WakeWordIndicator />
         </div>
