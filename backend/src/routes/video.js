@@ -7,7 +7,7 @@
 
 import { Router } from 'express';
 import { getHiggsFieldClient } from '../lib/higgsfield.js';
-import { validateAuth } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import logger from '../lib/logger.js';
 
 const router = Router();
@@ -23,7 +23,7 @@ const router = Router();
  *   - style (string, optional): Video style (cinematic, tutorial, etc.)
  *   - language (string, optional): Language code (default: de)
  */
-router.post('/generate', validateAuth, async (req, res) => {
+router.post('/generate', requireAuth, async (req, res) => {
   try {
     const { prompt, model, duration, style, language } = req.body;
 
@@ -72,7 +72,7 @@ router.post('/generate', validateAuth, async (req, res) => {
  * GET /api/video/jobs/:jobId
  * Check the status of a video generation job
  */
-router.get('/jobs/:jobId', validateAuth, async (req, res) => {
+router.get('/jobs/:jobId', requireAuth, async (req, res) => {
   try {
     const { jobId } = req.params;
 
@@ -104,7 +104,7 @@ router.get('/jobs/:jobId', validateAuth, async (req, res) => {
  * GET /api/video/models
  * List available video generation models
  */
-router.get('/models', validateAuth, async (req, res) => {
+router.get('/models', requireAuth, async (req, res) => {
   try {
     const client = getHiggsFieldClient();
 
