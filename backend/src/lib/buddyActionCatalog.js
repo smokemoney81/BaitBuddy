@@ -74,6 +74,12 @@ export const BUDDY_ACTIONS = [
     example: '{"type":"open_url","params":{"url":"https://..."}}',
     note: 'Nur http(s)-Adressen, und nur wenn der Nutzer den Link ausdrücklich öffnen will.',
   },
+  {
+    type: 'generate_video',
+    summary: 'Video-Tutorial generieren (Higgsfield)',
+    example: '{"type":"generate_video","params":{"prompt":"Kurze Animation: Wie man einen Palomar-Knoten bindet - Schritt für Schritt mit Schnur vor blauem Wasser","duration":15}}',
+    note: 'Nutze diese Aktion, wenn der Nutzer dich bittet, eine Technik, Montage oder Angelpraxis als Video zu zeigen. Der Prompt muss präzise und auf Deutsch sein (max. 500 Zeichen). Video wird clientseitig generiert und angezeigt.',
+  },
 ];
 
 // Der Client akzeptiert `save_spot` als Synonym zu `add_spot`. Der Prompt nennt

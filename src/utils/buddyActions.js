@@ -170,6 +170,22 @@ export async function executeBuddyAction(action, context, options = {}) {
       return { success: true, message: null };
     }
 
+    if (action.type === 'generate_video') {
+      const p = action.params || {};
+      if (!p.prompt || p.prompt.trim().length === 0) {
+        return { success: false, message: 'Ich brauche einen Text fuer das Video.' };
+      }
+      // Video-Generator wird clientseitig im AIBuddyWidget angezeigt
+      // Dispatch an context/store erfolgt durch den Widget-Container
+      toast.success('Starte Video-Generierung...');
+      return {
+        success: true,
+        message: 'Dein Video wird generiert. Das kann eine Minute dauern.',
+        video_prompt: p.prompt,
+        video_duration: p.duration || 8,
+      };
+    }
+
     return { success: false, message: null };
   } catch (error) {
     console.error('Buddy action failed:', error?.message);
