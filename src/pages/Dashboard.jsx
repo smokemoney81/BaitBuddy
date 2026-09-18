@@ -308,7 +308,7 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
     <PageContainer maxWidth="max-w-7xl" enableSwipeRefresh={true} onRefresh={loadData}>
       {buddy.chosen && <ReferralInvitePopup />}
       <div ref={statusAnnouncementRef} role="status" aria-live="polite" className="sr-only" />
-      <div className="bb-dashboard bb-app">
+      <div className="bb-dashboard">
         {error && <div className="bb-card" role="alert"><p>Dashboard-Daten konnten nicht geladen werden.</p><button type="button" className="bb-secondary mt-3" onClick={loadData}>Erneut versuchen</button></div>}
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
         <DashboardOverview
