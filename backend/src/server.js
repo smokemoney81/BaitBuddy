@@ -33,6 +33,7 @@ import adminRoutes from './routes/admin.js';
 import adsRoutes from './routes/ads.js';
 import dashboardRoutes from './routes/dashboard.js';
 import personalizationRoutes from './routes/personalization.js';
+import videoRoutes from './routes/video.js';
 import { aiRateLimiter, ttsRateLimiter, authRateLimiter } from './middleware/rateLimit.js';
 import { getAnthropicKey } from './lib/llm.js';
 import { getAllowedOrigins } from './lib/allowedOrigins.js';
@@ -114,6 +115,7 @@ app.use('/api', adminRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/personalization', personalizationRoutes);
+app.use('/api/video', videoRoutes);
 
 app.use((req, res) => res.status(404).json({ error: `Not found: ${req.method} ${req.path}` }));
 app.use(errorLogger);
