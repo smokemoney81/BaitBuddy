@@ -2,6 +2,7 @@ import express from 'express';
 import nodemailer from 'nodemailer';
 import { supabase } from '../lib/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
+import logger from '../lib/logger.js';
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.post('/support/tickets', requireAuth, async (req, res) => {
 
         try {
           await emailTransporter.sendMail(developerMailOptions);
-          console.log('Entwickler-Benachrichtigung versendet für Ticket:', ticket?.id);
+          logger.info('Entwickler-Benachrichtigung versendet für Ticket:', { ticketId: ticket?.id });
         } catch (emailErr) {
           console.error('Entwickler-Email-Versand fehlgeschlagen:', emailErr.message);
         }
@@ -120,7 +121,7 @@ router.post('/support/tickets', requireAuth, async (req, res) => {
 
       try {
         await emailTransporter.sendMail(confirmationMailOptions);
-        console.log('Bestätigungsmail versendet an Nutzer:', user_email);
+        logger.info('Bestätigungsmail versendet an Nutzer', { user_email });
       } catch (emailErr) {
         console.error('Bestätigungsmail-Versand fehlgeschlagen:', emailErr.message);
       }

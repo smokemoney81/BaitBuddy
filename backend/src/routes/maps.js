@@ -4,6 +4,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import logger from '../lib/logger.js';
 
 const router = express.Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -223,7 +224,7 @@ router.post('/maps/download', requireAuth, requireAdmin, async (req, res) => {
     // Run download in background (don't wait)
     runPythonScript(['download', sourceId])
       .then(() => {
-        console.log('✓ Map download completed:', sourceId);
+        logger.info('Map download completed', { sourceId });
       })
       .catch((error) => {
         console.error('✗ Map download failed:', error);
@@ -254,7 +255,7 @@ router.post('/maps/download-auto', requireAuth, requireAdmin, async (req, res) =
     // Run auto-download in background
     runPythonScript(['auto'])
       .then(() => {
-        console.log('✓ Auto-download completed');
+        logger.info('Auto-download completed');
       })
       .catch((error) => {
         console.error('✗ Auto-download failed:', error);
