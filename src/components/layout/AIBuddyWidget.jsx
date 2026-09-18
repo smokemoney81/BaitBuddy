@@ -54,7 +54,7 @@ const ChatInput = React.memo(function ChatInput({ isLoading, onSend }) {
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-3 space-y-2">
+    <div className="border-t border-[rgba(0,229,255,0.15)] bg-[#0c1e2d] p-3 space-y-2">
       <div className="flex gap-2">
         <input
           type="text"
@@ -64,14 +64,14 @@ const ChatInput = React.memo(function ChatInput({ isLoading, onSend }) {
             if (e.key === 'Enter') submit();
           }}
           placeholder="Schreib eine Frage..."
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white text-gray-900 placeholder-gray-400"
+          className="flex-1 px-3 py-2 border border-[rgba(0,229,255,0.2)] rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 text-sm bg-[#0a1929] text-slate-200 placeholder-[#7a96ae]"
           disabled={isLoading}
           aria-label="Chat-Eingabefeld"
         />
         <button type="button"
           onClick={submit}
           disabled={isLoading || !value.trim()}
-          className="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors flex-shrink-0"
+          className="p-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 text-[#04111a] rounded-lg transition-colors flex-shrink-0"
           aria-label="Nachricht senden"
           title="Nachricht senden (Enter)"
         >
@@ -682,7 +682,7 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
               initial={{ opacity: 0, scale: 0.8, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 10 }}
-              className="bg-white border-2 border-blue-300 rounded-2xl px-4 py-3 shadow-lg max-w-xs whitespace-normal cursor-pointer hover:border-blue-400 transition-colors"
+              className="bg-[rgba(12,30,45,0.96)] border-2 border-[rgba(0,229,255,0.35)] rounded-2xl px-4 py-3 shadow-lg max-w-xs whitespace-normal cursor-pointer hover:border-cyan-400 transition-colors backdrop-blur-md"
               style={smallBubbleStyle}
               role="button"
               tabIndex={0}
@@ -697,9 +697,9 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
-              <p className="text-sm text-gray-800 leading-relaxed">{smallBubbleText}</p>
-              <p className="text-xs text-blue-500 mt-1">Tippen zum Chatten</p>
-              <div className={`absolute ${isOnRight ? 'right-8' : 'left-8'} -bottom-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-blue-300`} />
+              <p className="text-sm text-slate-200 leading-relaxed">{smallBubbleText}</p>
+              <p className="text-xs text-cyan-400 mt-1">Tippen zum Chatten</p>
+              <div className={`absolute ${isOnRight ? 'right-8' : 'left-8'} -bottom-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[rgba(0,229,255,0.35)]`} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -712,50 +712,50 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="w-80 max-h-[420px] rounded-3xl shadow-2xl overflow-hidden flex flex-col bg-white border-2 border-blue-200"
+              className="w-80 max-h-[420px] rounded-3xl shadow-2xl overflow-hidden flex flex-col bg-[#0c1e2d] border-2 border-[rgba(0,229,255,0.25)]"
               style={bubbleStyle}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+              <div className="flex items-center justify-between p-4 border-b border-[rgba(0,229,255,0.15)] bg-[rgba(0,229,255,0.05)]">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-blue-300 bg-blue-100">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-cyan-400/40 bg-[#0a1929]">
                     <BuddyAvatar size={36} showHints={false} />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-gray-800">KI-Buddy</h2>
-                    <p className="text-xs text-gray-500">Dein Angel-Buddy</p>
+                    <h2 className="text-sm font-bold text-slate-100">KI-Buddy</h2>
+                    <p className="text-xs text-[#7a96ae]">Dein Angel-Buddy</p>
                   </div>
                 </div>
                 <button type="button"
                   onClick={handleCloseBubble}
-                  className="p-1 hover:bg-gray-200 rounded-full transition-colors flex-shrink-0"
+                  className="p-1 hover:bg-[rgba(0,229,255,0.1)] rounded-full transition-colors flex-shrink-0"
                   aria-label="Chat schließen"
                   title="Chat schließen"
                 >
-                  <X size={18} className="text-gray-600" />
+                  <X size={18} className="text-slate-400" />
                 </button>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-white to-blue-50" role="log" aria-live="polite" aria-label="Chat-Nachrichten">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#080F16]" role="log" aria-live="polite" aria-label="Chat-Nachrichten">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-start justify-start h-full gap-3">
                     <div className="text-sm">
-                      <p className="font-semibold text-gray-800 mb-1">{tip?.title || 'Hallo!'}</p>
-                      <p className="text-xs text-gray-600 leading-relaxed">{tip?.message || 'Wie kann ich dir helfen?'}</p>
+                      <p className="font-semibold text-slate-100 mb-1">{tip?.title || 'Hallo!'}</p>
+                      <p className="text-xs text-[#7a96ae] leading-relaxed">{tip?.message || 'Wie kann ich dir helfen?'}</p>
                     </div>
 
                     {tip?.suggestions && tip.suggestions.length > 0 && (
                       <div className="w-full space-y-2">
-                        <p className="text-xs font-semibold text-gray-500 px-2">Fragen:</p>
+                        <p className="text-xs font-semibold text-[#7a96ae] px-2">Fragen:</p>
                         {tip.suggestions.map((suggestion) => (
                           <button type="button"
                             key={suggestion}
                             onClick={() => handleSendMessage(suggestion)}
                             disabled={isLoading}
-                            className="w-full text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-200 text-blue-900 text-xs rounded-lg transition-colors truncate"
+                            className="w-full text-left px-3 py-2 bg-[rgba(0,229,255,0.08)] hover:bg-[rgba(0,229,255,0.15)] disabled:bg-[rgba(255,255,255,0.03)] text-cyan-300 text-xs rounded-lg transition-colors truncate border border-[rgba(0,229,255,0.15)]"
                             aria-label={`Frage senden: ${suggestion}`}
                           >
                             {suggestion}
@@ -770,8 +770,8 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
                       <div
                         className={`max-w-xs px-4 py-2 rounded-lg text-sm break-words ${
                           msg.role === 'user'
-                            ? 'bg-blue-500 text-white rounded-br-none'
-                            : 'bg-gray-200 text-gray-900 rounded-bl-none'
+                            ? 'bg-cyan-600 text-white rounded-br-none'
+                            : 'bg-[rgba(15,30,45,0.9)] text-slate-200 rounded-bl-none border border-[rgba(0,229,255,0.1)]'
                         }`}
                       >
                         {msg.content}
@@ -782,18 +782,18 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
 
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-200 px-4 py-3 rounded-lg">
+                    <div className="bg-[rgba(15,30,45,0.9)] px-4 py-3 rounded-lg border border-[rgba(0,229,255,0.1)]">
                       <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100" />
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200" />
+                        <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce delay-100" />
+                        <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce delay-200" />
                       </div>
                     </div>
                   </div>
                 )}
 
                 {chatError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg text-xs">
+                  <div className="bg-[rgba(255,69,96,0.1)] border border-[rgba(255,69,96,0.4)] text-red-300 px-4 py-2 rounded-lg text-xs">
                     {chatError}
                   </div>
                 )}
