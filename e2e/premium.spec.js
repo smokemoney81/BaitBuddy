@@ -4,8 +4,8 @@ import { installApiMocks, dismissSplash } from './fixtures/apiMock.js';
 // E2E fuer den Kaufpfad. Abgesichert wird die dokumentierte Regel "vor dem Kauf
 // pruefen, ob der Server verifizieren kann": ohne konfiguriertes Zahlungs-Secret
 // muss die UI den Kauf sperren, sonst zahlt der Nutzer erst und bekommt danach
-// einen 501. Umgekehrt darf ein Ausfall der Config-Abfrage NICHT sperren
-// (fail-open) — sonst kostet ein Wackler im Backend echte Verkaeufe.
+// einen 501. Ein Ausfall der Config-Abfrage muss ebenfalls sperren
+// (fail-closed), damit kein Kauf ohne bestätigte Verfügbarkeit startet.
 //
 // Die Tests laufen im Browser, also greift der Stripe-Zweig (kein
 // window.AndroidBilling).
@@ -57,14 +57,14 @@ test.describe('Premium-Kaufpfad', () => {
     }
   });
 
-  test('sperrt den Kauf NICHT, wenn die Config-Abfrage fehlschlaegt (fail-open)', async ({ page }) => {
+  test('sperrt den Kauf, wenn die Config-Abfrage fehlschlaegt', async ({ page }) => {
     await installApiMocks(page, {
       authenticated: true,
       handlers: { '/api/premium/config': { status: 500, body: { error: 'Config nicht ladbar' } } },
     });
     await openPremium(page);
 
-    await expect(page.getByText('Kauf derzeit nicht moeglich')).toHaveCount(0);
+    await expect(page.getByText('Kauf derzeit nicht moeglich')).toBeVisible();
   });
 
   test('startet den Stripe-Checkout serverseitig und sendet nur die plan_id', async ({ page }) => {
@@ -97,4 +97,32 @@ test.describe('Premium-Kaufpfad', () => {
     expect(checkoutPayload).toHaveProperty('plan_id');
     expect(JSON.stringify(checkoutPayload)).not.toMatch(/"(amount|price|amount_cents|betrag)"/i);
   });
+});
+
+for (const planId of ['basic','pro','elite','friends']) {
+  test(`bestätigt ${planId} nach Checkout und erneutem Seitenaufruf`, async ({ page }) => {
+    let activated = false;
+    let calls = 0;
+    await installApiMocks(page, { authenticated: true, data: { paymentMethods: { stripe: true, google_play: false } }, handlers: {
+      'POST /api/premium/activate': async (route, request) => {
+        expect(request.postDataJSON().plan_id).toBe(planId);
+        calls++; activated = true;
+        return route.fulfill({ json: { ok: true, updated: calls === 1 } });
+      },
+      '/api/premium/status': async route => route.fulfill({ json: { ok: true, plan: { id: activated ? planId : 'free', name: activated ? planId : 'Free', is_active: activated } } }),
+    }});
+    await page.goto(`/PremiumPlans?checkout=success&plan_id=${planId}&session_id=cs_fixture_${planId}`);
+    await dismissSplash(page);
+    await expect.poll(() => activated).toBe(true);
+    await expect(page.getByText(`Aktueller Plan: ${planId}`)).toBeVisible();
+    await page.reload(); await dismissSplash(page);
+    await expect(page.getByText(`Aktueller Plan: ${planId}`)).toBeVisible();
+    expect(calls).toBe(1);
+  });
+}
+
+test('Free bleibt als Tarif sichtbar', async ({ page }) => {
+  await installApiMocks(page, { authenticated: true, data: { paymentMethods: { stripe: true } } });
+  await openPremium(page);
+  await expect(page.getByText('Kostenlos verfügbar')).toBeVisible();
 });

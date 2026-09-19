@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -7,8 +7,11 @@ import { functions } from "@/api/frontendClient";
 // Web-Checkout via Stripe: Karte, PayPal, SEPA Lastschrift, Klarna
 export default function WebCheckoutButton({ planId, disabled }) {
   const [loading, setLoading] = useState(false);
+  const inFlight = useRef(false);
 
   const handleClick = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setLoading(true);
     try {
       const response = await functions.invoke('createStripeCheckoutSession', {
@@ -27,6 +30,7 @@ export default function WebCheckoutButton({ planId, disabled }) {
       toast.error('Checkout fehlgeschlagen', {
         description: error?.message || 'Unbekannter Fehler'
       });
+      inFlight.current = false;
       setLoading(false);
     }
   };

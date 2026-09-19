@@ -15,6 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  TZ: UTC
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:

@@ -67,6 +67,8 @@ export default function PremiumPlans() {
   const [billingAvailable, setBillingAvailable] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState(null);
+  const [planPaymentMethods, setPlanPaymentMethods] = useState({});
+  const [portalLoading, setPortalLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function PremiumPlans() {
         // Der Kauf bleibt gespeichert und wird beim nächsten Öffnen erneut
         // versucht — das muss der Nutzer wissen, damit er nicht doppelt zahlt.
         toast.error('Aktivierung noch nicht bestätigt', {
-          description: 'Deine Zahlung ist bei Stripe eingegangen. Die Freischaltung wird automatisch erneut versucht, sobald du die Premium-Seite öffnest.',
+          description: 'Der Zahlungsstatus konnte noch nicht bestätigt werden. Die Prüfung wird automatisch erneut versucht, sobald du die Premium-Seite öffnest.',
           duration: 10000
         });
       }
@@ -143,12 +145,13 @@ export default function PremiumPlans() {
   };
 
   // Welche Zahlungswege der Server verifizieren kann. Bei einem Fehler bleibt
-  // der Wert null und die Kauf-Schaltflächen werden nicht gesperrt (fail-open):
-  // ein Ausfall dieser Abfrage darf keinen Verkauf verhindern.
+  // der Wert null und die Kauf-Schaltflächen bleiben gesperrt, bis die
+  // Verfügbarkeit bestätigt wurde.
   const loadPaymentMethods = async () => {
     try {
       const config = await premium.config();
       if (config?.payment_methods) setPaymentMethods(config.payment_methods);
+      setPlanPaymentMethods(config?.plans || {});
     } catch (error) {
       console.error('[PremiumPlans] Zahlungswege konnten nicht geladen werden:', error);
     }
@@ -357,9 +360,9 @@ export default function PremiumPlans() {
   // Kann der Server den hier angebotenen Zahlungsweg überhaupt verifizieren?
   // Wenn nicht, würde der Nutzer erst bezahlen und danach eine Fehlermeldung
   // bekommen — dann lieber vorher sperren. null = noch unbekannt/Abfrage
-  // fehlgeschlagen: dann nicht sperren.
+  // fehlgeschlagen: dann sperren.
   const purchasesEnabled = paymentMethods === null
-    ? true
+    ? false
     : Boolean(billingAvailable ? paymentMethods.google_play : paymentMethods.stripe);
 
   if (loading) {
@@ -392,6 +395,14 @@ export default function PremiumPlans() {
             </div>
           )}
 
+          {!billingAvailable && currentPlan?.can_manage_subscription && (
+            <Button className="mt-4" disabled={portalLoading} onClick={async () => {
+              setPortalLoading(true);
+              try { const response = await premium.portal(); window.location.assign(response.url); }
+              catch { toast.error('Abo-Verwaltung nicht erreichbar'); }
+              finally { setPortalLoading(false); }
+            }}>Abo verwalten</Button>
+          )}
           {billingAvailable && (
             <div className="mt-6">
               <Button
@@ -433,7 +444,7 @@ export default function PremiumPlans() {
             <Smartphone className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-cyan-100">
               <strong className="block mb-1">Bezahlung im Browser</strong>
-              Du kannst Premium-Plaene direkt hier mit Kreditkarte (Visa, Mastercard, Amex), Google Pay oder Apple Pay bezahlen.
+              Basic, Pro und Ultimate verlängern sich monatlich, Freundschaft jährlich. Verwaltung und Kündigung über „Abo verwalten“. Ein Tagespass verlängert sich nicht automatisch.
               In der Android-App ist zusaetzlich Google Play Billing verfuegbar.
             </div>
           </div>
@@ -444,6 +455,8 @@ export default function PremiumPlans() {
             const Icon = plan.icon;
             const isCurrentPlan = currentPlan?.id === plan.id;
             const isProcessing = processingPlan === plan.id;
+            const methodReady = planPaymentMethods[plan.id]?.[billingAvailable ? 'google_play' : 'stripe'];
+            const canBuy = purchasesEnabled && methodReady !== false;
 
             // Referral-Rabatt (10€ je eingeladenem Freund, der Basic kauft) gilt
             // nur für den Ultimate-Plan und nur beim Web-Checkout. Betrag kommt
@@ -501,7 +514,7 @@ export default function PremiumPlans() {
                     </div>
                     {showUltimateDiscount && (
                       <div className="mt-2 text-sm text-emerald-400 font-semibold">
-                        Freundschafts-Rabatt: {discountEuro.toFixed(2)}€ gespart
+                        Freundschafts-Rabatt nur auf die erste Zahlung: {(plan.price - Number(discountedPrice)).toFixed(2)}€ gespart; danach {plan.price}€/Monat
                       </div>
                     )}
                     {plan.yearly && (
@@ -535,7 +548,7 @@ export default function PremiumPlans() {
                       {billingAvailable && (
                         <Button
                           onClick={() => handlePlayStorePurchase(plan.id)}
-                          disabled={isProcessing || !purchasesEnabled}
+                          disabled={Boolean(processingPlan) || !canBuy}
                           className={`w-full bg-gradient-to-r ${plan.color} hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50`}
                         >
                           {isProcessing ? (
@@ -552,7 +565,7 @@ export default function PremiumPlans() {
                         </Button>
                       )}
                       {!billingAvailable && (
-                        <WebCheckoutButton planId={plan.id} disabled={isProcessing || !purchasesEnabled} />
+                        <WebCheckoutButton planId={plan.id} disabled={Boolean(processingPlan) || !canBuy} />
                       )}
                     </div>
                   )}

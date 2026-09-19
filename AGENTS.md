@@ -417,3 +417,16 @@ Vor jedem Commit prüfen:
 ## 📝 Dokumentation Updaten
 
 Diese AGENTS.md ist das **Source of Truth** für Entwicklungsregeln. Bei signifikanten Änderungen (neue Auth-Systeme, Device-Features, KI-Buddy-Architektur) **sofort hier updaten**, damit alle Codex-Sessions konsistent arbeiten.
+
+## Zahlungsworkflow (Arbeitsstand 19.09.2026)
+
+Neue Web-Abos verwenden Stripe Checkout im subscription-Modus und konfigurierte
+Prices; Tagespass bleibt payment. Free bleibt unverändert. Tarifkatalog:
+`shared/billingCatalog.js`; Stripe-Lebenszyklus: `backend/src/lib/stripeBilling.js`.
+Browser-Rückkehr und Webhook müssen dieselbe Freischaltungslogik verwenden.
+`apply_verified_payment` speichert gehashte Kaufnachweise und Entitlements
+atomar. Migration vor Backend-Release ausrollen. `planResolver.js` berücksichtigt
+überlappende Zahlungs-Grants bei jeder Statusabfrage. Neue Sonderfreischaltungen
+müssen mit dieser Quelle integriert werden. Offene Release-Gates und Test-IDs:
+`docs/implementation/2026-09-19-billing-and-products.md`. Kein produktiver Release,
+bevor diese Gates abgearbeitet und auf Staging/echten Geräten geprüft wurden.

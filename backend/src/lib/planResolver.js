@@ -28,8 +28,17 @@ export function planRank(planId) {
 // Quelle dienen, weil Clients sie teilweise selbst schreiben können.
 export function resolvePlan(user, now = new Date()) {
   const meta = user?.app_metadata || {};
-  const rawPlanId = meta.premium_plan_id || 'free';
-  const expiresAt = meta.premium_expires_at || null;
+  let rawPlanId = meta.premium_plan_id || 'free';
+  let expiresAt = meta.premium_expires_at || null;
+  // Multiple purchases can overlap. Re-evaluate at read time so an expired
+  // higher tier falls back to a still-paid lower tier without another webhook.
+  if (Array.isArray(meta.payment_grants)) {
+    const at = new Date(now).getTime();
+    const grants = meta.payment_grants.filter(g => PLAN_RANK[g.plan_id] > 0 && new Date(g.starts_at).getTime() <= at && (g.expires_at === null || new Date(g.expires_at).getTime() > at));
+    grants.sort((a,b) => planRank(b.plan_id)-planRank(a.plan_id) || (b.expires_at === null ? Infinity : new Date(b.expires_at).getTime()) - (a.expires_at === null ? Infinity : new Date(a.expires_at).getTime()));
+    rawPlanId = grants[0]?.plan_id || 'free';
+    expiresAt = grants[0]?.expires_at || null;
+  }
   const trialExpiresAt = meta.trial_expires_at || null;
   const passExpiresAt = meta.premium_pass_expires_at || null;
   const rawIsTrial = meta.premium_trial === true;

@@ -31,8 +31,12 @@ function setCachedUser(token, user) {
   tokenCache.set(token, { user, expires: Date.now() + TOKEN_CACHE_TTL_MS });
 }
 
-async function resolveUser(token) {
-  const cached = getCachedUser(token);
+export function invalidateUserAuthCache(userId) {
+  for (const [token, entry] of tokenCache) if (entry.user.id === userId) tokenCache.delete(token);
+}
+
+async function resolveUser(token, fresh = false) {
+  const cached = fresh ? null : getCachedUser(token);
   if (cached) return cached;
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data?.user) return null;
@@ -44,7 +48,7 @@ export async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Kein Token' });
 
-  const user = await resolveUser(token);
+  const user = await resolveUser(token, /\/(premium|plan)\//.test(req.path));
   if (!user) return res.status(401).json({ error: 'Ungültiger Token' });
 
   req.user = user;
@@ -54,7 +58,7 @@ export async function requireAuth(req, res, next) {
 export async function optionalAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (token) {
-    const user = await resolveUser(token);
+    const user = await resolveUser(token, /\/(premium|plan)\//.test(req.path));
     if (user) req.user = user;
   }
   next();

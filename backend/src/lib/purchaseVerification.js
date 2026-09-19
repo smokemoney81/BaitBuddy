@@ -89,7 +89,7 @@ async function verifyGooglePlayOneTimeProduct(client, productId, purchaseToken) 
 }
 
 let stripeClient = null;
-function getStripeClient() {
+export function getStripeClient() {
   if (stripeClient) return stripeClient;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
@@ -105,54 +105,4 @@ export function constructStripeWebhookEvent(rawBody, signature) {
   if (!client || !webhookSecret) throw new Error('Stripe webhook is not configured');
   if (!signature) throw new Error('Missing Stripe-Signature');
   return client.webhooks.constructEvent(rawBody, signature, webhookSecret);
-}
-
-// Erstellt eine Stripe-Checkout-Session für einen Plan-Kauf. mode 'payment'
-// (Einmalzahlung, kein Abo) — BaitBuddy berechnet die Laufzeit selbst, siehe
-// premium.js. Die Session trägt user_id/plan_id als Metadata, damit
-// /premium/activate die Zahlung dem richtigen Konto und Plan zuordnen kann.
-// https://docs.stripe.com/api/checkout/sessions/create
-export async function createStripeCheckoutSession({ planId, planName, amountCents, userId, userEmail, successUrl, cancelUrl }) {
-  const client = getStripeClient();
-  if (!client) return { ok: false, reason: 'Stripe ist serverseitig nicht konfiguriert' };
-
-  try {
-    const session = await client.checkout.sessions.create({
-      mode: 'payment',
-      line_items: [{
-        quantity: 1,
-        price_data: {
-          currency: 'eur',
-          unit_amount: amountCents,
-          product_data: { name: `BaitBuddy ${planName}` },
-        },
-      }],
-      client_reference_id: userId,
-      customer_email: userEmail || undefined,
-      metadata: { plan_id: planId, user_id: userId },
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    });
-    return { ok: true, id: session.id, url: session.url };
-  } catch (e) {
-    return { ok: false, reason: `Stripe API Fehler: ${e.message}` };
-  }
-}
-
-// Verifiziert eine Stripe-Checkout-Session (transaction_id = Session-ID,
-// cs_...). https://docs.stripe.com/api/checkout/sessions/retrieve
-export async function verifyStripePayment({ sessionId }) {
-  const client = getStripeClient();
-  if (!client) return { valid: false, reason: 'Stripe Verifikation nicht konfiguriert' };
-  if (!sessionId) return { valid: false, reason: 'transaction_id (Stripe Session-ID) erforderlich' };
-
-  try {
-    const session = await client.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status !== 'paid') {
-      return { valid: false, reason: `Zahlung nicht abgeschlossen (payment_status=${session.payment_status})` };
-    }
-    return { valid: true, raw: session };
-  } catch (e) {
-    return { valid: false, reason: `Stripe API Fehler: ${e.message}` };
-  }
 }

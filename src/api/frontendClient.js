@@ -885,6 +885,7 @@ export const community = {
 };
 
 export const premium = {
+  portal:       ()          => api.post('/api/premium/portal'),
   status:       ()          => api.get('/api/premium/status'),
   products:     ()          => api.get('/api/premium/products'),
   // Welche Zahlungswege der Server verifizieren kann (öffentlich, ohne Auth).
