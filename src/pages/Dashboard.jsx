@@ -19,6 +19,7 @@ import { usePredictivePrefetch } from "@/hooks/usePredictivePrefetch";
 import PageContainer from "@/components/layout/PageContainer";
 import CommunityPostDialog from "@/components/community/CommunityPostDialog";
 import WeatherWarningBanner from "@/components/weather/WeatherWarningBanner";
+import FreeModeNotice from "@/components/dashboard/FreeModeNotice";
 import SuspenseWithErrorBoundary from "@/components/utils/SuspenseWithErrorBoundary";
 import ReferralInvitePopup from "@/components/referral/ReferralInvitePopup";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -310,6 +311,7 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
       <div ref={statusAnnouncementRef} role="status" aria-live="polite" className="sr-only" />
       <div className="bb-dashboard bb-app">
         {error && <div className="bb-card" role="alert"><p>Dashboard-Daten konnten nicht geladen werden.</p><button type="button" className="bb-secondary mt-3" onClick={loadData}>Erneut versuchen</button></div>}
+        <SuspenseWithErrorBoundary isMinimal={true}><FreeModeNotice /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
         <DashboardOverview
           user={user}
