@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle, X, Unlock } from "lucide-react";
+import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, Smartphone, RefreshCw, AlertTriangle, X, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { functions, premium } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
@@ -12,7 +12,6 @@ import {
   isGooglePlayBillingAvailable,
   restoreGooglePlayPurchases
 } from "@/components/premium/googlePlayBilling";
-import WebCheckoutButton from "@/components/premium/WebCheckoutButton";
 
 // Offener Stripe-Kauf, dessen Aktivierung noch nicht bestätigt ist. Zwischen
 // "bei Stripe bezahlt" und "serverseitig freigeschaltet" liegt ein API-Aufruf;
