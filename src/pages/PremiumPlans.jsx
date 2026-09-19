@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle } from "lucide-react";
+import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle, X, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { functions, premium } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
@@ -439,6 +439,14 @@ export default function PremiumPlans() {
           </div>
         )}
 
+        <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-emerald-700/50 bg-emerald-900/20 flex items-start gap-3">
+          <Unlock className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-emerald-100">
+            <strong className="block mb-1">Alle Features freigegeben</strong>
+            Durch die Integration weiterer Tools sind alle Premium-Features kostenfrei für dich freigeschaltet. Die gesamte App ist im vollständigen Umfang nutzbar - ohne Kauf notwendig.
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan) => {
             const Icon = plan.icon;
@@ -532,28 +540,13 @@ export default function PremiumPlans() {
                     </Badge>
                   ) : (
                     <div className="space-y-2">
-                      {billingAvailable && (
-                        <Button
-                          onClick={() => handlePlayStorePurchase(plan.id)}
-                          disabled={isProcessing || !purchasesEnabled}
-                          className={`w-full bg-gradient-to-r ${plan.color} hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50`}
-                        >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Kauf wird gestartet...
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingBag className="w-4 h-4" />
-                              Im Play Store kaufen
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      {!billingAvailable && (
-                        <WebCheckoutButton planId={plan.id} disabled={isProcessing || !purchasesEnabled} />
-                      )}
+                      <Button
+                        disabled={true}
+                        className="w-full bg-gradient-to-r from-gray-600 to-gray-700 hover:opacity-75 flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+                      >
+                        <X className="w-4 h-4" />
+                        Nicht verfügbar - kostenlos
+                      </Button>
                     </div>
                   )}
                 </CardContent>
