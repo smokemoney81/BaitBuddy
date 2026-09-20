@@ -22,6 +22,7 @@ import { personalizationContext } from '../lib/personalizationEngine.js';
 import { buildActionPromptSection } from '../lib/buddyActionCatalog.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
+import { getJevStatus, resolveBuddyContextNeeds } from '../lib/aiGateway.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -130,6 +131,10 @@ router.get('/health', (req, res) => {
       api_key_info: keyInfo,
       model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
     },
+    decision_engine: {
+      provider: 'Vercel AI Gateway / Jev',
+      ...getJevStatus(),
+    },
     server: {
       node_env: process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
@@ -214,11 +219,18 @@ async function buildChatPrompt(req) {
   const budget = personalization.budget;
 
   const lastMsg = [...safeMessages].reverse().find(m => m.role === 'user')?.content || '';
-  const wantsCatches = /fang|fänge|gefangen|fangbuch|logbuch/i.test(lastMsg);
-  const wantsRules = /schonzeit|mindestmaß|erlaubt|verboten/i.test(lastMsg);
-  const wantsPlanning = /trip|ausflug|tour|planung|vorbereitung|ausrüstung|ausruestung|packliste/i.test(lastMsg);
-  const wantsSpots = wantsPlanning || /spot|angelplatz|wo angel|gewässer/i.test(lastMsg);
-  const wantsWeather = wantsPlanning || /wetter|temperatur|wind|angelzeit|bedingungen/i.test(lastMsg);
+
+  // Jev dient nur als schneller Decision-Layer: Welche optionalen Datenquellen
+  // braucht dieser Turn wirklich? Bei fehlender Konfiguration, Rate-Limit oder
+  // Gateway-Fehler faellt resolveBuddyContextNeeds deterministisch auf die
+  // bisherige Regex-Logik zurueck. Die eigentliche Nutzerantwort bleibt Claude.
+  const {
+    wantsCatches,
+    wantsRules,
+    wantsPlanning,
+    wantsSpots,
+    wantsWeather,
+  } = await resolveBuddyContextNeeds(lastMsg, req.user);
 
   // Kontext-Quellen laufen parallel statt sequenziell — spart Latenz vor dem
   // LLM-Call (Ziel < 2 s). Jede Quelle liefert einen fertigen Kontext-String
