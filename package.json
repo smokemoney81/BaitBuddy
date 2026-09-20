@@ -22,7 +22,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "android:sync": "cd android && ./gradlew sync && cd .."
+    "android:sync": "cd android && ./gradlew sync && cd ..",
+    "test:e2e:buddy": "playwright test e2e/kiBuddyWidget.spec.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
