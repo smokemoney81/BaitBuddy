@@ -5,6 +5,27 @@ import { useHaptic } from "@/components/utils/HapticFeedback";
 import { useSound } from "@/components/utils/SoundManager";
 import { useNavigationContext } from "@/lib/NavigationContext";
 
+const PAGE_TITLES = {
+  KiBuddyBeta: 'KI-Buddy',
+  Weather: 'Wetter',
+  Logbook: 'Fangbuch',
+  Community: 'Community',
+  TripPlanner: 'Ausflug planen',
+  Gear: 'Ausruestung',
+  Profile: 'Profil',
+  Settings: 'Einstellungen',
+  PremiumPlans: 'Premium',
+  Map: 'Karte',
+  Events: 'Events',
+  CatchStats: 'Statistiken',
+  Koeder3D: 'Koederfuehrung',
+  Help: 'Hilfe',
+  Tutorials: 'Anleitungen',
+  Shop: 'Shop',
+  AnglerMode: 'Anglermodus',
+  LiveTripPage: 'Live-Trip',
+};
+
 export default function SubPageHeader({ title }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,6 +36,7 @@ export default function SubPageHeader({ title }) {
   if (isRootTab) return null;
 
   const currentPage = location.pathname.replace(/^\//, '').split('/')[0] || 'Dashboard';
+  const displayTitle = PAGE_TITLES[currentPage] || title || currentPage;
 
   const handleBack = () => {
     triggerHaptic('light');
@@ -23,33 +45,18 @@ export default function SubPageHeader({ title }) {
   };
 
   return (
-    <div
-      className="md:hidden sticky top-0 z-40"
-      style={{
-        background: 'rgba(6,14,24,0.92)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(0,229,255,0.12)',
-      }}
-    >
-      <div
-        className="flex items-center h-14 px-3 gap-2"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
+    <div className="bb-subpage-header">
+      <div className="bb-subpage-header-inner">
         <button
           type="button"
           onClick={handleBack}
           aria-label="Zurueck"
-          className="bb-back-btn flex-shrink-0"
-          style={{ minWidth: 40, minHeight: 40 }}
+          className="bb-header-icon-btn"
         >
-          <ArrowLeft aria-hidden="true" className="w-5 h-5" />
+          <ArrowLeft size={20} aria-hidden="true" />
         </button>
-        <h1 className="flex-1 text-center text-base font-semibold text-white">
-          {title || currentPage}
-        </h1>
-        {/* Spacer to balance left button */}
-        <div style={{ width: 40, flexShrink: 0 }} />
+        <h1 className="bb-subpage-title">{displayTitle}</h1>
+        <div style={{ width: 40, flexShrink: 0 }} aria-hidden="true" />
       </div>
     </div>
   );
