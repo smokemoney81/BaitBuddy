@@ -445,10 +445,10 @@ function LayoutContent({ children, currentPageName }) {
                   <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentPageName={currentPageName} user={user} loading={authLoading} />
                 </SuspenseWithErrorBoundary>
 
-                <div className="sticky top-0 z-40 bg-[#06223a]/80 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-                  <Header 
+                <div className="bb-header-wrap">
+                  <Header
                     isSidebarOpen={isSidebarOpen}
-                    setIsSidebarOpen={setIsSidebarOpen} 
+                    setIsSidebarOpen={setIsSidebarOpen}
                     isDemo={isDemo}
                   />
                   <SuspenseWithErrorBoundary>
