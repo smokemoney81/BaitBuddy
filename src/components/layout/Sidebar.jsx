@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Brain, Map, Cloud, BookOpen, Calendar, Users, Wrench, User, Zap, Download, ChevronRight, Star, Clock } from 'lucide-react';
+import { LogOut, Brain, Map, Cloud, BookOpen, Calendar, Users, Wrench, Zap, Download, Star, Clock } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useHaptic } from '@/components/utils/HapticFeedback';
 import { useSound } from '@/components/utils/SoundManager';
