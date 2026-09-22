@@ -47,7 +47,7 @@ describe('Community – Feed-Interaktionen (memoisierte PostCard)', () => {
   it('liked einen Post optimistisch und ruft die API', async () => {
     render(<Community />);
     // Der Post-Feed liegt unter dem Feed-Tab (Default ist "Wettbewerbe").
-    fireEvent.click(await screen.findByRole('button', { name: /Feed/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /Feed/ }));
     await screen.findByText('Hallo Welt');
 
     const likeBtn = screen.getByRole('button', { name: '2' });
@@ -60,7 +60,7 @@ describe('Community – Feed-Interaktionen (memoisierte PostCard)', () => {
   it('sendet einen Kommentar über das isolierte Eingabefeld', async () => {
     render(<Community />);
     // Der Post-Feed liegt unter dem Feed-Tab (Default ist "Wettbewerbe").
-    fireEvent.click(await screen.findByRole('button', { name: /Feed/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /Feed/ }));
     await screen.findByText('Hallo Welt');
 
     // Kommentar-Toggle (zeigt die Kommentarzahl 0)

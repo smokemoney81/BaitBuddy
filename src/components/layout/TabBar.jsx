@@ -9,7 +9,9 @@ export default function TabBar({ tabs, activeTab, onTabChange, className = '' })
       const container = scrollRef.current;
       const el = activeRef.current;
       const left = el.offsetLeft - container.offsetWidth / 2 + el.offsetWidth / 2;
-      container.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+      }
     }
   }, [activeTab]);
 
