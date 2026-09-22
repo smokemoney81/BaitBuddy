@@ -1,6 +1,4 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Mail, AlertTriangle } from 'lucide-react';
 
 // Steht auch im Text oben ("Angaben gemaess § 5 TMG") — hier einmal zentral,
@@ -10,18 +8,16 @@ const OPERATOR_EMAIL = 'S.s.Bedburg@gmail.com';
 export default function Impressum() {
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card className="glass-morphism border-gray-800 rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
-            Impressum
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-gray-300">
+    <div className="bb-page max-w-4xl mx-auto">
+      <div className="bb-card">
+        <div className="text-xl font-bold mb-6" style={{ color: 'var(--bb-cyan)' }}>
+          Impressum
+        </div>
+        <div className="text-gray-300">
           
           {/* Rechtlicher Hinweis */}
           <div className="mb-6 p-4 bg-amber-900/20 border border-amber-500/30 rounded-lg flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-amber-200">
               <strong>Hinweis:</strong> Aus datenschutzrechtlichen Gründen wird unser vollständiges Impressum nur auf Anfrage bereitgestellt.
             </div>
@@ -29,7 +25,7 @@ export default function Impressum() {
 
             <div className="space-y-6">
               <div className="prose prose-invert max-w-none">
-                <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
+                <h2 style={{ color: 'var(--bb-cyan)' }}>
                   Angaben gemäß § 5 TMG
                 </h2>
                 <p>
@@ -37,7 +33,7 @@ export default function Impressum() {
                   <strong>E-Mail:</strong> {OPERATOR_EMAIL}
                 </p>
 
-                <p className="text-gray-400 text-sm mt-4">
+                <p className="text-sm mt-4" style={{ color: 'var(--bb-muted)' }}>
                   Das vollständige Impressum mit postalischer Adresse erhalten Sie auf Anfrage per E-Mail.
                 </p>
               </div>
@@ -49,9 +45,9 @@ export default function Impressum() {
                   verschickt und die Anfrage erreichte den Betreiber nicht.
                   Der mailto-Link geht direkt an dieselbe Adresse, die oben
                   steht, und funktioniert ohne Konto und ohne Backend. */}
-              <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
+              <div className="rounded-xl p-6" style={{ background: 'rgba(0,0,0,.25)', border: '1px solid var(--bb-border)' }}>
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-cyan-400" />
+                  <Mail size={20} style={{ color: 'var(--bb-cyan)' }} />
                   Vollständiges Impressum anfordern
                 </h3>
 
@@ -61,20 +57,15 @@ export default function Impressum() {
                     mit postalischer Adresse per Antwort-E-Mail.
                   </p>
 
-                  <Button
-                    asChild
-                    className="w-full bg-cyan-600 hover:bg-cyan-700"
+                  <a
+                    href={`mailto:${OPERATOR_EMAIL}?subject=${encodeURIComponent('Anfrage: Vollständiges Impressum')}&body=${encodeURIComponent('Guten Tag,\n\nbitte senden Sie mir das vollständige Impressum mit postalischer Adresse.\n\nVielen Dank')}`}
+                    className="bb-action w-full flex items-center justify-center gap-2"
                   >
-                    <a
-                      href={`mailto:${OPERATOR_EMAIL}?subject=${encodeURIComponent('Anfrage: Vollständiges Impressum')}&body=${encodeURIComponent('Guten Tag,\n\nbitte senden Sie mir das vollständige Impressum mit postalischer Adresse.\n\nVielen Dank')}`}
-                      className="flex items-center gap-2"
-                    >
-                      <Mail className="w-4 h-4" />
-                      E-Mail an {OPERATOR_EMAIL}
-                    </a>
-                  </Button>
+                    <Mail size={16} />
+                    E-Mail an {OPERATOR_EMAIL}
+                  </a>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
                     Der Link öffnet Ihr E-Mail-Programm mit vorbereitetem Text.
                     Es werden keine Daten an uns übertragen, bevor Sie selbst senden.
                   </p>
@@ -83,7 +74,7 @@ export default function Impressum() {
 
               {/* Weitere rechtliche Infos */}
               <div className="prose prose-invert max-w-none text-sm">
-                <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
+                <h2 style={{ color: 'var(--bb-cyan)' }}>
                   EU-Streitschlichtung
                 </h2>
                 <p>
@@ -91,14 +82,14 @@ export default function Impressum() {
                   <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline"> https://ec.europa.eu/consumers/odr</a>
                 </p>
 
-                <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
+                <h2 style={{ color: 'var(--bb-cyan)' }}>
                   Verbraucher­streit­beilegung
                 </h2>
                 <p>
                   Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
                 </p>
 
-                <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">
+                <h2 style={{ color: 'var(--bb-cyan)' }}>
                   Bildnachweise
                 </h2>
                 <p>
@@ -113,8 +104,8 @@ export default function Impressum() {
               </div>
             </div>
 
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

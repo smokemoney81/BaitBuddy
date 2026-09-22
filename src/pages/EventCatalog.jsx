@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { events } from '@/api/frontendClient';
 import { auth } from '@/api/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -21,6 +19,13 @@ import {
   X
 } from 'lucide-react';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
+import TabBar from '@/components/layout/TabBar';
+
+const filterTabs = [
+  { id: 'all', label: 'Alle' },
+  { id: 'ongoing', label: 'Laufend' },
+  { id: 'custom', label: 'Eigene' },
+];
 
 export default function EventCatalog() {
   useFeatureTracking('events');
@@ -64,7 +69,7 @@ export default function EventCatalog() {
 
   const handleStartTemplate = async (templateId) => {
     try {
-      const result = await events.startCompetition(templateId);
+      await events.startCompetition(templateId);
       toast.success('Wettbewerb erfolgreich gestartet!');
       await loadData();
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -86,7 +91,7 @@ export default function EventCatalog() {
       const endDate = new Date(now);
       endDate.setDate(endDate.getDate() + parseInt(customEventData.duration_days));
 
-      const result = await events.create({
+      await events.create({
         name: customEventData.name,
         description: customEventData.description,
         target_species: customEventData.target_species || null,
@@ -96,7 +101,7 @@ export default function EventCatalog() {
         scoring_method: 'points'
       });
 
-      toast.success('Event erfolgreich erstellt! Du kannst jetzt User einladen.');
+      toast.success('Event erfolgreich erstellt!');
       const msg = actionMessages.eventCreated(customEventData.name);
       notifyAction(msg.title, msg);
       setShowCreateForm(false);
@@ -129,270 +134,240 @@ export default function EventCatalog() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bb-bg)' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--bb-cyan)' }} />
       </div>
     );
   }
 
   if (showCreateForm) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 md:p-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-8 flex items-center justify-between">
-            <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-              <Trophy className="w-10 h-10 text-amber-400" />
-              Neues Event erstellen
-            </h1>
-            <button type="button"
-              onClick={() => setShowCreateForm(false)}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+      <div className="bb-page">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Trophy size={28} style={{ color: '#fbbf24' }} />
+            Neues Event erstellen
+          </h1>
+          <button
+            onClick={() => setShowCreateForm(false)}
+            className="p-2 rounded-lg"
+            style={{ color: 'var(--bb-muted)' }}
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="bb-card grid gap-5">
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--bb-muted)' }}>
+              Event-Name
+            </label>
+            <Input
+              placeholder="z.B. Mein Sommer-Hecht-Turnier"
+              value={customEventData.name}
+              onChange={(e) => setCustomEventData({ ...customEventData, name: e.target.value })}
+              className="bg-gray-900 border-gray-700 text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--bb-muted)' }}>
+              Beschreibung
+            </label>
+            <Textarea
+              placeholder="Beschreibe dein Event..."
+              value={customEventData.description}
+              onChange={(e) => setCustomEventData({ ...customEventData, description: e.target.value })}
+              className="bg-gray-900 border-gray-700 text-white"
+              rows="4"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--bb-muted)' }}>
+              Zielfisch (optional)
+            </label>
+            <Input
+              placeholder="z.B. Hecht"
+              value={customEventData.target_species}
+              onChange={(e) => setCustomEventData({ ...customEventData, target_species: e.target.value })}
+              className="bg-gray-900 border-gray-700 text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--bb-muted)' }}>
+              Dauer (Tage)
+            </label>
+            <Input
+              type="number"
+              min="1"
+              max="30"
+              value={customEventData.duration_days}
+              onChange={(e) => setCustomEventData({ ...customEventData, duration_days: e.target.value })}
+              className="bg-gray-900 border-gray-700 text-white"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCreateCustomEvent}
+              disabled={creatingEvent}
+              className="bb-action flex-1 flex items-center justify-center gap-2"
             >
-              <X className="w-6 h-6 text-gray-300" />
+              {creatingEvent ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Wird erstellt...
+                </>
+              ) : (
+                'Event erstellen'
+              )}
+            </button>
+            <button
+              onClick={() => setShowCreateForm(false)}
+              className="bb-secondary flex-1"
+            >
+              Abbrechen
             </button>
           </div>
-
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="pt-6">
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Event-Name
-                  </label>
-                  <Input
-                    placeholder="z.B. Mein Sommer-Hecht-Turnier"
-                    value={customEventData.name}
-                    onChange={(e) => setCustomEventData({ ...customEventData, name: e.target.value })}
-                    className="bg-gray-900 border-gray-600 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Beschreibung
-                  </label>
-                  <Textarea
-                    placeholder="Beschreibe dein Event..."
-                    value={customEventData.description}
-                    onChange={(e) => setCustomEventData({ ...customEventData, description: e.target.value })}
-                    className="bg-gray-900 border-gray-600 text-white"
-                    rows="4"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Zielfisch (optional)
-                  </label>
-                  <Input
-                    placeholder="z.B. Hecht"
-                    value={customEventData.target_species}
-                    onChange={(e) => setCustomEventData({ ...customEventData, target_species: e.target.value })}
-                    className="bg-gray-900 border-gray-600 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Dauer (Tage)
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="30"
-                    value={customEventData.duration_days}
-                    onChange={(e) => setCustomEventData({ ...customEventData, duration_days: e.target.value })}
-                    className="bg-gray-900 border-gray-600 text-white"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleCreateCustomEvent}
-                    disabled={creatingEvent}
-                    className="flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
-                  >
-                    {creatingEvent ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Wird erstellt...
-                      </>
-                    ) : (
-                      'Event erstellen'
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => setShowCreateForm(false)}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Abbrechen
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-                <Trophy className="w-10 h-10 text-amber-400" />
-                Events & Wettbewerbe
-              </h1>
-              <p className="text-gray-400">
-                Tritt bestehenden Events bei oder starte deinen eigenen Wettbewerb mit deinen Freunden
-              </p>
-            </div>
-            <Button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Neues Event
-            </Button>
-          </div>
+    <div className="bb-page">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Trophy size={28} style={{ color: '#fbbf24' }} />
+            Events & Wettbewerbe
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)' }}>
+            Tritt bestehenden Events bei oder starte deinen eigenen Wettbewerb
+          </p>
         </div>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="bb-action flex items-center gap-2"
+        >
+          <Plus size={16} />
+          Neues Event
+        </button>
+      </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {['all', 'ongoing', 'custom'].map((tab) => (
-            <button type="button"
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all ${
-                filter === tab
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
+      {/* Filter Tabs */}
+      <TabBar tabs={filterTabs} activeTab={filter} onChange={setFilter} />
+
+      {/* Events Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {displayedEvents.length > 0 ? (
+          displayedEvents.map((event) => (
+            <div
+              key={event.id}
+              className="bb-card cursor-pointer"
+              style={{ padding: 0 }}
+              onClick={() => window.location.href = `/events/${event.id}`}
             >
-              {tab === 'all' && 'Alle'}
-              {tab === 'ongoing' && 'Laufend'}
-              {tab === 'custom' && 'Eigene'}
-            </button>
-          ))}
-        </div>
+              <div className="p-4 flex items-start justify-between" style={{ borderBottom: '1px solid var(--bb-border)' }}>
+                <div className="flex-1">
+                  <div className="font-bold text-white mb-1">{event.name}</div>
+                  <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+                    {event.event_type === 'custom' ? 'Benutzerveranstaltet' : 'Template'}
+                  </p>
+                </div>
+                {new Date(event.end_date) > new Date() && event.status === 'active' && (
+                  <CheckCircle2 size={18} style={{ color: '#34d399' }} />
+                )}
+              </div>
+              <div className="p-4 grid gap-3">
+                {event.description && (
+                  <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>{event.description}</p>
+                )}
 
-        {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {displayedEvents.length > 0 ? (
-            displayedEvents.map((event) => (
-              <Card
-                key={event.id}
-                className="glass-morphism border-amber-600/30 bg-gradient-to-br from-amber-900/10 to-orange-900/10 hover:border-amber-500/60 transition-all cursor-pointer group"
-                onClick={() => window.location.href = `/events/${event.id}`}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-amber-400 text-lg mb-1">
-                        {event.name}
-                      </CardTitle>
-                      <p className="text-xs text-gray-400">
-                        {event.event_type === 'custom' ? 'Benutzerveranstaltet' : 'Template'}
-                      </p>
-                    </div>
-                    {new Date(event.end_date) > new Date() && event.status === 'active' && (
-                      <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {event.description && (
-                    <p className="text-sm text-gray-300">{event.description}</p>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
-                    {event.target_species && (
-                      <span className="px-2 py-1 bg-emerald-900/30 border border-emerald-600/30 rounded text-xs text-emerald-400">
-                        <Target className="w-3 h-3 inline mr-1" />
-                        {event.target_species}
-                      </span>
-                    )}
-                    <span className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300">
-                      <Clock className="w-3 h-3 inline mr-1" />
-                      {getEventStatus(event)}
+                <div className="flex flex-wrap gap-2">
+                  {event.target_species && (
+                    <span className="bb-pill-info text-xs flex items-center gap-1">
+                      <Target size={12} />
+                      {event.target_species}
                     </span>
+                  )}
+                  <span className="px-2 py-1 rounded-lg text-xs flex items-center gap-1" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--bb-muted)' }}>
+                    <Clock size={12} />
+                    {getEventStatus(event)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-4 pt-3 text-sm" style={{ borderTop: '1px solid var(--bb-border)', color: 'var(--bb-muted)' }}>
+                  <div className="flex items-center gap-1">
+                    <Users size={14} />
+                    <span>Teilnehmer</span>
                   </div>
-
-                  <div className="flex items-center gap-4 pt-4 border-t border-gray-700/50">
-                    <div className="flex items-center gap-1 text-sm text-gray-400">
-                      <Users className="w-4 h-4" />
-                      <span>Teilnehmer</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-gray-400">
-                      <Zap className="w-4 h-4" />
-                      <span>{event.base_points || 100} Punkte</span>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <Zap size={14} />
+                    <span>{event.base_points || 100} Punkte</span>
                   </div>
+                </div>
 
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartTemplate(event.template_id || event.id);
-                    }}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                  >
-                    Beitreten / Starten
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">Keine Events gefunden</p>
-              <p className="text-gray-500 text-sm mt-2">Erstelle ein neues Event oder warte auf neue Templates</p>
-            </div>
-          )}
-        </div>
-
-        {/* Event Templates Section */}
-        {templates.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-amber-400" />
-              Verfügbare Wettbewerbs-Templates
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {templates.map((template) => (
-                <Card
-                  key={template.template_id}
-                  className="glass-morphism border-blue-600/30 bg-gradient-to-br from-blue-900/10 to-cyan-900/10 hover:border-blue-500/60 transition-all"
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartTemplate(event.template_id || event.id);
+                  }}
+                  className="bb-action w-full"
                 >
-                  <CardHeader>
-                    <CardTitle className="text-blue-400 text-lg">
-                      {template.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-gray-300">{template.description}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300">
-                        {template.duration_days} Tage
-                      </span>
-                      <span className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300">
-                        {template.base_points} Basispunkte
-                      </span>
-                    </div>
-                    <Button
-                      onClick={() => handleStartTemplate(template.template_id)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Zap className="w-4 h-4 mr-2" />
-                      Starten / Beitreten
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                  Beitreten / Starten
+                </button>
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-12">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bb-surface)' }}>
+              <AlertCircle size={28} style={{ color: 'var(--bb-muted)' }} />
+            </div>
+            <p className="text-lg" style={{ color: 'var(--bb-muted)' }}>Keine Events gefunden</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)', opacity: 0.7 }}>Erstelle ein neues Event oder warte auf neue Templates</p>
           </div>
         )}
       </div>
+
+      {/* Event Templates Section */}
+      {templates.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Trophy size={20} style={{ color: '#fbbf24' }} />
+            Verfügbare Wettbewerbs-Templates
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {templates.map((template) => (
+              <div
+                key={template.template_id}
+                className="bb-card"
+                style={{ borderColor: 'rgba(96,165,250,.2)' }}
+              >
+                <div className="font-bold mb-2" style={{ color: '#60a5fa' }}>
+                  {template.name}
+                </div>
+                <p className="text-sm mb-3" style={{ color: 'var(--bb-muted)' }}>{template.description}</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--bb-muted)' }}>
+                    {template.duration_days} Tage
+                  </span>
+                  <span className="px-2 py-1 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,.06)', color: 'var(--bb-muted)' }}>
+                    {template.base_points} Basispunkte
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleStartTemplate(template.template_id)}
+                  className="bb-action w-full flex items-center justify-center gap-2"
+                >
+                  <Zap size={16} />
+                  Starten / Beitreten
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,14 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-
 export default function AGB() {
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card className="glass-morphism border-gray-800 rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
-            Allgemeine Geschäftsbedingungen (AGB)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-gray-300 prose prose-invert max-w-none">
+    <div className="bb-page max-w-4xl mx-auto">
+      <div className="bb-card">
+        <div className="text-xl font-bold mb-6" style={{ color: 'var(--bb-cyan)' }}>
+          Allgemeine Geschäftsbedingungen (AGB)
+        </div>
+        <div className="text-gray-300 prose prose-invert max-w-none">
           
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 1 Geltungsbereich</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 1 Geltungsbereich</h2>
           <p>
             Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für die Nutzung der BaitBuddy-App und aller damit verbundenen Dienste, 
             die von Sebastian Schorn (nachfolgend "Anbieter") bereitgestellt werden.
@@ -21,7 +17,7 @@ export default function AGB() {
             Mit der Registrierung und Nutzung der App erkennt der Nutzer diese AGB als verbindlich an.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 2 Leistungsbeschreibung</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 2 Leistungsbeschreibung</h2>
           <p>
             BaitBuddy ist eine digitale Anwendung für Angler, die folgende Funktionen bietet:
           </p>
@@ -38,7 +34,7 @@ export default function AGB() {
             Der Anbieter behält sich vor, den Funktionsumfang jederzeit zu erweitern, einzuschränken oder zu ändern.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 3 Nutzerkonto und Registrierung</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 3 Nutzerkonto und Registrierung</h2>
           <p>
             Die Nutzung der App erfordert die Erstellung eines Nutzerkontos. Der Nutzer verpflichtet sich:
           </p>
@@ -49,7 +45,7 @@ export default function AGB() {
             <li>Die App nicht für rechtswidrige Zwecke zu nutzen</li>
           </ul>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 4 Premium-Funktionen und Credits</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 4 Premium-Funktionen und Credits</h2>
           <p>
             Bestimmte Funktionen der App (Premium-Funktionen) erfordern den Erwerb von Credits:
           </p>
@@ -62,14 +58,14 @@ export default function AGB() {
             <li>Credits sind nicht übertragbar</li>
           </ul>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 5 Widerrufsrecht</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 5 Widerrufsrecht</h2>
           <p>
             Bei digitalen Inhalten (Credits) erlischt das Widerrufsrecht gemäß § 356 Abs. 5 BGB, 
             wenn der Nutzer ausdrücklich zugestimmt hat, dass die Leistung vor Ablauf der Widerrufsfrist beginnt, 
             und er zur Kenntnis genommen hat, dass er durch seine Zustimmung mit Beginn der Vertragserfüllung sein Widerrufsrecht verliert.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 6 Nutzerverhalten und Inhalte</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 6 Nutzerverhalten und Inhalte</h2>
           <p>
             Der Nutzer verpflichtet sich:
           </p>
@@ -83,13 +79,13 @@ export default function AGB() {
             Bei Verstößen behält sich der Anbieter vor, Inhalte zu löschen, den Account temporär zu sperren oder dauerhaft zu löschen.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 7 Datenschutz</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 7 Datenschutz</h2>
           <p>
             Die Verarbeitung personenbezogener Daten erfolgt gemäß der Datenschutzerklärung, die separat einsehbar ist. 
             Der Anbieter verpflichtet sich, die geltenden Datenschutzbestimmungen (DSGVO) einzuhalten.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 8 Haftung</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 8 Haftung</h2>
           <p>
             Der Anbieter haftet für Schäden nur bei Vorsatz und grober Fahrlässigkeit. 
             Die Haftung für leichte Fahrlässigkeit ist ausgeschlossen, außer bei Verletzung wesentlicher Vertragspflichten.
@@ -106,21 +102,21 @@ export default function AGB() {
             Insbesondere Wetterinformationen und KI-basierte Empfehlungen dienen nur zur Information und ersetzen nicht die eigene Beurteilung und Verantwortung des Nutzers.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 9 Verfügbarkeit und Wartung</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 9 Verfügbarkeit und Wartung</h2>
           <p>
             Der Anbieter ist bemüht, eine möglichst hohe Verfügbarkeit der App zu gewährleisten. 
             Es besteht jedoch kein Anspruch auf permanente Verfügbarkeit. 
             Wartungsarbeiten können zu vorübergehenden Einschränkungen führen.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 10 Änderungen der AGB</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 10 Änderungen der AGB</h2>
           <p>
             Der Anbieter behält sich vor, diese AGB jederzeit zu ändern. 
             Nutzer werden über wesentliche Änderungen per E-Mail oder In-App-Benachrichtigung informiert. 
             Widerspricht der Nutzer nicht innerhalb von 4 Wochen nach Bekanntgabe, gelten die geänderten AGB als akzeptiert.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 11 Kündigung</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 11 Kündigung</h2>
           <p>
             Der Nutzer kann sein Konto jederzeit ohne Angabe von Gründen löschen. 
             Gekaufte Credits verfallen bei Löschung des Kontos ersatzlos.
@@ -129,7 +125,7 @@ export default function AGB() {
             Der Anbieter kann das Nutzerkonto bei schwerwiegenden Verstößen gegen diese AGB fristlos kündigen.
           </p>
 
-          <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">§ 12 Schlussbestimmungen</h2>
+          <h2 style={{ color: 'var(--bb-cyan)' }}>§ 12 Schlussbestimmungen</h2>
           <p>
             Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts.
           </p>
@@ -144,8 +140,8 @@ export default function AGB() {
               <strong>Kontakt:</strong> S.s.Bedburg@gmail.com
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

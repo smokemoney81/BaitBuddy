@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { functions, premium } from "@/api/frontendClient";
@@ -364,9 +361,9 @@ export default function PremiumPlans() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-cyan-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="bb-page flex items-center justify-center" style={{ minHeight: '100vh' }}>
+        <div className="flex items-center gap-3" style={{ color: 'var(--bb-cyan)' }}>
+          <Loader2 size={24} className="animate-spin" />
           <span>Lädt...</span>
         </div>
       </div>
@@ -374,51 +371,50 @@ export default function PremiumPlans() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 pb-32">
+    <div className="bb-page">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)] mb-4">
+          <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--bb-cyan)' }}>
             Premium-Pläne
           </h1>
-          <p className="text-gray-400 text-lg">
+          <p className="text-lg" style={{ color: 'var(--bb-muted)' }}>
             Wähle den Plan, der am besten zu deinem Angel-Abenteuer passt
           </p>
           {currentPlan && currentPlan.id !== 'free' && (
             <div className="mt-4">
-              <Badge className="bg-emerald-600 text-white">
+              <span className="bb-pill-info" style={{ background: '#059669', color: '#fff' }}>
                 Aktueller Plan: {currentPlan.name}
                 {currentPlan.remaining_days && ` - Noch ${currentPlan.remaining_days} Tage`}
-              </Badge>
+              </span>
             </div>
           )}
 
           {billingAvailable && (
             <div className="mt-6">
-              <Button
+              <button
                 onClick={handleRestorePurchases}
                 disabled={restoring}
-                variant="outline"
-                className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
+                className="bb-secondary"
               >
                 {restoring ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 size={16} className="mr-2 animate-spin" />
                     Wird wiederhergestellt...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw size={16} className="mr-2" />
                     Käufe wiederherstellen
                   </>
                 )}
-              </Button>
+              </button>
             </div>
           )}
         </div>
 
         {!purchasesEnabled && (
           <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-amber-700/50 bg-amber-900/20 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-amber-100">
               <strong className="block mb-1">Kauf derzeit nicht moeglich</strong>
               {billingAvailable
@@ -430,7 +426,7 @@ export default function PremiumPlans() {
 
         {!billingAvailable && purchasesEnabled && (
           <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-cyan-700/50 bg-cyan-900/20 flex items-start gap-3">
-            <Smartphone className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <Smartphone size={20} className="text-cyan-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-cyan-100">
               <strong className="block mb-1">Bezahlung im Browser</strong>
               Du kannst Premium-Plaene direkt hier mit Kreditkarte (Visa, Mastercard, Amex), Google Pay oder Apple Pay bezahlen.
@@ -458,35 +454,35 @@ export default function PremiumPlans() {
               : null;
 
             return (
-              <Card
+              <div
                 key={plan.id}
-                className={`glass-morphism relative overflow-hidden ${
-                  isCurrentPlan ? 'border-emerald-500 border-2' : 'border-gray-800'
+                className={`bb-card relative overflow-hidden ${
+                  isCurrentPlan ? 'border-emerald-500 border-2' : ''
                 } ${plan.popular ? 'ring-2 ring-purple-500' : ''}`}
               >
                 {plan.popular && (
                   <div className="absolute top-4 right-4">
-                    <Badge className="bg-purple-600 text-white">
-                      <Sparkles className="w-3 h-3 mr-1" />
+                    <span className="bb-pill-info" style={{ background: '#9333ea', color: '#fff', display: 'inline-flex', alignItems: 'center' }}>
+                      <Sparkles size={12} className="mr-1" />
                       Beliebt
-                    </Badge>
+                    </span>
                   </div>
                 )}
 
-                <CardHeader>
+                <div className="p-6 pb-0">
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4`}>
-                    <Icon className="w-6 h-6 text-white" />
+                    <Icon size={24} className="text-white" />
                   </div>
-                  <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
+                  <div className="text-lg font-bold" style={{ color: 'var(--bb-cyan)' }}>
                     {plan.name}
-                  </CardTitle>
-                  <p className="text-xs text-gray-400 mt-1">{plan.description}</p>
-                  <CardDescription>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'var(--bb-muted)' }}>{plan.description}</p>
+                  <div>
                     <div className="text-3xl font-bold text-white mt-2">
                       {plan.price === 0 ? 'Gratis' : (
                         <>
                           {showUltimateDiscount && (
-                            <span className="text-lg text-gray-500 line-through mr-2 font-normal">
+                            <span className="text-lg line-through mr-2 font-normal" style={{ color: 'var(--bb-muted)' }}>
                               {plan.price}€
                             </span>
                           )}
@@ -494,7 +490,7 @@ export default function PremiumPlans() {
                         </>
                       )}
                       {plan.price > 0 && (
-                        <span className="text-sm text-gray-400 font-normal">
+                        <span className="text-sm font-normal" style={{ color: 'var(--bb-muted)' }}>
                           {plan.yearly ? '/Jahr' : '/Monat'}
                         </span>
                       )}
@@ -506,84 +502,83 @@ export default function PremiumPlans() {
                     )}
                     {plan.yearly && (
                       <div className="mt-1">
-                        <Badge className="bg-emerald-700 text-white text-xs">Jahresplan</Badge>
+                        <span className="bb-pill-info" style={{ background: '#047857', color: '#fff', fontSize: '0.75rem' }}>Jahresplan</span>
                       </div>
                     )}
-                  </CardDescription>
-                </CardHeader>
+                  </div>
+                </div>
 
-                <CardContent className="space-y-4">
+                <div className="grid gap-4 p-6 pt-4">
                   <ul className="space-y-3">
                     {plan.features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
-                        <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <Check size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
                         <span>{feature}</span>
                       </li>
                     ))}
                   </ul>
 
                   {isCurrentPlan ? (
-                    <Badge className="w-full justify-center py-2 bg-emerald-600 text-white">
-                      ✓ Aktiver Plan
-                    </Badge>
+                    <span className="bb-pill-info w-full py-2" style={{ background: '#059669', color: '#fff', display: 'flex', justifyContent: 'center' }}>
+                      Aktiver Plan
+                    </span>
                   ) : plan.price === 0 ? (
-                    <Badge variant="secondary" className="w-full justify-center py-2">
+                    <span className="bb-pill-info w-full py-2" style={{ display: 'flex', justifyContent: 'center' }}>
                       Kostenlos verfügbar
-                    </Badge>
+                    </span>
                   ) : (
                     <div className="space-y-2">
                       {billingAvailable && (
-                        <Button
+                        <button
                           onClick={() => handlePlayStorePurchase(plan.id)}
                           disabled={isProcessing || !purchasesEnabled}
-                          className={`w-full bg-gradient-to-r ${plan.color} hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50`}
+                          className={`bb-action w-full bg-gradient-to-r ${plan.color} hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50`}
                         >
                           {isProcessing ? (
                             <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <Loader2 size={16} className="animate-spin" />
                               Kauf wird gestartet...
                             </>
                           ) : (
                             <>
-                              <ShoppingBag className="w-4 h-4" />
+                              <ShoppingBag size={16} />
                               Im Play Store kaufen
                             </>
                           )}
-                        </Button>
+                        </button>
                       )}
                       {!billingAvailable && (
                         <WebCheckoutButton planId={plan.id} disabled={isProcessing || !purchasesEnabled} />
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
 
         <div className="mt-12 text-center space-y-4">
-          <div className="p-6 bg-gray-900/50 border border-gray-800 rounded-xl max-w-2xl mx-auto">
+          <div className="p-6 rounded-xl max-w-2xl mx-auto" style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}>
             <h3 className="text-xl font-semibold text-white mb-2 flex items-center justify-center gap-2">
-              <Mail className="w-5 h-5 text-cyan-400" />
+              <Mail size={20} style={{ color: 'var(--bb-cyan)' }} />
               Fragen zu Premium?
             </h3>
-            <p className="text-gray-400 mb-4">
+            <p className="mb-4" style={{ color: 'var(--bb-muted)' }}>
               Kontaktiere uns per E-Mail bei Fragen zu den Premium-Plänen oder zum Google Play Kauf.
             </p>
-            <Button
+            <button
               onClick={() => {
                 window.location.href = `mailto:support@catchgbt.app?subject=Premium Anfrage&body=Hallo,%0D%0A%0D%0AIch interessiere mich für einen Premium-Plan.%0D%0A%0D%0AMeine E-Mail: ${user?.email || ''}`;
               }}
-              variant="outline"
-              className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
+              className="bb-secondary"
             >
-              <Mail className="w-4 h-4 mr-2" />
+              <Mail size={16} className="mr-2" />
               Support kontaktieren
-            </Button>
+            </button>
           </div>
 
-          <p className="text-gray-500 text-sm">
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
             {billingAvailable
               ? 'Alle Kaeufe erfolgen ueber deinen Google Play Account. Verwaltung & Kuendigung in den Play Store Einstellungen.'
               : 'Bezahlung per Kreditkarte, Google Pay oder Apple Pay laeuft sicher ueber Stripe.'}

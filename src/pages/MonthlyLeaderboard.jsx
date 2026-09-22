@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { leaderboards, rewards } from '@/api/frontendClient';
 import { auth } from '@/api/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   Trophy,
@@ -89,177 +87,175 @@ export default function MonthlyLeaderboard() {
   const isCurrentMonth = currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear();
 
   const getRankIcon = (rank) => {
-    if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" />;
-    if (rank === 2) return <Medal className="w-5 h-5 text-gray-400" />;
-    if (rank === 3) return <Medal className="w-5 h-5 text-orange-400" />;
+    if (rank === 1) return <Crown size={20} style={{ color: '#facc15' }} />;
+    if (rank === 2) return <Medal size={20} style={{ color: '#9ca3af' }} />;
+    if (rank === 3) return <Medal size={20} style={{ color: '#fb923c' }} />;
     return null;
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <Loader2 size={32} className="animate-spin" style={{ color: '#f59e0b' }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 md:p-6">
+    <div className="bb-page">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-            <Trophy className="w-10 h-10 text-amber-400" />
+            <Trophy size={40} style={{ color: '#fbbf24' }} />
             Monatliches Leaderboard
           </h1>
-          <p className="text-gray-400">
+          <p style={{ color: 'var(--bb-muted)' }}>
             Der Sieger jedes Monats gewinnt einen kostenlosen Basic Plan für 30 Tage!
           </p>
         </div>
 
         {/* Month Navigation */}
         <div className="flex items-center justify-between mb-8">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            className="bb-secondary"
             onClick={handlePreviousMonth}
             disabled={!canGoPrev}
-            className="border-gray-700 hover:bg-gray-800"
           >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
+            <ChevronLeft size={16} />
+          </button>
           <div className="flex items-center gap-2 text-xl font-semibold text-white">
-            <Calendar className="w-5 h-5 text-amber-400" />
+            <Calendar size={20} style={{ color: '#fbbf24' }} />
             {monthString}
-            {isCurrentMonth && <span className="text-sm text-amber-400">(Aktuell)</span>}
+            {isCurrentMonth && <span className="text-sm" style={{ color: '#fbbf24' }}>(Aktuell)</span>}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            className="bb-secondary"
             onClick={handleNextMonth}
             disabled={!canGoNext}
-            className="border-gray-700 hover:bg-gray-800"
           >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+            <ChevronRight size={16} />
+          </button>
         </div>
 
         {/* Top 3 Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {leaderboard.slice(0, 3).map((entry, index) => (
-            <Card
+            <div
               key={entry.id}
-              className={`glass-morphism border-b-4 transition-all ${
-                index === 0
-                  ? 'border-yellow-500/50 bg-gradient-to-br from-yellow-900/20 to-amber-900/20'
+              className="bb-card transition-all"
+              style={{
+                borderBottom: '4px solid',
+                borderBottomColor: index === 0 ? 'rgba(234,179,8,0.5)' : index === 1 ? 'rgba(156,163,175,0.5)' : 'rgba(249,115,22,0.5)',
+                background: index === 0
+                  ? 'linear-gradient(to bottom right, rgba(113,63,18,0.2), rgba(120,53,15,0.2))'
                   : index === 1
-                  ? 'border-gray-400/50 bg-gradient-to-br from-gray-700/20 to-gray-800/20'
-                  : 'border-orange-500/50 bg-gradient-to-br from-orange-900/20 to-amber-900/20'
-              }`}
+                  ? 'linear-gradient(to bottom right, rgba(55,65,81,0.2), rgba(31,41,55,0.2))'
+                  : 'linear-gradient(to bottom right, rgba(124,45,18,0.2), rgba(120,53,15,0.2))'
+              }}
             >
-              <CardHeader className="pb-3">
+              <div className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {getRankIcon(entry.rank)}
                     <span className="text-lg font-bold text-white">#{entry.rank}</span>
                   </div>
                   {entry.reward_status === 'claimed' && (
-                    <Check className="w-5 h-5 text-green-500" />
+                    <Check size={20} style={{ color: '#22c55e' }} />
                   )}
                 </div>
-                <p className="text-sm text-gray-300 mt-1">
+                <p className="text-sm mt-1" style={{ color: '#d1d5db' }}>
                   {entry.user_id === currentUser?.email ? 'Du' : entry.user_id}
                 </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              </div>
+              <div className="grid gap-4">
                 <div className="text-center">
-                  <p className="text-4xl font-bold text-amber-400">
+                  <p className="text-4xl font-bold" style={{ color: '#fbbf24' }}>
                     {Math.round(entry.total_points * 100) / 100}
                   </p>
-                  <p className="text-xs text-gray-400">Punkte</p>
+                  <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>Punkte</p>
                 </div>
-                <div className="text-xs text-gray-400 text-center">
+                <div className="text-xs text-center" style={{ color: 'var(--bb-muted)' }}>
                   {entry.event_count} {entry.event_count === 1 ? 'Event' : 'Events'}
                 </div>
                 {entry.rank === 1 && (
-                  <div className="pt-2 border-t border-gray-700/50">
+                  <div className="pt-2" style={{ borderTop: '1px solid var(--bb-border)' }}>
                     {entry.reward_status === 'claimed' ? (
-                      <div className="bg-green-900/30 border border-green-600/30 rounded p-2 text-center">
-                        <p className="text-xs text-green-400 font-semibold flex items-center justify-center gap-1">
-                          <Check className="w-3 h-3" />
+                      <div className="rounded p-2 text-center" style={{ background: 'rgba(22,101,52,0.3)', border: '1px solid rgba(22,163,74,0.3)' }}>
+                        <p className="text-xs font-semibold flex items-center justify-center gap-1" style={{ color: '#4ade80' }}>
+                          <Check size={12} />
                           Reward aktiviert
                         </p>
                       </div>
                     ) : (
-                      <Button
+                      <button
                         onClick={() => handleClaimReward(entry.id)}
                         disabled={claimingReward === entry.id || entry.user_id !== currentUser?.email}
-                        className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-sm py-1"
+                        className="bb-action w-full text-sm py-1"
+                        style={{ background: 'linear-gradient(to right, #d97706, #ea580c)' }}
                       >
                         {claimingReward === entry.id ? (
                           <>
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            <Loader2 size={12} className="mr-1 animate-spin" />
                             Wird aktiviert...
                           </>
                         ) : (
                           <>
-                            <Gift className="w-3 h-3 mr-1" />
+                            <Gift size={12} className="mr-1" />
                             Reward aktivieren
                           </>
                         )}
-                      </Button>
+                      </button>
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
 
         {/* Full Leaderboard */}
-        <Card className="glass-morphism border-gray-600/30 bg-gradient-to-br from-gray-800/20 to-gray-900/20 mb-8">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Medal className="w-5 h-5 text-amber-400" />
-              Vollständiges Ranking
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bb-card mb-8" style={{ borderColor: 'rgba(75,85,99,0.3)', background: 'linear-gradient(to bottom right, rgba(31,41,55,0.2), rgba(17,24,39,0.2))' }}>
+          <div className="bb-form-title text-white flex items-center gap-2">
+            <Medal size={20} style={{ color: '#fbbf24' }} />
+            Vollständiges Ranking
+          </div>
+          <div className="grid gap-4 mt-4">
             {leaderboard.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {leaderboard.map((entry, index) => (
                   <div
                     key={entry.id}
-                    className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
-                      entry.user_id === currentUser?.email
-                        ? 'bg-amber-900/20 border-amber-600/50'
-                        : 'bg-gray-700/20 border-gray-700/50 hover:border-gray-600/50'
-                    }`}
+                    className="flex items-center justify-between p-4 rounded-lg border transition-all"
+                    style={{
+                      background: entry.user_id === currentUser?.email ? 'rgba(120,53,15,0.2)' : 'rgba(55,65,81,0.2)',
+                      borderColor: entry.user_id === currentUser?.email ? 'rgba(217,119,6,0.5)' : 'rgba(55,65,81,0.5)',
+                    }}
                   >
                     <div className="flex items-center gap-4 flex-1">
-                      <span className="text-lg font-bold text-gray-400 w-8 text-center">
+                      <span className="text-lg font-bold w-8 text-center" style={{ color: 'var(--bb-muted)' }}>
                         #{entry.rank}
                       </span>
                       <div className="flex-1">
                         <p className="text-white font-medium">
                           {entry.user_id === currentUser?.email ? 'Du' : entry.user_id}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
                           {entry.event_count} {entry.event_count === 1 ? 'Event' : 'Events'}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="text-lg font-bold text-amber-400">
+                        <p className="text-lg font-bold" style={{ color: '#fbbf24' }}>
                           {Math.round(entry.total_points * 100) / 100}
                         </p>
-                        <p className="text-xs text-gray-400">Punkte</p>
+                        <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>Punkte</p>
                       </div>
                       {entry.reward_status === 'claimed' && (
-                        <div className="flex items-center gap-1 bg-green-900/30 px-3 py-1 rounded">
-                          <Gift className="w-4 h-4 text-green-400" />
-                          <span className="text-xs text-green-400 font-semibold">+30 Tage</span>
+                        <div className="flex items-center gap-1 px-3 py-1 rounded" style={{ background: 'rgba(22,101,52,0.3)' }}>
+                          <Gift size={16} style={{ color: '#4ade80' }} />
+                          <span className="text-xs font-semibold" style={{ color: '#4ade80' }}>+30 Tage</span>
                         </div>
                       )}
                     </div>
@@ -268,58 +264,55 @@ export default function MonthlyLeaderboard() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <AlertCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-400">Keine Einträge für diesen Monat</p>
+                <AlertCircle size={32} className="mx-auto mb-2" style={{ color: 'rgba(75,85,99,0.6)' }} />
+                <p style={{ color: 'var(--bb-muted)' }}>Keine Einträge für diesen Monat</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Active Rewards */}
         {myRewards.length > 0 && (
-          <Card className="glass-morphism border-green-600/30 bg-gradient-to-br from-green-900/10 to-emerald-900/10">
-            <CardHeader>
-              <CardTitle className="text-green-400 flex items-center gap-2">
-                <Gift className="w-5 h-5" />
-                Deine aktiven Rewards
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="bb-card" style={{ borderColor: 'rgba(22,163,74,0.3)', background: 'linear-gradient(to bottom right, rgba(20,83,45,0.1), rgba(6,78,59,0.1))' }}>
+            <div className="bb-form-title flex items-center gap-2" style={{ color: '#4ade80' }}>
+              <Gift size={20} />
+              Deine aktiven Rewards
+            </div>
+            <div className="grid gap-4 mt-4">
               {myRewards.map((reward) => {
                 const expiresAt = new Date(reward.expires_at);
                 const daysLeft = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24));
                 return (
                   <div
                     key={reward.id}
-                    className="p-4 rounded-lg bg-green-900/20 border border-green-600/50 flex items-center justify-between"
+                    className="p-4 rounded-lg flex items-center justify-between"
+                    style={{ background: 'rgba(20,83,45,0.2)', border: '1px solid rgba(22,163,74,0.5)' }}
                   >
                     <div>
                       <p className="text-white font-semibold">{reward.plan_id.toUpperCase()} Plan</p>
-                      <p className="text-sm text-green-400 flex items-center gap-1 mt-1">
-                        <Clock className="w-4 h-4" />
+                      <p className="text-sm flex items-center gap-1 mt-1" style={{ color: '#4ade80' }}>
+                        <Clock size={16} />
                         {daysLeft} Tage verbleibend
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-green-400">{reward.duration_days}</p>
-                      <p className="text-xs text-gray-400">Tage</p>
+                      <p className="text-2xl font-bold" style={{ color: '#4ade80' }}>{reward.duration_days}</p>
+                      <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>Tage</p>
                     </div>
                   </div>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Info Card */}
-        <Card className="glass-morphism border-blue-600/30 bg-gradient-to-br from-blue-900/10 to-cyan-900/10 mt-8">
-          <CardHeader>
-            <CardTitle className="text-blue-400 flex items-center gap-2">
-              <Zap className="w-5 h-5" />
-              Wie funktioniert das Punkte-System?
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-gray-300">
+        <div className="bb-card mt-8" style={{ borderColor: 'rgba(37,99,235,0.3)', background: 'linear-gradient(to bottom right, rgba(30,58,138,0.1), rgba(22,78,99,0.1))' }}>
+          <div className="bb-form-title flex items-center gap-2" style={{ color: '#60a5fa' }}>
+            <Zap size={20} />
+            Wie funktioniert das Punkte-System?
+          </div>
+          <div className="grid gap-3 mt-4 text-sm" style={{ color: '#d1d5db' }}>
             <p>
               <span className="font-semibold text-white">Basispunkte:</span> Jede Einreichung bringt Basispunkte (Standard: 100)
             </p>
@@ -332,11 +325,11 @@ export default function MonthlyLeaderboard() {
             <p>
               <span className="font-semibold text-white">Like-Punkte:</span> Community-Likes bringen zusätzliche Punkte
             </p>
-            <p className="pt-2 border-t border-blue-600/30">
+            <p className="pt-2" style={{ borderTop: '1px solid rgba(37,99,235,0.3)' }}>
               <span className="font-semibold text-white">Platzierungs-Bonus:</span> Die Top 3 Events-Gewinner bekommen zusätzliche Punkte (500/300/100)
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -3,8 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { events } from '@/api/frontendClient';
 import { auth } from '@/api/auth';
 import { useEventActivityTracking } from '@/hooks/useEventActivityTracking';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
@@ -40,7 +38,6 @@ export default function EventDetails() {
   const [isParticipant, setIsParticipant] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
-  // Form state
   const [submissionData, setSubmissionData] = useState({
     species: '',
     length_cm: '',
@@ -152,343 +149,309 @@ export default function EventDetails() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bb-bg)' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--bb-cyan)' }} />
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
-        <Card className="glass-morphism border-gray-600/30 bg-gradient-to-br from-gray-800/20 to-gray-900/20 max-w-md w-full">
-          <CardContent className="pt-6 text-center space-y-4">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-            <p className="text-white text-lg">Event nicht gefunden</p>
-            <Button
-              onClick={() => navigate('/events')}
-              className="w-full bg-amber-600 hover:bg-amber-700"
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Zurück zu Events
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="bb-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="bb-card text-center max-w-md w-full grid gap-4">
+          <AlertCircle size={40} style={{ color: '#f87171', margin: '0 auto' }} />
+          <p className="text-white text-lg">Event nicht gefunden</p>
+          <button
+            onClick={() => navigate('/events')}
+            className="bb-action w-full flex items-center justify-center gap-2"
+          >
+            <ChevronLeft size={16} />
+            Zurück zu Events
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 md:p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/events')}
-          className="mb-6 text-gray-400 hover:text-white"
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Zurück
-        </Button>
+    <div className="bb-page">
+      <button
+        onClick={() => navigate('/events')}
+        className="flex items-center gap-1 p-2 rounded-lg"
+        style={{ color: 'var(--bb-muted)' }}
+      >
+        <ChevronLeft size={18} />
+        Zurück
+      </button>
 
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-            <Trophy className="w-10 h-10 text-amber-400" />
-            {event.name}
-          </h1>
-          {event.description && (
-            <p className="text-gray-400 text-lg">{event.description}</p>
-          )}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Trophy size={28} style={{ color: '#fbbf24' }} />
+          {event.name}
+        </h1>
+        {event.description && (
+          <p className="mt-1" style={{ color: 'var(--bb-muted)' }}>{event.description}</p>
+        )}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Event Info */}
-            <Card className="glass-morphism border-amber-600/30 bg-gradient-to-br from-amber-900/10 to-orange-900/10">
-              <CardHeader>
-                <CardTitle className="text-amber-400">Event-Informationen</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Status</p>
-                    <p className="text-white font-semibold flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-400" />
-                      {getEventStatus()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Basispunkte</p>
-                    <p className="text-white font-semibold flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-amber-400" />
-                      {event.base_points || 100}
-                    </p>
-                  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Main Content */}
+        <div className="lg:col-span-2 grid gap-5">
+          {/* Event Info */}
+          <div className="bb-card">
+            <div className="bb-form-title mb-4">Event-Informationen</div>
+            <div className="bb-stat-row mb-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className="bb-stat-card">
+                <div className="bb-stat-label">Status</div>
+                <div className="text-white font-semibold text-sm flex items-center gap-1 mt-1">
+                  <Clock size={14} style={{ color: 'var(--bb-cyan)' }} />
+                  {getEventStatus()}
                 </div>
-
-                {event.target_species && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1">Zielfisch</p>
-                    <p className="text-white font-semibold flex items-center gap-2">
-                      <Target className="w-4 h-4 text-emerald-400" />
-                      {event.target_species}
-                    </p>
-                  </div>
-                )}
-
-                {event.prize_description && (
-                  <div className="pt-2 border-t border-gray-700/50">
-                    <p className="text-xs text-gray-400 mb-2">Preis</p>
-                    <p className="text-white">{event.prize_description}</p>
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-gray-700/50 flex gap-2">
-                  {!isParticipant && (
-                    <Button
-                      onClick={handleJoinEvent}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Dem Event beitreten
-                    </Button>
-                  )}
-                  {canInvite && (
-                    <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-                      <DialogTrigger asChild>
-                        <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                          <Mail className="w-4 h-4 mr-2" />
-                          Einladungen senden
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="bg-gray-900 border-gray-700">
-                        <DialogHeader>
-                          <DialogTitle className="text-white">User einladen</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <p className="text-sm text-gray-400">
-                            E-Mail-Adressen durch Kommas getrennt eingeben
-                          </p>
-                          <Input
-                            placeholder="user1@example.com, user2@example.com"
-                            value={inviteEmails}
-                            onChange={(e) => setInviteEmails(e.target.value)}
-                            className="bg-gray-800 border-gray-700 text-white"
-                          />
-                          <Button
-                            onClick={handleInvite}
-                            disabled={inviting}
-                            className="w-full bg-blue-600 hover:bg-blue-700"
-                          >
-                            {inviting ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Wird versendet...
-                              </>
-                            ) : (
-                              <>
-                                <Send className="w-4 h-4 mr-2" />
-                                Einladungen senden
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
+              </div>
+              <div className="bb-stat-card">
+                <div className="bb-stat-label">Basispunkte</div>
+                <div className="bb-stat-value" style={{ color: 'var(--bb-cyan)' }}>
+                  {event.base_points || 100}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Submit Catch */}
-            {isParticipant && (
-              <Card className="glass-morphism border-green-600/30 bg-gradient-to-br from-green-900/10 to-emerald-900/10">
-                <CardHeader>
-                  <CardTitle className="text-green-400 flex items-center gap-2">
-                    <Camera className="w-5 h-5" />
-                    Fang einreichen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Fischart
-                      </label>
-                      <Input
-                        placeholder="z.B. Hecht"
-                        value={submissionData.species}
-                        onChange={(e) => setSubmissionData({ ...submissionData, species: e.target.value })}
-                        className="bg-gray-800 border-gray-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Länge (cm)
-                      </label>
-                      <Input
-                        type="number"
-                        placeholder="z.B. 75"
-                        step="0.5"
-                        value={submissionData.length_cm}
-                        onChange={(e) => setSubmissionData({ ...submissionData, length_cm: e.target.value })}
-                        className="bg-gray-800 border-gray-700 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Gewicht (kg) - optional
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="z.B. 3.5"
-                      step="0.1"
-                      value={submissionData.weight_kg}
-                      onChange={(e) => setSubmissionData({ ...submissionData, weight_kg: e.target.value })}
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Foto-URL - optional
-                    </label>
-                    <Input
-                      placeholder="https://..."
-                      value={submissionData.photo_url}
-                      onChange={(e) => setSubmissionData({ ...submissionData, photo_url: e.target.value })}
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleSubmitCatch}
-                    disabled={submitting}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Wird eingereicht...
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="w-4 h-4 mr-2" />
-                        Fang einreichen
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+            {event.target_species && (
+              <div className="mb-4">
+                <div className="bb-stat-label mb-1">Zielfisch</div>
+                <p className="text-white font-semibold flex items-center gap-2">
+                  <Target size={14} style={{ color: '#34d399' }} />
+                  {event.target_species}
+                </p>
+              </div>
             )}
 
-            {/* Leaderboard */}
-            <Card className="glass-morphism border-gray-600/30 bg-gradient-to-br from-gray-800/20 to-gray-900/20">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-400" />
-                  Event-Leaderboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {leaderboard.length > 0 ? (
-                  <div className="space-y-2">
-                    {leaderboard.map((entry, index) => (
-                      <div
-                        key={entry.id}
-                        className={`flex items-center justify-between p-3 rounded-lg border ${
-                          entry.user_id === currentUser?.email
-                            ? 'bg-amber-900/20 border-amber-600/50'
-                            : 'bg-gray-700/20 border-gray-700/50'
-                        }`}
+            {event.prize_description && (
+              <div className="pt-3 mb-4" style={{ borderTop: '1px solid var(--bb-border)' }}>
+                <div className="bb-stat-label mb-1">Preis</div>
+                <p className="text-white text-sm">{event.prize_description}</p>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-3" style={{ borderTop: '1px solid var(--bb-border)' }}>
+              {!isParticipant && (
+                <button onClick={handleJoinEvent} className="bb-action flex-1 flex items-center justify-center gap-2">
+                  <CheckCircle2 size={16} />
+                  Dem Event beitreten
+                </button>
+              )}
+              {canInvite && (
+                <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+                  <DialogTrigger asChild>
+                    <button className="bb-secondary flex-1 flex items-center justify-center gap-2">
+                      <Mail size={16} />
+                      Einladungen senden
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="border-0" style={{ background: 'var(--bb-surface)', borderRadius: 16 }}>
+                    <DialogHeader>
+                      <DialogTitle className="text-white">User einladen</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4">
+                      <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+                        E-Mail-Adressen durch Kommas getrennt eingeben
+                      </p>
+                      <Input
+                        placeholder="user1@example.com, user2@example.com"
+                        value={inviteEmails}
+                        onChange={(e) => setInviteEmails(e.target.value)}
+                        className="bg-gray-900 border-gray-700 text-white"
+                      />
+                      <button
+                        onClick={handleInvite}
+                        disabled={inviting}
+                        className="bb-action w-full flex items-center justify-center gap-2"
                       >
-                        <div className="flex items-center gap-3 flex-1">
-                          <span className="text-lg font-bold text-gray-400 w-6 text-center">
-                            #{index + 1}
-                          </span>
-                          <div>
-                            <p className="text-white font-medium">
-                              {entry.user_id === currentUser?.email ? 'Du' : entry.user_id.split('@')[0]}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {entry.submission_count} Einreichung{entry.submission_count !== 1 ? 'en' : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-amber-400">
-                            {Math.round(entry.total_points * 100) / 100}
-                          </p>
-                          <p className="text-xs text-gray-400">Punkte</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center py-6 text-gray-400">Noch keine Einreichungen</p>
-                )}
-              </CardContent>
-            </Card>
+                        {inviting ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Wird versendet...
+                          </>
+                        ) : (
+                          <>
+                            <Send size={16} />
+                            Einladungen senden
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Participants */}
-            <Card className="glass-morphism border-blue-600/30 bg-gradient-to-br from-blue-900/10 to-cyan-900/10">
-              <CardHeader>
-                <CardTitle className="text-blue-400 flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Teilnehmer
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {participants.map((p) => (
-                    <div
-                      key={p.user_id}
-                      className="p-2 rounded bg-blue-900/20 border border-blue-600/30"
-                    >
-                      <p className="text-sm text-white font-medium">
-                        {p.user_id === currentUser?.email ? 'Du (Organisator)' : p.user_id.split('@')[0]}
-                      </p>
-                      <p className="text-xs text-blue-400">
-                        {Math.round(p.total_points * 100) / 100} Punkte
-                      </p>
-                    </div>
-                  ))}
+          {/* Submit Catch */}
+          {isParticipant && (
+            <div className="bb-card" style={{ borderColor: 'rgba(52,211,153,.25)' }}>
+              <div className="bb-form-title flex items-center gap-2 mb-4" style={{ color: '#34d399' }}>
+                <Camera size={18} />
+                Fang einreichen
+              </div>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--bb-muted)' }}>Fischart</label>
+                    <Input
+                      placeholder="z.B. Hecht"
+                      value={submissionData.species}
+                      onChange={(e) => setSubmissionData({ ...submissionData, species: e.target.value })}
+                      className="bg-gray-900 border-gray-700 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--bb-muted)' }}>Länge (cm)</label>
+                    <Input
+                      type="number"
+                      placeholder="z.B. 75"
+                      step="0.5"
+                      value={submissionData.length_cm}
+                      onChange={(e) => setSubmissionData({ ...submissionData, length_cm: e.target.value })}
+                      className="bg-gray-900 border-gray-700 text-white"
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-blue-400 mt-4 text-center font-semibold">
-                  {participants.length} Teilnehmer
-                </p>
-              </CardContent>
-            </Card>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--bb-muted)' }}>Gewicht (kg) - optional</label>
+                  <Input
+                    type="number"
+                    placeholder="z.B. 3.5"
+                    step="0.1"
+                    value={submissionData.weight_kg}
+                    onChange={(e) => setSubmissionData({ ...submissionData, weight_kg: e.target.value })}
+                    className="bg-gray-900 border-gray-700 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--bb-muted)' }}>Foto-URL - optional</label>
+                  <Input
+                    placeholder="https://..."
+                    value={submissionData.photo_url}
+                    onChange={(e) => setSubmissionData({ ...submissionData, photo_url: e.target.value })}
+                    className="bg-gray-900 border-gray-700 text-white"
+                  />
+                </div>
+                <button
+                  onClick={handleSubmitCatch}
+                  disabled={submitting}
+                  className="bb-action w-full flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Wird eingereicht...
+                    </>
+                  ) : (
+                    <>
+                      <Camera size={16} />
+                      Fang einreichen
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
-            {/* Points Info */}
-            <Card className="glass-morphism border-cyan-600/30 bg-gradient-to-br from-cyan-900/10 to-blue-900/10">
-              <CardHeader>
-                <CardTitle className="text-cyan-400 flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  Punkte-Info
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-gray-300">
-                <div>
-                  <p className="font-semibold text-white mb-1">Basispunkte</p>
-                  <p className="text-xs">+100 für jede Einreichung</p>
+          {/* Leaderboard */}
+          <div className="bb-card">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy size={18} style={{ color: '#fbbf24' }} />
+              <div className="text-lg font-bold text-white">Event-Leaderboard</div>
+            </div>
+            {leaderboard.length > 0 ? (
+              <div className="grid gap-2">
+                {leaderboard.map((entry, index) => {
+                  const isMe = entry.user_id === currentUser?.email;
+                  const rank = index + 1;
+                  const rankColors = { 1: '#fbbf24', 2: '#94a3b8', 3: '#fb923c' };
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center gap-3 p-3 rounded-xl"
+                      style={{
+                        background: isMe ? 'rgba(0,229,255,.08)' : 'rgba(0,0,0,.2)',
+                        border: isMe ? '1px solid rgba(0,229,255,.3)' : '1px solid var(--bb-border)',
+                      }}
+                    >
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(255,255,255,.06)', color: rankColors[rank] || 'var(--bb-muted)' }}>
+                        {rank}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {isMe ? 'Du' : entry.user_id.split('@')[0]}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+                          {entry.submission_count} Einreichung{entry.submission_count !== 1 ? 'en' : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold" style={{ color: 'var(--bb-cyan)' }}>
+                          {Math.round(entry.total_points * 100) / 100}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>Punkte</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center py-6" style={{ color: 'var(--bb-muted)' }}>Noch keine Einreichungen</p>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="grid gap-5 content-start">
+          {/* Participants */}
+          <div className="bb-card" style={{ borderColor: 'rgba(96,165,250,.2)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={18} style={{ color: '#60a5fa' }} />
+              <div className="font-bold text-white">Teilnehmer</div>
+            </div>
+            <div className="grid gap-2 max-h-64 overflow-y-auto">
+              {participants.map((p) => (
+                <div
+                  key={p.user_id}
+                  className="p-2 rounded-xl"
+                  style={{ background: 'rgba(96,165,250,.08)', border: '1px solid rgba(96,165,250,.2)' }}
+                >
+                  <p className="text-sm text-white font-medium">
+                    {p.user_id === currentUser?.email ? 'Du (Organisator)' : p.user_id.split('@')[0]}
+                  </p>
+                  <p className="text-xs" style={{ color: '#60a5fa' }}>
+                    {Math.round(p.total_points * 100) / 100} Punkte
+                  </p>
                 </div>
-                <div>
-                  <p className="font-semibold text-white mb-1">Längenboni</p>
-                  <p className="text-xs">+5 Punkte pro cm</p>
+              ))}
+            </div>
+            <p className="text-xs font-semibold mt-3 text-center" style={{ color: '#60a5fa' }}>
+              {participants.length} Teilnehmer
+            </p>
+          </div>
+
+          {/* Points Info */}
+          <div className="bb-card">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap size={18} style={{ color: 'var(--bb-cyan)' }} />
+              <div className="font-bold text-white">Punkte-Info</div>
+            </div>
+            <div className="grid gap-3 text-sm">
+              {[
+                { title: 'Basispunkte', desc: '+100 für jede Einreichung' },
+                { title: 'Längenboni', desc: '+5 Punkte pro cm' },
+                { title: 'Like-Punkte', desc: '+1 Punkt pro Community-Like' },
+              ].map(item => (
+                <div key={item.title}>
+                  <p className="font-semibold text-white text-xs">{item.title}</p>
+                  <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>{item.desc}</p>
                 </div>
-                <div>
-                  <p className="font-semibold text-white mb-1">Like-Punkte</p>
-                  <p className="text-xs">+1 Punkt pro Community-Like</p>
-                </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
           </div>
         </div>
       </div>

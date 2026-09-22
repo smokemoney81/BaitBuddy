@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { auth } from "@/api/auth";
 import { planMeetsRequirement } from "@/components/premium/planHierarchy";
 import {
-  Radio, 
+  Radio,
   Camera,
   Battery,
   Wifi,
@@ -13,6 +10,7 @@ import {
   Plus,
   Settings,
   ChevronRight,
+  ChevronLeft,
   Zap,
   AlertCircle,
   Heart
@@ -36,17 +34,17 @@ export default function DevicesPage() {
       try {
         const currentUser = await auth.me();
         setUser(currentUser);
-        
+
         const planId = currentUser?.premium_plan_id || 'free';
         const isPremium = planMeetsRequirement(planId, 'pro');
-        
+
         let isTrialActive = false;
         if (currentUser?.trial_end_date) {
           const now = new Date();
           const trialEnd = new Date(currentUser.trial_end_date);
           isTrialActive = now < trialEnd;
         }
-        
+
         setHasAccess(isPremium || isTrialActive);
       } catch (e) {
         console.error("Fehler beim Laden der Benutzerdaten:", e);
@@ -66,7 +64,7 @@ export default function DevicesPage() {
       signal: 5,
       type: 'hub',
       features: ['BLE Inspector', 'Web Serial', 'Kamera', 'Echogram-Renderer'],
-      color: 'cyan',
+      color: '#00E5FF',
       hasDetail: true
     },
     {
@@ -78,7 +76,7 @@ export default function DevicesPage() {
       signal: 5,
       type: 'wearable',
       features: ['Heart Rate Monitoring', 'Session Tracking', 'Live BPM', 'Statistiken'],
-      color: 'red',
+      color: '#f87171',
       hasDetail: true
     },
     {
@@ -90,7 +88,7 @@ export default function DevicesPage() {
       signal: 4,
       type: 'bite_alarm',
       features: ['Push-Benachrichtigungen', 'LED-Steuerung', 'Vibration', 'Ton-Anpassung'],
-      color: 'emerald',
+      color: '#34d399',
       hasDetail: true
     },
     {
@@ -102,17 +100,14 @@ export default function DevicesPage() {
       signal: 5,
       type: 'camera',
       features: ['Live-Analyse', 'Fischerkennung', 'Foto-Speicherung'],
-      color: 'blue',
+      color: '#60a5fa',
       link: 'AI'
     }
   ];
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'connected': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-      case 'offline': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    }
+  const getStatusStyle = (status) => {
+    if (status === 'connected') return { background: 'rgba(52,211,153,.15)', color: '#34d399', border: '1px solid rgba(52,211,153,.3)' };
+    return { background: 'rgba(255,255,255,.06)', color: 'var(--bb-muted)', border: '1px solid var(--bb-border)' };
   };
 
   const getStatusText = (status) => {
@@ -121,19 +116,6 @@ export default function DevicesPage() {
       case 'offline': return 'Offline';
       default: return 'Unbekannt';
     }
-  };
-
-  const getColorClasses = (color) => {
-    const colors = {
-      emerald: 'border-emerald-600/50 bg-emerald-900/10',
-      blue: 'border-blue-600/50 bg-blue-900/10',
-      cyan: 'border-cyan-600/50 bg-cyan-900/10',
-      purple: 'border-purple-600/50 bg-purple-900/10',
-      amber: 'border-amber-600/50 bg-amber-900/10',
-      teal: 'border-teal-600/50 bg-teal-900/10',
-      red: 'border-red-600/50 bg-red-900/10'
-    };
-    return colors[color] || 'border-gray-600/50 bg-gray-900/10';
   };
 
   const handleDeviceClick = (device) => {
@@ -149,231 +131,183 @@ export default function DevicesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-cyan-400">Laden...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bb-bg)' }}>
+        <div style={{ color: 'var(--bb-cyan)' }}>Laden...</div>
       </div>
     );
   }
 
-  // Detail-Ansicht für Device Hub und Smartwatch
   if (selectedDevice?.id === 'device_hub' || selectedDevice?.id === 'smartwatch') {
     return (
-      <div className="min-h-screen bg-gray-950 p-6 pb-32">
-        <div className="max-w-6xl mx-auto">
-          <Button
-            onClick={() => setSelectedDevice(null)}
-            variant="ghost"
-            className="mb-4 text-cyan-400 hover:text-cyan-300"
-          >
-            Zurück zu Geräten
-          </Button>
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold text-cyan-400 mb-2">
-              {selectedDevice.id === 'smartwatch' ? 'Smartwatch & Heart Rate Monitor' : 'Device Hub'}
-            </h2>
-            <p className="text-gray-400 text-sm">
-              {selectedDevice.id === 'smartwatch' 
-                ? 'Verbinde Smartwatches und HR-Monitore via Bluetooth Low Energy'
-                : 'Verbinde BLE-Geräte, Echolote, Kameras und weitere Hardware direkt mit BaitBuddy'}
-            </p>
-          </div>
-          <DeviceHub />
+      <div className="bb-page">
+        <button
+          onClick={() => setSelectedDevice(null)}
+          className="flex items-center gap-1 p-2 rounded-lg"
+          style={{ color: 'var(--bb-cyan)' }}
+        >
+          <ChevronLeft size={18} />
+          Zurück zu Geräten
+        </button>
+        <div>
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--bb-cyan)' }}>
+            {selectedDevice.id === 'smartwatch' ? 'Smartwatch & Heart Rate Monitor' : 'Device Hub'}
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+            {selectedDevice.id === 'smartwatch'
+              ? 'Verbinde Smartwatches und HR-Monitore via Bluetooth Low Energy'
+              : 'Verbinde BLE-Geräte, Echolote, Kameras und weitere Hardware direkt mit BaitBuddy'}
+          </p>
         </div>
+        <DeviceHub />
       </div>
     );
   }
 
-  // Detail-Ansicht für Bissanzeiger
   if (selectedDevice?.id === 'bite_detector') {
     return (
-      <div className="min-h-screen bg-gray-950 p-6 pb-32">
-        <div className="max-w-4xl mx-auto">
-          <Button
-            onClick={() => setSelectedDevice(null)}
-            variant="ghost"
-            className="mb-4 text-cyan-400 hover:text-cyan-300"
-          >
-            Zurück zu Geräten
-          </Button>
-          <BiteDetectorSection />
-        </div>
+      <div className="bb-page">
+        <button
+          onClick={() => setSelectedDevice(null)}
+          className="flex items-center gap-1 p-2 rounded-lg"
+          style={{ color: 'var(--bb-cyan)' }}
+        >
+          <ChevronLeft size={18} />
+          Zurück zu Geräten
+        </button>
+        <BiteDetectorSection />
       </div>
     );
   }
 
   const mainContent = (
-    <div className="min-h-screen bg-gray-950 p-6 pb-32">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">
-              Geräte
-            </h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Verbinde und steuere deine Angelgeräte
-            </p>
+    <div className="bb-page">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Geräte</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)' }}>
+            Verbinde und steuere deine Angelgeräte
+          </p>
+        </div>
+        <button
+          className="bb-action flex items-center gap-2"
+          onClick={() => handleDeviceClick(devices.find(d => d.id === 'device_hub'))}
+        >
+          <Plus size={16} />
+          Hinzufügen
+        </button>
+      </div>
+
+      {/* Status-Übersicht */}
+      <div className="bb-stat-row">
+        {[
+          { label: 'Verbunden', value: devices.filter(d => d.status === 'connected').length, icon: Wifi, color: '#34d399' },
+          { label: 'Offline', value: devices.filter(d => d.status === 'offline').length, icon: WifiOff, color: 'var(--bb-muted)' },
+          { label: 'Gesamt', value: devices.length, icon: Zap, color: 'var(--bb-cyan)' },
+        ].map(s => (
+          <div key={s.label} className="bb-stat-card">
+            <div className="flex items-center justify-between mb-2">
+              <div className="bb-stat-label">{s.label}</div>
+              <s.icon size={16} style={{ color: s.color }} />
+            </div>
+            <div className="bb-stat-value" style={{ color: s.color }}>{s.value}</div>
           </div>
-          <Button
-            className="bg-cyan-600 hover:bg-cyan-700"
-            onClick={() => handleDeviceClick(devices.find(d => d.id === 'device_hub'))}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Gerät hinzufügen
-          </Button>
-        </div>
+        ))}
+      </div>
 
-        {/* Status-Übersicht */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-gray-400 text-xs">Verbundene Geräte</div>
-                  <div className="text-2xl font-bold text-white">
-                    {devices.filter(d => d.status === 'connected').length}
+      {/* Geräte-Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {devices.map((device) => {
+          const Icon = device.icon;
+          const statusStyle = getStatusStyle(device.status);
+          return (
+            <div
+              key={device.id}
+              className="bb-card cursor-pointer"
+              style={{ padding: 0, opacity: device.comingSoon ? 0.6 : 1 }}
+              onClick={() => handleDeviceClick(device)}
+            >
+              <div className="p-4 flex items-start justify-between" style={{ borderBottom: '1px solid var(--bb-border)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${device.color}15` }}>
+                    <Icon size={22} style={{ color: device.color }} />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold text-sm">{device.name}</div>
+                    <span
+                      className="inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1"
+                      style={statusStyle}
+                    >
+                      {getStatusText(device.status)}
+                    </span>
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                  <Wifi className="w-6 h-6 text-emerald-400" />
-                </div>
+                {!device.comingSoon && <ChevronRight size={18} style={{ color: 'var(--bb-muted)' }} />}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-gray-400 text-xs">Offline Geräte</div>
-                  <div className="text-2xl font-bold text-white">
-                    {devices.filter(d => d.status === 'offline').length}
-                  </div>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-gray-500/20 flex items-center justify-center">
-                  <WifiOff className="w-6 h-6 text-gray-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-gray-400 text-xs">Gesamt</div>
-                  <div className="text-2xl font-bold text-white">{devices.length}</div>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-cyan-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Geräte-Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {devices.map((device) => {
-            const Icon = device.icon;
-            return (
-              <Card
-                key={device.id}
-                className={`glass-morphism ${getColorClasses(device.color)} cursor-pointer hover:scale-[1.02] transition-all ${device.comingSoon ? 'opacity-60' : ''}`}
-                onClick={() => handleDeviceClick(device)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl bg-${device.color}-500/20 flex items-center justify-center`}>
-                        <Icon className={`w-6 h-6 text-${device.color}-400`} />
-                      </div>
-                      <div>
-                        <CardTitle className="text-white text-base">{device.name}</CardTitle>
-                        <Badge className={`${getStatusColor(device.status)} text-xs mt-1`}>
-                          {getStatusText(device.status)}
-                        </Badge>
-                      </div>
+              <div className="p-4 space-y-3">
+                {device.status === 'connected' && (
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Battery size={14} style={{ color: device.battery > 20 ? '#34d399' : '#f87171' }} />
+                      <span style={{ color: 'var(--bb-muted)' }}>{device.battery}%</span>
                     </div>
-                    {!device.comingSoon && <ChevronRight className="w-5 h-5 text-gray-400" />}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Batterie & Signal */}
-                  {device.status === 'connected' && (
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Battery className={`w-4 h-4 ${device.battery > 20 ? 'text-emerald-400' : 'text-red-400'}`} />
-                        <span className="text-gray-300">{device.battery}%</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Wifi className="w-4 h-4 text-cyan-400" />
-                        <span className="text-gray-300">{device.signal}/5</span>
-                      </div>
+                    <div className="flex items-center gap-1">
+                      <Wifi size={14} style={{ color: 'var(--bb-cyan)' }} />
+                      <span style={{ color: 'var(--bb-muted)' }}>{device.signal}/5</span>
                     </div>
-                  )}
-
-                  {/* Features */}
-                  <div className="space-y-1">
-                    {device.features.slice(0, 3).map((feature, idx) => (
-                      <div key={idx} className="text-xs text-gray-400 flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                        {feature}
-                      </div>
-                    ))}
                   </div>
-
-                  {/* Coming Soon Badge */}
-                  {device.comingSoon && (
-                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
-                      <Zap className="w-3 h-3 mr-1" />
-                      Demnächst verfügbar
-                    </Badge>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Info-Box */}
-        <Card className="glass-morphism border-blue-600/50 bg-blue-900/10">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <div className="font-semibold text-blue-300 mb-1">Geräte-Simulation</div>
-                <p className="text-sm text-gray-300 leading-relaxed">
-                  Die meisten Geräte befinden sich noch in der Entwicklung. Der <span className="text-emerald-400 font-semibold">Bissanzeiger</span>, die <span className="text-blue-400 font-semibold">KI-Kamera</span> und die <span className="text-red-400 font-semibold">Smartwatch</span> sind bereits voll funktionsfähig. 
-                  Weitere Geräte wie Echolote, Futterboote und Sensoren folgen in zukünftigen Updates.
-                </p>
+                )}
+                <div className="space-y-1">
+                  {device.features.slice(0, 3).map((feature, idx) => (
+                    <div key={idx} className="text-xs flex items-center gap-2" style={{ color: 'var(--bb-muted)' }}>
+                      <div className="w-1 h-1 rounded-full" style={{ background: 'var(--bb-border)' }} />
+                      {feature}
+                    </div>
+                  ))}
+                </div>
+                {device.comingSoon && (
+                  <span className="bb-pill-info text-xs inline-flex items-center gap-1">
+                    <Zap size={12} />
+                    Demnächst verfügbar
+                  </span>
+                )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Tutorial Link */}
-        <Card className="glass-morphism border-gray-800">
-          <CardContent className="p-4">
-            <Link 
-              to={createPageUrl('DeviceIntegration')}
-              className="flex items-center justify-between hover:opacity-80 transition-opacity"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-cyan-400" />
-                </div>
-                <div>
-                  <div className="font-semibold text-white">Geräte-Integration Tutorial</div>
-                  <div className="text-sm text-gray-400">Lerne, wie du Geräte verbindest</div>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </Link>
-          </CardContent>
-        </Card>
+          );
+        })}
       </div>
+
+      {/* Info-Box */}
+      <div className="bb-card" style={{ borderColor: 'rgba(96,165,250,.3)' }}>
+        <div className="flex items-start gap-3">
+          <AlertCircle size={18} style={{ color: '#60a5fa', flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div className="font-semibold mb-1" style={{ color: '#93c5fd' }}>Geräte-Simulation</div>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--bb-muted)' }}>
+              Die meisten Geräte befinden sich noch in der Entwicklung. Der <span style={{ color: '#34d399', fontWeight: 600 }}>Bissanzeiger</span>, die <span style={{ color: '#60a5fa', fontWeight: 600 }}>KI-Kamera</span> und die <span style={{ color: '#f87171', fontWeight: 600 }}>Smartwatch</span> sind bereits voll funktionsfähig.
+              Weitere Geräte wie Echolote, Futterboote und Sensoren folgen in zukünftigen Updates.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tutorial Link */}
+      <Link
+        to={createPageUrl('DeviceIntegration')}
+        className="bb-card flex items-center justify-between"
+        style={{ textDecoration: 'none' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,229,255,.1)' }}>
+            <Settings size={20} style={{ color: 'var(--bb-cyan)' }} />
+          </div>
+          <div>
+            <div className="font-semibold text-white text-sm">Geräte-Integration Tutorial</div>
+            <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>Lerne, wie du Geräte verbindest</div>
+          </div>
+        </div>
+        <ChevronRight size={18} style={{ color: 'var(--bb-muted)' }} />
+      </Link>
     </div>
   );
 
@@ -382,8 +316,8 @@ export default function DevicesPage() {
   }
 
   return (
-    <PremiumGuard 
-      user={user} 
+    <PremiumGuard
+      user={user}
       requiredPlan="pro"
       feature="Die Geräteintegration ist ein Pro-Feature"
     >

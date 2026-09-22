@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
-  ArrowLeft, Download, WifiOff, CheckCircle, RefreshCw, Trash2,
+  Download, WifiOff, CheckCircle, RefreshCw, Trash2,
   MapPin, Scale, FileText, CloudOff, Loader2, AlertTriangle, Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import { entities } from "@/api/frontendClient";
+import SubPageHeader from "@/components/layout/SubPageHeader";
 
 const PACK_KEY = "bb_offline_pack_meta";
 const PACK_DATA_KEY = "bb_offline_pack_data";
@@ -20,24 +17,24 @@ const PACK_SECTIONS = [
     id: "spots",
     label: "Meine Spots",
     icon: MapPin,
-    color: "text-cyan-400",
-    description: "Alle gespeicherten Angelplätze mit GPS-Koordinaten",
+    color: "var(--bb-cyan)",
+    description: "Alle gespeicherten Angelplaetze mit GPS-Koordinaten",
     estimatedKB: 50,
   },
   {
     id: "catches",
     label: "Fangbuch",
     icon: Scale,
-    color: "text-green-400",
-    description: "Letzten 200 Einträge aus dem Fangbuch",
+    color: "#4ade80",
+    description: "Letzten 200 Eintraege aus dem Fangbuch",
     estimatedKB: 120,
   },
   {
     id: "rules",
     label: "Schonzeiten & Regeln",
     icon: FileText,
-    color: "text-amber-400",
-    description: "Schonzeiten für die 20 häufigsten Fischarten",
+    color: "#fbbf24",
+    description: "Schonzeiten fuer die 20 haeufigsten Fischarten",
     estimatedKB: 30,
   },
 ];
@@ -56,7 +53,7 @@ function formatDate(ts) {
 
 function isStale(ts) {
   if (!ts) return true;
-  return Date.now() - ts > 24 * 60 * 60 * 1000; // > 24h
+  return Date.now() - ts > 24 * 60 * 60 * 1000;
 }
 
 function loadMeta() {
@@ -76,26 +73,26 @@ function savePackData(data) {
 }
 
 const OFFLINE_RULES = [
-  { species: "Hecht", schonzeit: "01.02.–30.04.", mindestmaß: "50 cm", hinweis: "Bundeslandabhängig" },
-  { species: "Zander", schonzeit: "01.03.–31.05.", mindestmaß: "40–45 cm", hinweis: "Regional unterschiedlich" },
-  { species: "Karpfen", schonzeit: "Keine bundesweit", mindestmaß: "35 cm", hinweis: "Vereinsregeln prüfen" },
-  { species: "Forelle (Bach)", schonzeit: "01.10.–15.03.", mindestmaß: "25 cm", hinweis: "Meist Oktober–März" },
-  { species: "Forelle (Regenbogen)", schonzeit: "Keine", mindestmaß: "25 cm", hinweis: "Teichwirtschaft" },
-  { species: "Barsch", schonzeit: "01.03.–31.05.", mindestmaß: "15 cm", hinweis: "Regional variiert" },
-  { species: "Rotauge", schonzeit: "15.03.–15.05.", mindestmaß: "15 cm", hinweis: "Regional" },
-  { species: "Aal", schonzeit: "Teils ganzjährig gesperrt", mindestmaß: "45 cm", hinweis: "EU-Schutzmaßnahmen" },
-  { species: "Wels", schonzeit: "15.04.–15.06.", mindestmaß: "50–70 cm", hinweis: "Regional unterschiedlich" },
-  { species: "Schleie", schonzeit: "01.04.–31.05.", mindestmaß: "25 cm", hinweis: "Regional" },
-  { species: "Brachse", schonzeit: "01.04.–31.05.", mindestmaß: "25 cm", hinweis: "Regional" },
-  { species: "Döbel", schonzeit: "Selten geregelt", mindestmaß: "20 cm", hinweis: "Vereinsregeln" },
-  { species: "Quappe", schonzeit: "Keine bundesweit", mindestmaß: "25 cm", hinweis: "Regional" },
-  { species: "Lachs", schonzeit: "15.08.–31.12.", mindestmaß: "60 cm", hinweis: "Bundeslandabhängig" },
-  { species: "Huchen", schonzeit: "01.02.–31.05.", mindestmaß: "60 cm", hinweis: "Donau-Einzugsgebiet" },
-  { species: "Äsche", schonzeit: "01.03.–31.05.", mindestmaß: "30 cm", hinweis: "Regional unterschiedlich" },
-  { species: "Rapfen", schonzeit: "01.04.–30.06.", mindestmaß: "35 cm", hinweis: "Regional" },
-  { species: "Karausche", schonzeit: "Keine", mindestmaß: "20 cm", hinweis: "Regional" },
-  { species: "Güster", schonzeit: "01.04.–31.05.", mindestmaß: "15 cm", hinweis: "Regional" },
-  { species: "Maräne", schonzeit: "15.09.–31.01.", mindestmaß: "35 cm", hinweis: "Norddeutschland" },
+  { species: "Hecht", schonzeit: "01.02.–30.04.", mindestmass: "50 cm", hinweis: "Bundeslandabhaengig" },
+  { species: "Zander", schonzeit: "01.03.–31.05.", mindestmass: "40–45 cm", hinweis: "Regional unterschiedlich" },
+  { species: "Karpfen", schonzeit: "Keine bundesweit", mindestmass: "35 cm", hinweis: "Vereinsregeln pruefen" },
+  { species: "Forelle (Bach)", schonzeit: "01.10.–15.03.", mindestmass: "25 cm", hinweis: "Meist Oktober–Maerz" },
+  { species: "Forelle (Regenbogen)", schonzeit: "Keine", mindestmass: "25 cm", hinweis: "Teichwirtschaft" },
+  { species: "Barsch", schonzeit: "01.03.–31.05.", mindestmass: "15 cm", hinweis: "Regional variiert" },
+  { species: "Rotauge", schonzeit: "15.03.–15.05.", mindestmass: "15 cm", hinweis: "Regional" },
+  { species: "Aal", schonzeit: "Teils ganzjaehrig gesperrt", mindestmass: "45 cm", hinweis: "EU-Schutzmassnahmen" },
+  { species: "Wels", schonzeit: "15.04.–15.06.", mindestmass: "50–70 cm", hinweis: "Regional unterschiedlich" },
+  { species: "Schleie", schonzeit: "01.04.–31.05.", mindestmass: "25 cm", hinweis: "Regional" },
+  { species: "Brachse", schonzeit: "01.04.–31.05.", mindestmass: "25 cm", hinweis: "Regional" },
+  { species: "Doebel", schonzeit: "Selten geregelt", mindestmass: "20 cm", hinweis: "Vereinsregeln" },
+  { species: "Quappe", schonzeit: "Keine bundesweit", mindestmass: "25 cm", hinweis: "Regional" },
+  { species: "Lachs", schonzeit: "15.08.–31.12.", mindestmass: "60 cm", hinweis: "Bundeslandabhaengig" },
+  { species: "Huchen", schonzeit: "01.02.–31.05.", mindestmass: "60 cm", hinweis: "Donau-Einzugsgebiet" },
+  { species: "Aesche", schonzeit: "01.03.–31.05.", mindestmass: "30 cm", hinweis: "Regional unterschiedlich" },
+  { species: "Rapfen", schonzeit: "01.04.–30.06.", mindestmass: "35 cm", hinweis: "Regional" },
+  { species: "Karausche", schonzeit: "Keine", mindestmass: "20 cm", hinweis: "Regional" },
+  { species: "Guester", schonzeit: "01.04.–31.05.", mindestmass: "15 cm", hinweis: "Regional" },
+  { species: "Maraene", schonzeit: "15.09.–31.01.", mindestmass: "35 cm", hinweis: "Norddeutschland" },
 ];
 
 export default function OfflineFishingPack() {
@@ -117,7 +114,7 @@ export default function OfflineFishingPack() {
   }, []);
 
   const downloadSection = useCallback(async (sectionId) => {
-    if (!isOnline) { toast.error("Kein Internet — Pack-Aktualisierung nicht möglich"); return; }
+    if (!isOnline) { toast.error("Kein Internet — Pack-Aktualisierung nicht moeglich"); return; }
     setDl(prev => ({ ...prev, [sectionId]: true }));
     setProgress(prev => ({ ...prev, [sectionId]: 0 }));
 
@@ -144,7 +141,6 @@ export default function OfflineFishingPack() {
         setProgress(prev => ({ ...prev, [sectionId]: 90 }));
       }
 
-      // Persist to localStorage
       const packData = loadPackData();
       packData[sectionId] = data;
       savePackData(packData);
@@ -175,7 +171,7 @@ export default function OfflineFishingPack() {
     delete newMeta[sectionId];
     setMeta(newMeta);
     saveMeta(newMeta);
-    toast.success("Offline-Daten gelöscht");
+    toast.success("Offline-Daten geloescht");
   }, [meta]);
 
   const downloadAll = useCallback(async () => {
@@ -189,195 +185,170 @@ export default function OfflineFishingPack() {
   const anyStale  = PACK_SECTIONS.some(s => meta[s.id]?.ts && isStale(meta[s.id]?.ts));
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur border-b border-gray-800 px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-gray-800 transition">
-              <ArrowLeft className="w-5 h-5 text-gray-400" />
-            </button>
-            <WifiOff className="w-5 h-5 text-teal-400" />
-            <h1 className="text-lg font-bold text-white">Offline-Angelpack</h1>
-          </div>
+    <div className="bb-page">
+      <SubPageHeader title="Offline-Angelpack" icon={WifiOff} iconColor="#2dd4bf" />
+
+      {!isOnline && (
+        <div className="p-3 rounded-xl flex items-center gap-2" style={{ background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.3)' }}>
+          <CloudOff size={16} className="flex-shrink-0" style={{ color: '#fbbf24' }} />
+          <p className="text-xs" style={{ color: '#fcd34d' }}>Offline-Modus aktiv — gespeicherte Daten werden genutzt.</p>
+        </div>
+      )}
+
+      {anyStale && isOnline && (
+        <div className="p-3 rounded-xl flex items-center justify-between gap-2" style={{ background: 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.3)' }}>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"}`} />
-            <span className="text-xs text-gray-400">{isOnline ? "Online" : "Offline"}</span>
+            <AlertTriangle size={16} className="flex-shrink-0" style={{ color: '#fb923c' }} />
+            <p className="text-xs" style={{ color: '#fdba74' }}>Einige Daten sind aelter als 24 Stunden.</p>
           </div>
+          <button className="bb-action text-xs px-3 py-1" onClick={downloadAll}>
+            <RefreshCw size={12} className="mr-1 inline" /> Alle aktualisieren
+          </button>
+        </div>
+      )}
+
+      {/* Uebersicht */}
+      <div className="bb-card">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm font-medium text-white">Pack-Uebersicht</p>
+            <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+              {totalKB > 0 ? `${formatBytes(totalKB)} lokal gespeichert` : "Noch kein Inhalt heruntergeladen"}
+            </p>
+          </div>
+          {allReady ? (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
+              style={{ background: 'rgba(34,197,94,.15)', color: '#86efac', border: '1px solid rgba(34,197,94,.3)' }}>
+              <CheckCircle size={12} /> Bereit
+            </span>
+          ) : (
+            <button
+              className="bb-action text-xs px-3 py-1.5"
+              onClick={downloadAll}
+              disabled={!isOnline || Object.values(downloading).some(Boolean)}
+            >
+              <Download size={12} className="mr-1 inline" /> Alles laden
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+      {/* Sektionen */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide px-1" style={{ color: 'var(--bb-muted)' }}>Inhalte</p>
 
-        {/* Status-Banner */}
-        {!isOnline && (
-          <div className="p-3 rounded-xl bg-amber-900/20 border border-amber-700/40 flex items-center gap-2">
-            <CloudOff className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <p className="text-xs text-amber-300">Offline-Modus aktiv — gespeicherte Daten werden genutzt.</p>
-          </div>
-        )}
+        {PACK_SECTIONS.map(sec => {
+          const Icon = sec.icon;
+          const secMeta = meta[sec.id];
+          const hasData = !!secMeta?.ts;
+          const stale   = hasData && isStale(secMeta.ts);
+          const dlActive = downloading[sec.id];
+          const prog    = progress[sec.id];
 
-        {anyStale && isOnline && (
-          <div className="p-3 rounded-xl bg-orange-900/20 border border-orange-700/40 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-orange-400 flex-shrink-0" />
-              <p className="text-xs text-orange-300">Einige Daten sind älter als 24 Stunden.</p>
-            </div>
-            <Button size="sm" className="bg-orange-700 hover:bg-orange-600 text-white h-7 text-xs" onClick={downloadAll}>
-              <RefreshCw className="w-3 h-3 mr-1" /> Alle aktualisieren
-            </Button>
-          </div>
-        )}
-
-        {/* Übersicht */}
-        <Card className="bg-gray-800/40 border-gray-700/40">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-sm font-medium text-white">Pack-Übersicht</p>
-                <p className="text-xs text-gray-400">
-                  {totalKB > 0 ? `${formatBytes(totalKB)} lokal gespeichert` : "Noch kein Inhalt heruntergeladen"}
-                </p>
-              </div>
-              {allReady ? (
-                <Badge className="bg-green-800/50 text-green-300 border border-green-700">
-                  <CheckCircle className="w-3 h-3 mr-1" /> Bereit
-                </Badge>
-              ) : (
-                <Button
-                  size="sm"
-                  className="bg-teal-700 hover:bg-teal-600 text-white h-7 text-xs"
-                  onClick={downloadAll}
-                  disabled={!isOnline || Object.values(downloading).some(Boolean)}
-                >
-                  <Download className="w-3 h-3 mr-1" /> Alles laden
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Sektionen */}
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Inhalte</p>
-
-          {PACK_SECTIONS.map(sec => {
-            const Icon = sec.icon;
-            const secMeta = meta[sec.id];
-            const hasData = !!secMeta?.ts;
-            const stale   = hasData && isStale(secMeta.ts);
-            const dlActive = downloading[sec.id];
-            const prog    = progress[sec.id];
-
-            return (
-              <Card key={sec.id} className="border-gray-700/50 bg-gray-800/40">
-                <CardContent className="pt-3 pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${sec.color}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-medium text-white">{sec.label}</p>
-                          {hasData && !stale && (
-                            <Badge variant="outline" className="text-xs text-green-400 border-green-700 bg-green-900/20">
-                              <CheckCircle className="w-2.5 h-2.5 mr-1" />Aktuell
-                            </Badge>
-                          )}
-                          {stale && (
-                            <Badge variant="outline" className="text-xs text-orange-400 border-orange-700 bg-orange-900/20">
-                              <Clock className="w-2.5 h-2.5 mr-1" />Veraltet
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{sec.description}</p>
-                        {hasData && (
-                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                            <span>{secMeta.count} Einträge · {formatBytes(secMeta.sizeKB)}</span>
-                            <span>·</span>
-                            <span>{formatDate(secMeta.ts)}</span>
-                          </p>
-                        )}
-                        {dlActive && prog !== undefined && (
-                          <div className="mt-2">
-                            <Progress value={prog} className="h-1.5 bg-gray-700" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {hasData && (
-                        <button
-                          onClick={() => deleteSection(sec.id)}
-                          className="p-1.5 rounded hover:bg-red-900/30 text-gray-600 hover:text-red-400 transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+          return (
+            <div key={sec.id} className="bb-card">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <Icon size={16} className="mt-0.5 flex-shrink-0" style={{ color: sec.color }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-white">{sec.label}</p>
+                      {hasData && !stale && (
+                        <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
+                          style={{ color: '#4ade80', border: '1px solid rgba(34,197,94,.3)', background: 'rgba(34,197,94,.1)' }}>
+                          <CheckCircle size={10} />Aktuell
+                        </span>
                       )}
-                      <Button
-                        size="sm"
-                        variant={hasData ? "outline" : "default"}
-                        className={hasData
-                          ? "border-gray-600 text-gray-300 hover:bg-gray-700 h-7 text-xs"
-                          : "bg-teal-700 hover:bg-teal-600 text-white h-7 text-xs"
-                        }
-                        onClick={() => downloadSection(sec.id)}
-                        disabled={!isOnline || dlActive}
-                      >
-                        {dlActive ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <>
-                            {hasData ? <RefreshCw className="w-3 h-3 mr-1" /> : <Download className="w-3 h-3 mr-1" />}
-                            {hasData ? "Aktualisieren" : "Laden"}
-                          </>
-                        )}
-                      </Button>
+                      {stale && (
+                        <span className="px-2 py-0.5 rounded-full text-xs flex items-center gap-1"
+                          style={{ color: '#fb923c', border: '1px solid rgba(249,115,22,.3)', background: 'rgba(249,115,22,.1)' }}>
+                          <Clock size={10} />Veraltet
+                        </span>
+                      )}
                     </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--bb-muted)' }}>{sec.description}</p>
+                    {hasData && (
+                      <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'rgba(255,255,255,.3)' }}>
+                        <span>{secMeta.count} Eintraege · {formatBytes(secMeta.sizeKB)}</span>
+                        <span>·</span>
+                        <span>{formatDate(secMeta.ts)}</span>
+                      </p>
+                    )}
+                    {dlActive && prog !== undefined && (
+                      <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.08)' }}>
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${prog}%`, background: 'var(--bb-cyan)' }}
+                        />
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {hasData && (
+                    <button
+                      onClick={() => deleteSection(sec.id)}
+                      className="p-1.5 rounded transition"
+                      style={{ color: 'rgba(255,255,255,.3)' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  <button
+                    className={hasData ? "bb-secondary text-xs px-3 py-1.5" : "bb-action text-xs px-3 py-1.5"}
+                    onClick={() => downloadSection(sec.id)}
+                    disabled={!isOnline || dlActive}
+                  >
+                    {dlActive ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <>
+                        {hasData ? <RefreshCw size={12} className="mr-1 inline" /> : <Download size={12} className="mr-1 inline" />}
+                        {hasData ? "Aktualisieren" : "Laden"}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Schonzeiten-Vorschau */}
+      {meta.rules?.ts && (
+        <div className="bb-card">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--bb-muted)' }}>Offline-Schonzeiten (Vorschau)</p>
+            <button
+              onClick={() => setExpandedRules(v => !v)}
+              className="text-xs transition"
+              style={{ color: 'var(--bb-muted)' }}
+            >
+              {expandedRules ? "Weniger" : "Alle anzeigen"}
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {(expandedRules ? OFFLINE_RULES : OFFLINE_RULES.slice(0, 5)).map(r => (
+              <div key={r.species} className="flex items-start justify-between gap-2 py-1" style={{ borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                <span className="text-sm text-white font-medium">{r.species}</span>
+                <div className="text-right">
+                  <p className="text-xs" style={{ color: '#fcd34d' }}>{r.schonzeit}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,.3)' }}>Mindestmass: {r.mindestmass}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Schonzeiten-Vorschau (wenn geladen) */}
-        {meta.rules?.ts && (
-          <Card className="bg-gray-800/40 border-gray-700/40">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Offline-Schonzeiten (Vorschau)</p>
-                <button
-                  onClick={() => setExpandedRules(v => !v)}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition"
-                >
-                  {expandedRules ? "Weniger" : "Alle anzeigen"}
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {(expandedRules ? OFFLINE_RULES : OFFLINE_RULES.slice(0, 5)).map(r => (
-                  <div key={r.species} className="flex items-start justify-between gap-2 py-1 border-b border-gray-700/30 last:border-0">
-                    <span className="text-sm text-white font-medium">{r.species}</span>
-                    <div className="text-right">
-                      <p className="text-xs text-amber-300">{r.schonzeit}</p>
-                      <p className="text-xs text-gray-500">Mindestmaß: {r.mindestmaß}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Info */}
-        <Card className="bg-gray-800/20 border-gray-700/30">
-          <CardContent className="pt-3 pb-3">
-            <p className="text-xs text-gray-500">
-              Offline-Daten werden im lokalen Gerätespeicher gesichert. Sie sind auch ohne Internetverbindung abrufbar.
-              Schonzeiten-Angaben sind Richtwerte — lokale Regelungen des Angelverbands können abweichen.
-            </p>
-          </CardContent>
-        </Card>
+      {/* Info */}
+      <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,.03)', border: '1px solid var(--bb-border)' }}>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
+          Offline-Daten werden im lokalen Geraetespeicher gesichert. Sie sind auch ohne Internetverbindung abrufbar.
+          Schonzeiten-Angaben sind Richtwerte — lokale Regelungen des Angelverbands koennen abweichen.
+        </p>
       </div>
     </div>
   );

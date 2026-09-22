@@ -3,10 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Gear, Spot } from "@/entities/all";
 import { InvokeLLM } from "@/integrations/Core";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -45,7 +42,7 @@ export default function StartFishing() {
   ];
 
   const fishSpecies = [
-    "Hecht", "Zander", "Barsch", "Karpfen", "Schleie", 
+    "Hecht", "Zander", "Barsch", "Karpfen", "Schleie",
     "Forelle", "Äsche", "Wels", "Brassen", "Rotauge"
   ];
 
@@ -77,7 +74,7 @@ export default function StartFishing() {
     if (!selectedSpot || !targetFish) return;
 
     setIsAnalyzing(true);
-    
+
     const selectedSpotData = spots.find(s => s.id === selectedSpot);
     const gearList = gear.map(g => `${g.name} (${g.type}): ${g.specifications || 'keine Details'}`).join(', ');
 
@@ -120,7 +117,7 @@ Antwort im JSON-Format:
       });
 
       setRecommendations(response);
-      
+
       // Map gear ratings
       const gearCheckResults = {};
       gear.forEach(item => {
@@ -144,7 +141,7 @@ Antwort im JSON-Format:
       });
       setGearCheck(fallbackCheck);
     }
-    
+
     setIsAnalyzing(false);
   }, [selectedSpot, targetFish, spots, gear]);
 
@@ -168,13 +165,13 @@ Antwort im JSON-Format:
     switch (rating) {
       case "ideal":
       case "geeignet":
-        return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+        return <CheckCircle2 size={16} style={{ color: '#4ade80' }} />;
       case "bedingt":
-        return <AlertTriangle className="w-4 h-4 text-yellow-400" />;
+        return <AlertTriangle size={16} style={{ color: '#facc15' }} />;
       case "ungeeignet":
-        return <XCircle className="w-4 h-4 text-red-400" />;
+        return <XCircle size={16} style={{ color: '#f87171' }} />;
       default:
-        return <CheckCircle2 className="w-4 h-4 text-gray-400" />;
+        return <CheckCircle2 size={16} style={{ color: 'var(--bb-muted)' }} />;
     }
   };
 
@@ -197,77 +194,77 @@ Antwort im JSON-Format:
 
   if (sessionStarted) {
     return (
-      <div className="min-h-screen bg-gray-900 p-4">
+      <div className="bb-page">
         <div className="max-w-2xl mx-auto">
-          <Card className="glass-effect border-gray-700 text-center">
-            <CardContent className="p-12">
+          <div className="bb-card text-center">
+            <div className="p-12">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.5 }}
               >
                 <div className="w-20 h-20 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Fish className="w-10 h-10 text-white" />
+                  <Fish size={40} className="text-white" />
                 </div>
               </motion.div>
               <h1 className="text-3xl font-bold text-white mb-4">Session gestartet!</h1>
-              <p className="text-gray-300 mb-6">
-                Deine Angel-Session für {targetFish} ist aktiv. 
+              <p className="mb-6" style={{ color: '#d1d5db' }}>
+                Deine Angel-Session für {targetFish} ist aktiv.
                 Vergiss nicht, deine Fänge im Fangbuch zu dokumentieren!
               </p>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="p-3 bg-gray-800 rounded-lg">
-                  <strong className="text-emerald-400">Spot:</strong>
+                <div className="p-3 rounded-lg" style={{ background: 'var(--bb-surface)' }}>
+                  <strong style={{ color: '#34d399' }}>Spot:</strong>
                   <p>{spots.find(s => s.id === selectedSpot)?.name}</p>
                 </div>
-                <div className="p-3 bg-gray-800 rounded-lg">
-                  <strong className="text-blue-400">Zielfisch:</strong>
+                <div className="p-3 rounded-lg" style={{ background: 'var(--bb-surface)' }}>
+                  <strong style={{ color: '#60a5fa' }}>Zielfisch:</strong>
                   <p>{targetFish}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4">
+    <div className="bb-page">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Start Fishing</h1>
-          <p className="text-gray-300">Bereite deine Angel-Session optimal vor</p>
+          <p style={{ color: '#d1d5db' }}>Bereite deine Angel-Session optimal vor</p>
         </div>
 
         {/* Progress */}
-        <Card className="glass-effect border-gray-700 mb-8">
-          <CardContent className="p-6">
+        <div className="bb-card mb-8">
+          <div className="grid gap-4">
             <div className="flex justify-between items-center mb-4">
               {steps.map((step, index) => (
                 <div key={index} className="flex flex-col items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-                    index <= currentStep 
-                      ? 'bg-emerald-600' 
-                      : 'bg-gray-700'
-                  }`}>
-                    <step.icon className="w-5 h-5 text-white" />
+                    index <= currentStep
+                      ? 'bg-emerald-600'
+                      : ''
+                  }`} style={index > currentStep ? { background: 'var(--bb-surface)' } : {}}>
+                    <step.icon size={20} className="text-white" />
                   </div>
                   <div className="text-center">
                     <div className={`font-medium ${
-                      index <= currentStep ? 'text-white' : 'text-gray-400'
-                    }`}>
+                      index <= currentStep ? 'text-white' : ''
+                    }`} style={index > currentStep ? { color: 'var(--bb-muted)' } : {}}>
                       {step.title}
                     </div>
-                    <div className="text-xs text-gray-500">{step.description}</div>
+                    <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>{step.description}</div>
                   </div>
                 </div>
               ))}
             </div>
             <Progress value={(currentStep / (steps.length - 1)) * 100} className="h-2" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Step Content */}
         <div className="space-y-6">
@@ -278,44 +275,40 @@ Antwort im JSON-Format:
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Card className="glass-effect border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <MapPin className="w-5 h-5" />
-                    Angelplatz auswählen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Select value={selectedSpot} onValueChange={setSelectedSpot}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Wähle einen Angelplatz..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {spots.map((spot) => (
-                          <SelectItem key={spot.id} value={spot.id}>
-                            <div className="flex justify-between items-center w-full">
-                              <span>{spot.name}</span>
-                              <Badge variant="outline" className="ml-2">
-                                {spot.water_type}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    {selectedSpot && (
-                      <div className="p-4 bg-gray-800/50 rounded-lg">
-                        <h4 className="font-semibold text-white mb-2">Spot Details:</h4>
-                        <div className="text-sm text-gray-300">
-                          {spots.find(s => s.id === selectedSpot)?.notes || "Keine weiteren Informationen"}
-                        </div>
+              <div className="bb-card">
+                <div className="bb-form-title flex items-center gap-2" style={{ color: 'white' }}>
+                  <MapPin size={20} />
+                  Angelplatz auswählen
+                </div>
+                <div className="grid gap-4 mt-4">
+                  <Select value={selectedSpot} onValueChange={setSelectedSpot}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Wähle einen Angelplatz..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {spots.map((spot) => (
+                        <SelectItem key={spot.id} value={spot.id}>
+                          <div className="flex justify-between items-center w-full">
+                            <span>{spot.name}</span>
+                            <span className="bb-pill-info ml-2" style={{ background: 'transparent', border: '1px solid var(--bb-border)', color: 'var(--bb-muted)', fontSize: '0.75rem' }}>
+                              {spot.water_type}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {selectedSpot && (
+                    <div className="p-4 rounded-lg" style={{ background: 'rgba(0,0,0,.25)' }}>
+                      <h4 className="font-semibold text-white mb-2">Spot Details:</h4>
+                      <div className="text-sm" style={{ color: '#d1d5db' }}>
+                        {spots.find(s => s.id === selectedSpot)?.notes || "Keine weiteren Informationen"}
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -326,46 +319,42 @@ Antwort im JSON-Format:
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Card className="glass-effect border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Fish className="w-5 h-5" />
-                    Zielfisch wählen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Select value={targetFish} onValueChange={setTargetFish}>
+              <div className="bb-card">
+                <div className="bb-form-title flex items-center gap-2" style={{ color: 'white' }}>
+                  <Fish size={20} />
+                  Zielfisch wählen
+                </div>
+                <div className="grid gap-4 mt-4">
+                  <Select value={targetFish} onValueChange={setTargetFish}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Welchen Fisch möchtest du fangen?" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fishSpecies.map((fish) => (
+                        <SelectItem key={fish} value={fish}>
+                          {fish}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div>
+                    <label className="text-sm mb-2 block" style={{ color: 'var(--bb-muted)' }}>Session-Dauer</label>
+                    <Select value={sessionDuration} onValueChange={setSessionDuration}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Welchen Fisch möchtest du fangen?" />
+                        <SelectValue placeholder="Wie lange möchtest du angeln?" />
                       </SelectTrigger>
                       <SelectContent>
-                        {fishSpecies.map((fish) => (
-                          <SelectItem key={fish} value={fish}>
-                            {fish}
+                        {sessionDurations.map((duration) => (
+                          <SelectItem key={duration.value} value={duration.value}>
+                            {duration.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    
-                    <div>
-                      <label className="text-sm text-gray-400 mb-2 block">Session-Dauer</label>
-                      <Select value={sessionDuration} onValueChange={setSessionDuration}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Wie lange möchtest du angeln?" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sessionDurations.map((duration) => (
-                            <SelectItem key={duration.value} value={duration.value}>
-                              {duration.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -376,39 +365,37 @@ Antwort im JSON-Format:
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Card className="glass-effect border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Package className="w-5 h-5" />
-                    Ausrüstungs-Check
-                    {isAnalyzing && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              <div className="bb-card">
+                <div className="bb-form-title flex items-center gap-2" style={{ color: 'white' }}>
+                  <Package size={20} />
+                  Ausrüstungs-Check
+                  {isAnalyzing && <Loader2 size={16} className="animate-spin ml-2" />}
+                </div>
+                <div className="grid gap-4 mt-4">
                   {isAnalyzing ? (
                     <div className="text-center py-8">
-                      <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mx-auto mb-4" />
-                      <p className="text-gray-300">KI analysiert deine Ausrüstung...</p>
+                      <Loader2 size={32} className="animate-spin mx-auto mb-4" style={{ color: '#34d399' }} />
+                      <p style={{ color: '#d1d5db' }}>KI analysiert deine Ausrüstung...</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {gear.map((item) => {
                         const check = gearCheck[item.id];
                         return (
-                          <div key={item.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                          <div key={item.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(0,0,0,.25)' }}>
                             <div className="flex items-center gap-3">
                               {getRatingIcon(check?.rating)}
                               <div>
                                 <div className="font-medium text-white">{item.name}</div>
-                                <div className="text-sm text-gray-400">{item.type}</div>
+                                <div className="text-sm" style={{ color: 'var(--bb-muted)' }}>{item.type}</div>
                               </div>
                             </div>
-                            <Badge 
-                              variant="outline" 
-                              className={getRatingColor(check?.rating)}
+                            <span
+                              className={`bb-pill-info ${getRatingColor(check?.rating)}`}
+                              style={{ background: 'transparent', border: '1px solid var(--bb-border)', fontSize: '0.75rem' }}
                             >
                               {check?.rating || 'Wird analysiert...'}
-                            </Badge>
+                            </span>
                           </div>
                         );
                       })}
@@ -417,7 +404,7 @@ Antwort im JSON-Format:
                         <div className="mt-6 space-y-4">
                           {/* AI Tips */}
                           <Alert className="border-emerald-500 bg-emerald-500/10">
-                            <Lightbulb className="h-4 w-4" />
+                            <Lightbulb size={16} />
                             <AlertDescription className="text-emerald-200">
                               <strong>KI-Tipps für deine Session:</strong>
                               <ul className="mt-2 space-y-1 text-sm">
@@ -431,21 +418,21 @@ Antwort im JSON-Format:
                           {/* Weather & Time advice */}
                           <div className="grid md:grid-cols-2 gap-4">
                             {recommendations.weather_advice && (
-                              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                <div className="flex items-center gap-2 text-blue-400 mb-1">
-                                  <Thermometer className="w-4 h-4" />
+                              <div className="p-3 rounded-lg" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                <div className="flex items-center gap-2 mb-1" style={{ color: '#60a5fa' }}>
+                                  <Thermometer size={16} />
                                   <strong>Wetter-Tipp:</strong>
                                 </div>
-                                <p className="text-sm text-blue-200">{recommendations.weather_advice}</p>
+                                <p className="text-sm" style={{ color: '#93c5fd' }}>{recommendations.weather_advice}</p>
                               </div>
                             )}
                             {recommendations.best_time && (
-                              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-                                <div className="flex items-center gap-2 text-purple-400 mb-1">
-                                  <Clock className="w-4 h-4" />
+                              <div className="p-3 rounded-lg" style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)' }}>
+                                <div className="flex items-center gap-2 mb-1" style={{ color: '#c084fc' }}>
+                                  <Clock size={16} />
                                   <strong>Beste Zeit:</strong>
                                 </div>
-                                <p className="text-sm text-purple-200">{recommendations.best_time}</p>
+                                <p className="text-sm" style={{ color: '#d8b4fe' }}>{recommendations.best_time}</p>
                               </div>
                             )}
                           </div>
@@ -453,8 +440,8 @@ Antwort im JSON-Format:
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -465,72 +452,72 @@ Antwort im JSON-Format:
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Card className="glass-effect border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Target className="w-5 h-5" />
-                    Bereit zum Angeln!
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              <div className="bb-card">
+                <div className="bb-form-title flex items-center gap-2" style={{ color: 'white' }}>
+                  <Target size={20} />
+                  Bereit zum Angeln!
+                </div>
+                <div className="grid gap-4 mt-4">
                   <div className="space-y-6">
                     <div className="text-center">
                       <h3 className="text-xl font-semibold text-white mb-4">
                         Session-Zusammenfassung
                       </h3>
                       <div className="grid md:grid-cols-3 gap-4 mb-6">
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <MapPin className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+                        <div className="p-4 rounded-lg" style={{ background: 'rgba(0,0,0,.25)' }}>
+                          <MapPin size={24} className="mx-auto mb-2" style={{ color: '#60a5fa' }} />
                           <div className="font-medium text-white">Spot</div>
-                          <div className="text-sm text-gray-300">
+                          <div className="text-sm" style={{ color: '#d1d5db' }}>
                             {spots.find(s => s.id === selectedSpot)?.name}
                           </div>
                         </div>
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <Fish className="w-6 h-6 text-green-400 mx-auto mb-2" />
+                        <div className="p-4 rounded-lg" style={{ background: 'rgba(0,0,0,.25)' }}>
+                          <Fish size={24} className="mx-auto mb-2" style={{ color: '#4ade80' }} />
                           <div className="font-medium text-white">Zielfisch</div>
-                          <div className="text-sm text-gray-300">{targetFish}</div>
+                          <div className="text-sm" style={{ color: '#d1d5db' }}>{targetFish}</div>
                         </div>
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <Clock className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+                        <div className="p-4 rounded-lg" style={{ background: 'rgba(0,0,0,.25)' }}>
+                          <Clock size={24} className="mx-auto mb-2" style={{ color: '#c084fc' }} />
                           <div className="font-medium text-white">Dauer</div>
-                          <div className="text-sm text-gray-300">
+                          <div className="text-sm" style={{ color: '#d1d5db' }}>
                             {sessionDurations.find(d => d.value === sessionDuration)?.label || "Nicht gesetzt"}
                           </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <Button 
+
+                    <button
                       onClick={startSession}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-lg py-3"
+                      className="bb-action w-full text-lg py-3"
+                      style={{ background: '#059669' }}
                     >
-                      <Play className="w-5 h-5 mr-2" />
+                      <Play size={20} className="mr-2" />
                       Angel-Session starten
-                    </Button>
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </motion.div>
           )}
         </div>
 
         {/* Navigation */}
         <div className="flex justify-between mt-8">
-          <Button 
+          <button
             onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
             disabled={currentStep === 0}
-            variant="outline"
+            className="bb-secondary"
           >
             Zurück
-          </Button>
-          <Button 
+          </button>
+          <button
             onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
             disabled={!canProceed() || currentStep === steps.length - 1}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bb-action"
+            style={{ background: '#059669' }}
           >
             Weiter
-          </Button>
+          </button>
         </div>
       </div>
     </div>

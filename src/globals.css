@@ -61,6 +61,8 @@
     }
   }
   :root {
+    --border: 220 13% 20%;
+    --ring: 187 100% 50%;
     /* Safe-area insets for notches and home bars */
     --safe-area-top: env(safe-area-inset-top, 0px);
     --safe-area-right: env(safe-area-inset-right, 0px);

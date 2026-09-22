@@ -1,8 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Upload, ArrowLeft, Loader2, X, AlertCircle, Plus, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { ai, entities } from "@/api/frontendClient";
@@ -28,43 +25,43 @@ function GearItemCard({ item, onAdd, adding }) {
   const confPct = Math.round((item.confidence ?? 0.5) * 100);
 
   return (
-    <Card className="bg-gray-800/60 border-gray-700/50">
-      <CardContent className="pt-4 space-y-2">
+    <div className="bb-card" style={{ background: 'var(--bb-surface)' }}>
+      <div className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="font-medium text-white text-sm">{item.name}</p>
-            <p className="text-xs text-gray-400">{item.category}</p>
-            {item.brand && <p className="text-xs text-cyan-400">{item.brand}</p>}
+            <p className="font-medium text-sm" style={{ color: 'var(--bb-text)' }}>{item.name}</p>
+            <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>{item.category}</p>
+            {item.brand && <p className="text-xs" style={{ color: 'var(--bb-cyan)' }}>{item.brand}</p>}
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Badge variant="outline" className={`text-xs ${condCls}`}>{item.condition}</Badge>
-            <span className="text-xs text-gray-500">{confLabel} ({confPct}%)</span>
+            <span className={`bb-pill-info text-xs border ${condCls}`}>{item.condition}</span>
+            <span className="text-xs" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>{confLabel} ({confPct}%)</span>
           </div>
         </div>
 
         {item.description && (
-          <p className="text-xs text-gray-400">{item.description}</p>
+          <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>{item.description}</p>
         )}
 
         {item.useCase && (
-          <p className="text-xs text-gray-500 italic">Einsatz: {item.useCase}</p>
+          <p className="text-xs italic" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>Einsatz: {item.useCase}</p>
         )}
 
-        <Button
-          size="sm"
-          className="w-full mt-2 bg-cyan-700 hover:bg-cyan-600 text-white h-8 text-xs"
+        <button
+          className="bb-action w-full mt-2 text-xs h-8"
+          style={{ background: '#0e7490' }}
           disabled={adding}
           onClick={() => onAdd(item)}
         >
           {adding ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            <Loader2 size={14} className="animate-spin mr-1.5" />
           ) : (
-            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            <Plus size={14} className="mr-1.5" />
           )}
           Zur Ausrüstung hinzufügen
-        </Button>
-      </CardContent>
-    </Card>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -191,15 +188,15 @@ function GearRecognitionInner() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-24">
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bb-bg)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur border-b border-gray-800 px-4 py-3">
+      <div className="sticky top-0 z-10 backdrop-blur px-4 py-3" style={{ background: 'var(--bb-surface)', borderBottom: '1px solid var(--bb-border)' }}>
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-gray-800 transition">
-            <ArrowLeft className="w-5 h-5 text-gray-400" />
+          <button onClick={() => navigate(-1)} className="p-2 rounded-lg" style={{ color: 'var(--bb-muted)' }}>
+            <ArrowLeft size={20} />
           </button>
-          <Wrench className="w-5 h-5 text-cyan-400" />
-          <h1 className="text-lg font-bold text-white">Ausrüstungserkennung</h1>
+          <Wrench size={20} style={{ color: 'var(--bb-cyan)' }} />
+          <h1 className="text-lg font-bold" style={{ color: 'var(--bb-text)' }}>Ausrüstungserkennung</h1>
         </div>
       </div>
 
@@ -210,17 +207,19 @@ function GearRecognitionInner() {
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={startCamera}
-              className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-cyan-700/50 hover:border-cyan-600 bg-gray-800/40 hover:bg-gray-800/60 transition"
+              className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed transition"
+              style={{ borderColor: 'rgba(6,182,212,0.4)', background: 'var(--bb-surface)' }}
             >
-              <Camera className="w-8 h-8 text-cyan-400" />
-              <span className="text-sm text-gray-300">Foto aufnehmen</span>
+              <Camera size={32} style={{ color: 'var(--bb-cyan)' }} />
+              <span className="text-sm" style={{ color: 'var(--bb-muted)' }}>Foto aufnehmen</span>
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-gray-700/50 hover:border-gray-600 bg-gray-800/40 hover:bg-gray-800/60 transition"
+              className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed transition"
+              style={{ borderColor: 'var(--bb-border)', background: 'var(--bb-surface)' }}
             >
-              <Upload className="w-8 h-8 text-gray-400" />
-              <span className="text-sm text-gray-300">Bild hochladen</span>
+              <Upload size={32} style={{ color: 'var(--bb-muted)' }} />
+              <span className="text-sm" style={{ color: 'var(--bb-muted)' }}>Bild hochladen</span>
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
           </div>
@@ -231,16 +230,17 @@ function GearRecognitionInner() {
           <div className="relative rounded-2xl overflow-hidden bg-black aspect-video">
             <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
             <div className="absolute bottom-4 inset-x-0 flex justify-center gap-3">
-              <Button
+              <button
                 onClick={capturePhoto}
-                className="bg-white text-black hover:bg-gray-100 font-bold px-6"
+                className="bb-action font-bold px-6"
+                style={{ background: '#fff', color: '#000' }}
               >
-                <Camera className="w-4 h-4 mr-2" />
+                <Camera size={16} className="mr-2" />
                 Aufnehmen
-              </Button>
-              <Button variant="outline" onClick={() => { stopCamera(); }} className="border-gray-600 text-gray-300">
-                <X className="w-4 h-4" />
-              </Button>
+              </button>
+              <button className="bb-secondary" onClick={() => { stopCamera(); }} style={{ borderColor: 'var(--bb-border)' }}>
+                <X size={16} />
+              </button>
             </div>
             <canvas ref={canvasRef} className="hidden" />
           </div>
@@ -253,9 +253,10 @@ function GearRecognitionInner() {
             {!loading && (
               <button
                 onClick={reset}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-gray-900/80 hover:bg-gray-900 text-white"
+                className="absolute top-2 right-2 p-1.5 rounded-full"
+                style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}
               >
-                <X className="w-4 h-4" />
+                <X size={16} />
               </button>
             )}
           </div>
@@ -264,16 +265,16 @@ function GearRecognitionInner() {
         {/* Laden */}
         {loading && (
           <div className="flex flex-col items-center py-10 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-            <p className="text-sm text-gray-400">KI analysiert deine Ausrüstung …</p>
+            <Loader2 size={32} className="animate-spin" style={{ color: 'var(--bb-cyan)' }} />
+            <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>KI analysiert deine Ausrüstung ...</p>
           </div>
         )}
 
         {/* Fehler */}
         {error && (
-          <div className="flex items-start gap-2 p-3 rounded-xl bg-red-900/20 border border-red-800/40">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-300">{error}</p>
+          <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: '#f87171' }} />
+            <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>
           </div>
         )}
 
@@ -281,15 +282,13 @@ function GearRecognitionInner() {
         {result && !loading && (
           <>
             {result.generalNotes && (
-              <Card className="bg-gray-800/40 border-gray-700/40">
-                <CardContent className="pt-3 pb-3">
-                  <p className="text-xs text-gray-300">{result.generalNotes}</p>
-                </CardContent>
-              </Card>
+              <div className="bb-card" style={{ background: 'var(--bb-surface)' }}>
+                <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>{result.generalNotes}</p>
+              </div>
             )}
 
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">
+              <p className="text-xs font-semibold uppercase tracking-wide px-1" style={{ color: 'var(--bb-muted)' }}>
                 {result.items?.length || 0} erkannte Ausrüstungsgegenstände
               </p>
               {(result.items || []).map((item, i) => (
@@ -304,31 +303,29 @@ function GearRecognitionInner() {
 
             {(!result.items || result.items.length === 0) && (
               <div className="flex flex-col items-center py-8 gap-2 text-center">
-                <AlertCircle className="w-8 h-8 text-amber-500" />
-                <p className="text-sm text-gray-400">Keine Ausrüstung erkannt. Versuche ein klareres Foto.</p>
+                <AlertCircle size={32} style={{ color: '#f59e0b' }} />
+                <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Keine Ausrüstung erkannt. Versuche ein klareres Foto.</p>
               </div>
             )}
 
             <div className="flex justify-center">
-              <Button variant="ghost" size="sm" onClick={reset} className="text-gray-500 hover:text-white text-xs">
+              <button onClick={reset} className="p-2 rounded-lg text-xs" style={{ color: 'var(--bb-muted)' }}>
                 Neues Foto
-              </Button>
+              </button>
             </div>
           </>
         )}
 
         {/* Leer-Zustand */}
         {!photoPreview && !loading && !cameraActive && (
-          <Card className="bg-gray-800/30 border-gray-700/30">
-            <CardContent className="pt-4 pb-4">
-              <p className="text-sm text-gray-500 text-center">
-                Fotografiere deine Rute, Rolle, Köder oder Setup. Die KI erkennt die Ausrüstung und hilft dir beim Einpflegen.
-              </p>
-              <p className="text-xs text-gray-600 text-center mt-2">
-                Erkannte Gegenstände kannst du direkt zur Ausrüstungsliste hinzufügen.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bb-card" style={{ background: 'var(--bb-surface)' }}>
+            <p className="text-sm text-center" style={{ color: 'var(--bb-muted)', opacity: 0.7 }}>
+              Fotografiere deine Rute, Rolle, Köder oder Setup. Die KI erkennt die Ausrüstung und hilft dir beim Einpflegen.
+            </p>
+            <p className="text-xs text-center mt-2" style={{ color: 'var(--bb-muted)', opacity: 0.5 }}>
+              Erkannte Gegenstände kannst du direkt zur Ausrüstungsliste hinzufügen.
+            </p>
+          </div>
         )}
       </div>
     </div>

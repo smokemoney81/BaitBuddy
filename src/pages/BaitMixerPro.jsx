@@ -6,8 +6,6 @@ import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import { useEventActivityTracking } from "@/hooks/useEventActivityTracking";
 import PremiumGuard from "@/components/premium/PremiumGuard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MobileSelect } from "@/components/ui/mobile-select";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,11 +30,12 @@ import PrognosePanel from "@/components/baitmixer/PrognosePanel";
 import RecipeBuilder from "@/components/baitmixer/RecipeBuilder";
 import QuickStartGrid from "@/components/baitmixer/QuickStartGrid";
 import { calculateSuccessRate } from "@/utils/baitPrognosis.utils";
+import TabBar from "@/components/layout/TabBar";
 
-const TABS = [
-  { id: "quickstart", label: "Schnellstart", icon: "⭐" },
-  { id: "builder", label: "Rezept-Editor", icon: "⚙️" },
-  { id: "saved", label: "Meine Rezepte", icon: "💾" }
+const baitTabs = [
+  { id: "quickstart", label: "Schnellstart" },
+  { id: "builder", label: "Rezept-Editor" },
+  { id: "saved", label: "Meine Rezepte" }
 ];
 
 export default function BaitMixerPro() {
@@ -45,9 +44,6 @@ export default function BaitMixerPro() {
   const queryClient = useQueryClient();
   const { triggerHaptic } = useHaptic();
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // STATE
-  // ──────────────────────────────────────────────────────────────────────────
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("quickstart");
@@ -60,21 +56,16 @@ export default function BaitMixerPro() {
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [activeEventId, setActiveEventId] = useState(null);
 
-  // Prognose-Parameter
   const [waterTemp, setWaterTemp] = useState(15);
   const [season, setSeason] = useState("allround");
   const [waterType, setWaterType] = useState("lake");
   const [prognosis, setPrognosis] = useState(null);
 
-  // Favoriten
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem("baitMixerFavorites");
     return saved ? JSON.parse(saved) : [];
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // INIT
-  // ──────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     loadData();
   }, []);
@@ -97,7 +88,6 @@ export default function BaitMixerPro() {
     loadIngredients();
   }, [mode]);
 
-  // Berechne Prognose bei Änderungen
   useEffect(() => {
     if (ingredients.length > 0) {
       const prog = calculateSuccessRate(
@@ -147,9 +137,6 @@ export default function BaitMixerPro() {
   const loadRecipes = () =>
     queryClient.invalidateQueries({ queryKey: ["baitRecipes"] });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // HANDLERS
-  // ──────────────────────────────────────────────────────────────────────────
   const handleAddIngredient = (ingredient, amount = 5) => {
     triggerHaptic("selection");
     setMix(prev => {
@@ -297,9 +284,7 @@ Sei konkret und praktisch!`;
     };
 
     const text = `
-═══════════════════════════════════════
-  KI-Köder-Mischer Pro Rezept-Export
-═══════════════════════════════════════
+KI-Köder-Mischer Pro Rezept-Export
 
 Rezept: ${exportData.name}
 Zielfisch: ${exportData.fish} | Typ: ${exportData.category}
@@ -307,14 +292,10 @@ Jahreszeit: ${exportData.season}
 Wassertemperatur: ${exportData.waterTemp}°C
 Success-Rate Prognose: ${exportData.successRate}%
 
-───────────────────────────────────────
 ZUTATEN (Gesamtmix: ${exportData.totalPercentage}%)
-───────────────────────────────────────
 ${exportData.ingredients}
 
-───────────────────────────────────────
 TIPPS ZUM AUSMISCHEN:
-───────────────────────────────────────
 1. Wiege alle Zutaten sorgfältig ab
 2. Mische Trockenzutaten zuerst
 3. Füge Öle langsam hinzu
@@ -322,7 +303,6 @@ TIPPS ZUM AUSMISCHEN:
 5. Lagere kühl und trocken
 
 Exportiert: ${exportData.exportDate}
-═══════════════════════════════════════
     `;
 
     const blob = new Blob([text], { type: "text/plain" });
@@ -378,384 +358,318 @@ Exportiert: ${exportData.exportDate}
   }));
 
   const COLORS = [
-    "#0088FE",
-    "#00C49F",
-    "#FFBB28",
-    "#FF8042",
-    "#8884D8",
-    "#82CA9D",
-    "#FFC658",
-    "#FF6B9D"
+    "#0088FE", "#00C49F", "#FFBB28", "#FF8042",
+    "#8884D8", "#82CA9D", "#FFC658", "#FF6B9D"
   ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bb-bg)' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--bb-cyan)' }} />
       </div>
     );
   }
 
   return (
     <PremiumGuard user={user} requiredPlan="basic" feature="KI-Köder-Mischer">
-      <div className="min-h-screen bg-gray-950 px-3 py-4 sm:p-6 pb-32">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Sparkles className="w-8 h-8 text-cyan-400" />
-              <h1 className="text-3xl sm:text-4xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)]">
-                KI-Köder-Mischer Pro
-              </h1>
-              <Zap className="w-8 h-8 text-yellow-400" />
-            </div>
-            <p className="text-gray-400">
-              Erstelle optimierte Boilies & Anfütterung mit KI-Prognose
-            </p>
-            <p className="text-xs text-green-400 mt-2">
-              48 vordefinierte Premium-Rezepte • Favoriten • Export • Vollständig optimiert
-            </p>
+      <div className="bb-page">
+        {/* Header */}
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Sparkles size={28} style={{ color: 'var(--bb-cyan)' }} />
+            <h1 className="text-2xl font-bold text-white">
+              KI-Köder-Mischer Pro
+            </h1>
           </div>
-
-          {/* Einstieg in die 3D-Köderanimation */}
-          <Link
-            to={createPageUrl("Koeder3D")}
-            className="flex items-center gap-3 rounded-xl border border-cyan-800/60 bg-cyan-950/30 p-4 transition-colors hover:border-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-          >
-            <Rotate3d className="h-8 w-8 shrink-0 text-cyan-400" aria-hidden="true" />
-            <span className="flex-1 text-left">
-              <span className="block font-semibold text-white">Köderführung in 3D ansehen</span>
-              <span className="block text-sm text-gray-400">
-                Wobbler, Gummifisch, Spinner, Blinker und Oberflächenköder mit echtem Laufverhalten
-              </span>
-            </span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-gray-500" aria-hidden="true" />
-          </Link>
-
-          {/* Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-800">
-            {TABS.map(tab => (
-              <button type="button"
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  triggerHaptic("light");
-                }}
-                className={`px-4 py-3 font-medium text-sm whitespace-nowrap transition-all border-b-2 ${
-                  activeTab === tab.id
-                    ? "text-cyan-400 border-cyan-400"
-                    : "text-gray-400 border-transparent hover:text-gray-300"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* QUICKSTART TAB */}
-          {activeTab === "quickstart" && (
-            <QuickStartGrid
-              ingredients={ingredients}
-              onLoadRecipe={handleLoadRecipe}
-              waterTemp={waterTemp}
-              season={season}
-              waterType={waterType}
-            />
-          )}
-
-          {/* BUILDER TAB */}
-          {activeTab === "builder" && (
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                {/* Modus & Zielfisch */}
-                <Card className="glass-morphism border-gray-800">
-                  <CardHeader>
-                    <CardTitle className="text-cyan-400">Modus & Zielfisch</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-sm text-gray-400 mb-2 block">
-                        Kö der-Typ
-                      </label>
-                      <MobileSelect
-                        value={mode}
-                        onValueChange={setMode}
-                        options={[
-                          { value: "boilies", label: "Boilies" },
-                          { value: "bait", label: "Anfütterung" }
-                        ]}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-400 mb-2 block">
-                        Zielfisch
-                      </label>
-                      <MobileSelect
-                        value={targetFish}
-                        onValueChange={setTargetFish}
-                        options={[
-                          "Karpfen",
-                          "Brassen",
-                          "Rotauge",
-                          "Hecht",
-                          "Zander",
-                          "Barsch",
-                          "Forelle",
-                          "Aal"
-                        ].map(fish => ({
-                          value: fish,
-                          label: fish
-                        }))}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Rezept-Editor */}
-                <RecipeBuilder
-                  ingredients={ingredients}
-                  mix={mix}
-                  onAddIngredient={handleAddIngredient}
-                  onRemoveIngredient={handleRemoveIngredient}
-                  onUpdatePercentage={handleUpdatePercentage}
-                  totalPercentage={totalPercentage}
-                  targetFish={targetFish}
-                />
-
-                {/* KI-Optimierung */}
-                {activeIngredients.length > 0 && (
-                  <Card className="glass-morphism border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-cyan-400 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5" />
-                        KI-Optimierung
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Button
-                        onClick={generateAIRecipe}
-                        disabled={aiAnalyzing}
-                        className="w-full bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700"
-                      >
-                        {aiAnalyzing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            KI analysiert...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Rezept optimieren
-                          </>
-                        )}
-                      </Button>
-
-                      {aiAnalysis && (
-                        <div className="p-4 bg-gradient-to-br from-cyan-900/20 to-purple-900/20 border border-cyan-600/30 rounded-lg">
-                          <div className="flex items-start gap-2 mb-2">
-                            <Sparkles className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-1" />
-                            <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
-                              {aiAnalysis}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Rezept speichern */}
-                {activeIngredients.length > 0 && (
-                  <Card className="glass-morphism border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-cyan-400">Rezept speichern</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Input
-                        placeholder="Rezeptname (z.B. Karpfen-Mix Sommer)"
-                        value={recipeName}
-                        onChange={e => setRecipeName(e.target.value)}
-                        className="bg-gray-800/50 border-gray-700"
-                      />
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={saveRecipe}
-                          disabled={!recipeName.trim()}
-                          className="flex-1 bg-cyan-600 hover:bg-cyan-700"
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Speichern
-                        </Button>
-                        <Button
-                          onClick={exportRecipe}
-                          disabled={!recipeName.trim() || totalPercentage === 0}
-                          variant="outline"
-                          className="border-gray-700 text-gray-400 hover:text-cyan-400"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Exportieren
-                        </Button>
-                        <Button
-                          onClick={resetMix}
-                          variant="outline"
-                          className="border-gray-700"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Reset
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              {/* Rechte Seite: Prognose + Visualisierungen */}
-              <div className="space-y-6">
-                {activeIngredients.length > 0 && (
-                  <>
-                    {/* Mischungsverhältnis */}
-                    <Card className="glass-morphism border-gray-800">
-                      <CardHeader>
-                        <CardTitle className="text-cyan-400 text-sm">
-                          Mischungsverhältnis
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ResponsiveContainer width="100%" height={200}>
-                          <PieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={entry => `${entry.name}: ${entry.value}%`}
-                              outerRadius={60}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {pieData.map((entry, index) => (
-                                <Cell
-                                  key={`cell-${index}`}
-                                  fill={COLORS[index % COLORS.length]}
-                                />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </CardContent>
-                    </Card>
-                  </>
-                )}
-
-                {/* Prognose-Panel */}
-                <PrognosePanel
-                  prognosis={prognosis}
-                  waterTemp={waterTemp}
-                  onWaterTempChange={setWaterTemp}
-                  season={season}
-                  onSeasonChange={setSeason}
-                  waterType={waterType}
-                  onWaterTypeChange={setWaterType}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* SAVED RECIPES TAB */}
-          {activeTab === "saved" && (
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-cyan-400 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" />
-                  Meine Rezepte
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recipes.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Heart className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <div>Noch keine Rezepte gespeichert</div>
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {recipes.map(recipe => {
-                      const isFav = favorites.includes(recipe.id);
-                      return (
-                        <Card
-                          key={recipe.id}
-                          className="glass-morphism border-gray-800 hover:border-cyan-600/50 transition-all cursor-pointer group"
-                          onClick={() => handleLoadRecipe(recipe)}
-                        >
-                          <CardContent className="pt-6 space-y-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <h3 className="text-white font-semibold text-sm group-hover:text-cyan-400">
-                                  {recipe.name}
-                                </h3>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  {recipe.target_fish} • {recipe.category}
-                                </p>
-                              </div>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className={`h-7 w-7 ${
-                                    isFav
-                                      ? "text-red-400"
-                                      : "text-gray-400 hover:text-red-400"
-                                  }`}
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    toggleFavorite(recipe.id);
-                                  }}
-                                >
-                                  <Heart className={`w-4 h-4 ${isFav ? "fill-current" : ""}`} />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 text-gray-400 hover:text-cyan-400"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    setMix(recipe.ingredients);
-                                    setRecipeName(recipe.name);
-                                    exportRecipe();
-                                  }}
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 text-red-400 hover:text-red-300"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    deleteRecipeMutation.mutate(recipe.id);
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-gray-400">
-                                Score: {recipe.attractiveness_score}
-                              </span>
-                              {recipe.ai_generated && (
-                                <Sparkles className="w-3 h-3 text-purple-400" />
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+            Erstelle optimierte Boilies & Anfütterung mit KI-Prognose
+          </p>
+          <p className="text-xs mt-1" style={{ color: '#34d399' }}>
+            48 vordefinierte Premium-Rezepte
+          </p>
         </div>
+
+        {/* 3D-Köderanimation Link */}
+        <Link
+          to={createPageUrl("Koeder3D")}
+          className="bb-card flex items-center gap-3"
+          style={{ textDecoration: 'none', borderColor: 'rgba(0,229,255,.2)' }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,229,255,.1)' }}>
+            <Rotate3d size={20} style={{ color: 'var(--bb-cyan)' }} />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-white text-sm">Köderführung in 3D ansehen</div>
+            <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+              Wobbler, Gummifisch, Spinner, Blinker und Oberflächenköder
+            </div>
+          </div>
+          <ChevronRight size={18} style={{ color: 'var(--bb-muted)' }} />
+        </Link>
+
+        {/* Tabs */}
+        <TabBar tabs={baitTabs} activeTab={activeTab} onChange={(id) => { setActiveTab(id); triggerHaptic("light"); }} />
+
+        {/* QUICKSTART TAB */}
+        {activeTab === "quickstart" && (
+          <QuickStartGrid
+            ingredients={ingredients}
+            onLoadRecipe={handleLoadRecipe}
+            waterTemp={waterTemp}
+            season={season}
+            waterType={waterType}
+          />
+        )}
+
+        {/* BUILDER TAB */}
+        {activeTab === "builder" && (
+          <div className="grid lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 grid gap-5">
+              {/* Modus & Zielfisch */}
+              <div className="bb-card grid gap-4">
+                <div className="bb-form-title">Modus & Zielfisch</div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--bb-muted)' }}>
+                    Köder-Typ
+                  </label>
+                  <MobileSelect
+                    value={mode}
+                    onValueChange={setMode}
+                    options={[
+                      { value: "boilies", label: "Boilies" },
+                      { value: "bait", label: "Anfütterung" }
+                    ]}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--bb-muted)' }}>
+                    Zielfisch
+                  </label>
+                  <MobileSelect
+                    value={targetFish}
+                    onValueChange={setTargetFish}
+                    options={[
+                      "Karpfen", "Brassen", "Rotauge", "Hecht",
+                      "Zander", "Barsch", "Forelle", "Aal"
+                    ].map(fish => ({ value: fish, label: fish }))}
+                  />
+                </div>
+              </div>
+
+              {/* Rezept-Editor */}
+              <RecipeBuilder
+                ingredients={ingredients}
+                mix={mix}
+                onAddIngredient={handleAddIngredient}
+                onRemoveIngredient={handleRemoveIngredient}
+                onUpdatePercentage={handleUpdatePercentage}
+                totalPercentage={totalPercentage}
+                targetFish={targetFish}
+              />
+
+              {/* KI-Optimierung */}
+              {activeIngredients.length > 0 && (
+                <div className="bb-card grid gap-4">
+                  <div className="bb-form-title flex items-center gap-2">
+                    <Sparkles size={18} />
+                    KI-Optimierung
+                  </div>
+                  <button
+                    onClick={generateAIRecipe}
+                    disabled={aiAnalyzing}
+                    className="bb-action w-full flex items-center justify-center gap-2"
+                  >
+                    {aiAnalyzing ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        KI analysiert...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Rezept optimieren
+                      </>
+                    )}
+                  </button>
+
+                  {aiAnalysis && (
+                    <div className="p-4 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(0,229,255,.06), rgba(139,92,246,.06))', border: '1px solid rgba(0,229,255,.2)' }}>
+                      <div className="flex items-start gap-2">
+                        <Sparkles size={18} style={{ color: 'var(--bb-cyan)', flexShrink: 0, marginTop: 2 }} />
+                        <div className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--bb-text-secondary)' }}>
+                          {aiAnalysis}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Rezept speichern */}
+              {activeIngredients.length > 0 && (
+                <div className="bb-card grid gap-4">
+                  <div className="bb-form-title">Rezept speichern</div>
+                  <Input
+                    placeholder="Rezeptname (z.B. Karpfen-Mix Sommer)"
+                    value={recipeName}
+                    onChange={e => setRecipeName(e.target.value)}
+                    className="bg-gray-900 border-gray-700 text-white"
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={saveRecipe}
+                      disabled={!recipeName.trim()}
+                      className="bb-action flex-1 flex items-center justify-center gap-2"
+                    >
+                      <Save size={16} />
+                      Speichern
+                    </button>
+                    <button
+                      onClick={exportRecipe}
+                      disabled={!recipeName.trim() || totalPercentage === 0}
+                      className="bb-secondary flex items-center justify-center gap-2"
+                    >
+                      <Download size={16} />
+                      Export
+                    </button>
+                    <button
+                      onClick={resetMix}
+                      className="bb-secondary flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Rechte Seite: Prognose + Visualisierungen */}
+            <div className="grid gap-5">
+              {activeIngredients.length > 0 && (
+                <div className="bb-card">
+                  <div className="text-sm font-semibold mb-3" style={{ color: 'var(--bb-cyan)' }}>
+                    Mischungsverhältnis
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={entry => `${entry.name}: ${entry.value}%`}
+                        outerRadius={60}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Prognose-Panel */}
+              <PrognosePanel
+                prognosis={prognosis}
+                waterTemp={waterTemp}
+                onWaterTempChange={setWaterTemp}
+                season={season}
+                onSeasonChange={setSeason}
+                waterType={waterType}
+                onWaterTypeChange={setWaterType}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* SAVED RECIPES TAB */}
+        {activeTab === "saved" && (
+          <div className="bb-card">
+            <div className="bb-form-title flex items-center gap-2 mb-4">
+              <BookOpen size={18} />
+              Meine Rezepte
+            </div>
+            {recipes.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--bb-surface)' }}>
+                  <Heart size={24} style={{ color: 'var(--bb-muted)' }} />
+                </div>
+                <div style={{ color: 'var(--bb-muted)' }}>Noch keine Rezepte gespeichert</div>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recipes.map(recipe => {
+                  const isFav = favorites.includes(recipe.id);
+                  return (
+                    <div
+                      key={recipe.id}
+                      className="bb-card cursor-pointer group"
+                      onClick={() => handleLoadRecipe(recipe)}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-white font-semibold text-sm group-hover:text-cyan-400 transition-colors">
+                            {recipe.name}
+                          </h3>
+                          <p className="text-xs mt-1" style={{ color: 'var(--bb-muted)' }}>
+                            {recipe.target_fish} / {recipe.category}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            className="p-1.5 rounded-lg"
+                            style={{ color: isFav ? '#f87171' : 'var(--bb-muted)' }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              toggleFavorite(recipe.id);
+                            }}
+                          >
+                            <Heart size={14} className={isFav ? "fill-current" : ""} />
+                          </button>
+                          <button
+                            className="p-1.5 rounded-lg"
+                            style={{ color: 'var(--bb-muted)' }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setMix(recipe.ingredients);
+                              setRecipeName(recipe.name);
+                              exportRecipe();
+                            }}
+                          >
+                            <Download size={14} />
+                          </button>
+                          <button
+                            className="p-1.5 rounded-lg"
+                            style={{ color: '#f87171' }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              deleteRecipeMutation.mutate(recipe.id);
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs" style={{ color: 'var(--bb-muted)' }}>
+                        <span>Score: {recipe.attractiveness_score}</span>
+                        {recipe.ai_generated && (
+                          <Sparkles size={12} style={{ color: '#a78bfa' }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </PremiumGuard>
   );

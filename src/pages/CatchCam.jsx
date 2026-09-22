@@ -1,21 +1,18 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { UploadFile } from "@/integrations/Core";
 import { Catch } from "@/entities/Catch";
 import { useLocation } from "@/components/location/LocationManager";
 import { useHaptic } from "@/components/utils/HapticFeedback";
 import { useSound } from "@/components/utils/SoundManager";
-import { 
-  Camera, 
-  SwitchCamera, 
-  Zap, 
-  Mic, 
-  MicOff, 
-  Download, 
-  Save, 
+import {
+  Camera,
+  SwitchCamera,
+  Zap,
+  Mic,
+  MicOff,
+  Download,
+  Save,
   MapPin,
   Ruler,
   Video,
@@ -116,12 +113,12 @@ function CatchCamInner() {
 
   async function fetchWeather(lat, lon) {
     // Demo-Wetterdaten ohne echte API
-    setWeather({ 
-      weather: [{ main: "Bewölkt" }], 
+    setWeather({
+      weather: [{ main: "Bewölkt" }],
       main: { temp: 17 },
       wind: { speed: 5 }
     });
-    
+
     // Falls du echte Wetterdaten willst, erstelle eine Backend-Funktion
     // die den API-Key sicher verwendet
   }
@@ -130,7 +127,7 @@ function CatchCamInner() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-    
+
     triggerHaptic('medium');
     playSound('click');
 
@@ -157,16 +154,16 @@ function CatchCamInner() {
 
   async function doBurst() {
     if (isBursting) return;
-    
+
     triggerHaptic('heavy');
     playSound('notification');
     setIsBursting(true);
-    
+
     toast.info(`Burst-Modus: ${burstCount} Fotos werden aufgenommen...`);
-    
+
     const count = Math.max(3, burstCount);
     const captured = [];
-    
+
     for (let i = 0; i < count; i++) {
       await new Promise((r) => setTimeout(r, 120));
       const video = videoRef.current;
@@ -184,7 +181,7 @@ function CatchCamInner() {
       captured.push({ dataUrl, score, timestamp: Date.now(), coords: currentLocation });
       playSound('click');
     }
-    
+
     captured.sort((a, b) => b.score - a.score);
     const best = captured[0];
     const blob = dataURLtoBlob(best.dataUrl);
@@ -193,7 +190,7 @@ function CatchCamInner() {
     setSnapshots((s) => [item, ...s]);
     setBestPhoto(item);
     setIsBursting(false);
-    
+
     playSound('success');
     toast.success("Bestes Foto ausgewählt!");
   }
@@ -219,7 +216,7 @@ function CatchCamInner() {
       onMeasureClick(e);
       return;
     }
-    
+
     const rect = e.target.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
@@ -235,10 +232,10 @@ function CatchCamInner() {
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
     refClicks.current.push({ x, y });
-    
+
     triggerHaptic('light');
     playSound('click');
-    
+
     if (refClicks.current.length >= 2) {
       const pair = refClicks.current.slice(-2);
       const video = videoRef.current;
@@ -250,11 +247,11 @@ function CatchCamInner() {
       setReferencePixelWidth(pxWidth);
       refClicks.current = [];
       setMeasureMode(false);
-      
+
       triggerHaptic('success');
       playSound('success');
       toast.success(`Referenz gemessen: ${Math.round(pxWidth)}px = ${referenceCm}cm`);
-      
+
       // Auto-Schätzung für Demo
       if (snapshots.length > 0) {
         const fishPx = pxWidth * 0.6; // Annahme: Fisch ist 60% der Referenz
@@ -271,17 +268,17 @@ function CatchCamInner() {
     const h = imageData.height;
     const data = imageData.data;
     const gray = new Float32Array(w * h);
-    
+
     for (let i = 0; i < w * h; i++) {
       const r = data[i * 4];
       const g = data[i * 4 + 1];
       const b = data[i * 4 + 2];
       gray[i] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
-    
+
     const kernel = [0, 1, 0, 1, -4, 1, 0, 1, 0];
     let sum = 0;
-    
+
     for (let y = 1; y < h - 1; y += 4) {
       for (let x = 1; x < w - 1; x += 4) {
         let val = 0;
@@ -311,7 +308,7 @@ function CatchCamInner() {
 
   async function toggleAudioRecording() {
     triggerHaptic('medium');
-    
+
     if (isRecordingAudio) {
       audioRecorderRef.current.stop();
       setIsRecordingAudio(false);
@@ -319,7 +316,7 @@ function CatchCamInner() {
       toast.info("Aufnahme gestoppt");
       return;
     }
-    
+
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(s);
@@ -347,11 +344,11 @@ function CatchCamInner() {
       toast.warning("Keine Snapshots zum Erstellen des Clips.");
       return;
     }
-    
+
     setIsCreatingClip(true);
     triggerHaptic('heavy');
     toast.info("Erstelle Highlight-Clip...");
-    
+
     const off = recordCanvasRef.current;
     const w = 1280;
     const h = 720;
@@ -370,7 +367,7 @@ function CatchCamInner() {
       img.src = snapshots[i].img;
       await new Promise((res) => (img.onload = res));
       const frames = 25;
-      
+
       for (let f = 0; f < frames; f++) {
         ctx.clearRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
@@ -389,7 +386,7 @@ function CatchCamInner() {
     const blob = new Blob(parts, { type: "video/webm" });
     setHighlightBlob(blob);
     setIsCreatingClip(false);
-    
+
     playSound('success');
     toast.success("Highlight-Clip erstellt!");
   }
@@ -466,278 +463,265 @@ function CatchCamInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 p-4 pb-32">
-      <div className="max-w-6xl mx-auto">
-        <Card className="glass-morphism border-gray-800 mb-6">
-          <CardHeader>
-            <CardTitle className="text-cyan-400 flex items-center gap-2 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
-              <Camera className="w-6 h-6" />
-              CatchCam 6-in-1
-              <Badge className="ml-auto bg-purple-600">Pro</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Video Preview */}
-            <div className="relative bg-black rounded-xl overflow-hidden">
-              <video
-                ref={videoRef}
-                className="w-full aspect-video object-cover"
-                autoPlay
-                playsInline
-                muted
-                onClick={onVideoClick}
-                style={{ cursor: measureMode ? "crosshair" : "pointer" }}
-              />
-              
-              {/* HUD Overlays */}
-              <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-2 rounded-lg backdrop-blur-sm">
-                <div className="text-sm font-medium">
-                  {measureMode ? "Messmodus aktiv" : "Buddy-Lens"}
-                </div>
-                <div className="text-xs text-gray-300">
-                  Marker: {markers.length} | Klicks: {refClicks.current.length}
-                </div>
-              </div>
+    <div className="bb-page" style={{ paddingBottom: '8rem' }}>
+      <div className="bb-card mb-6">
+        <div className="bb-form-title flex items-center gap-2" style={{ color: 'var(--bb-cyan)' }}>
+          <Camera size={24} />
+          CatchCam 6-in-1
+          <span className="bb-pill-info text-xs ml-auto" style={{ background: 'rgba(147,51,234,0.3)', color: '#c084fc', border: '1px solid rgba(147,51,234,0.5)' }}>Pro</span>
+        </div>
+        <div className="space-y-6">
+          {/* Video Preview */}
+          <div className="relative bg-black rounded-xl overflow-hidden">
+            <video
+              ref={videoRef}
+              className="w-full aspect-video object-cover"
+              autoPlay
+              playsInline
+              muted
+              onClick={onVideoClick}
+              style={{ cursor: measureMode ? "crosshair" : "pointer" }}
+            />
 
-              <div className="absolute top-3 right-3 bg-black/60 text-white px-3 py-2 rounded-lg backdrop-blur-sm text-sm">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  {weather && weather.weather?.[0]?.main && weather.main?.temp
-                    ? `${weather.weather[0].main}, ${weather.main.temp}°C`
-                    : "Wetter lädt..."}
+            {/* HUD Overlays */}
+            <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-2 rounded-lg backdrop-blur-sm">
+              <div className="text-sm font-medium">
+                {measureMode ? "Messmodus aktiv" : "Buddy-Lens"}
+              </div>
+              <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+                Marker: {markers.length} | Klicks: {refClicks.current.length}
+              </div>
+            </div>
+
+            <div className="absolute top-3 right-3 bg-black/60 text-white px-3 py-2 rounded-lg backdrop-blur-sm text-sm">
+              <div className="flex items-center gap-2">
+                <MapPin size={16} />
+                {weather && weather.weather?.[0]?.main && weather.main?.temp
+                  ? `${weather.weather[0].main}, ${weather.main.temp}°C`
+                  : "Wetter lädt..."}
+              </div>
+              {currentLocation && (
+                <div className="text-xs mt-1" style={{ color: 'var(--bb-muted)' }}>
+                  {currentLocation.lat.toFixed(4)}, {currentLocation.lon.toFixed(4)}
                 </div>
-                {currentLocation && (
-                  <div className="text-xs text-gray-300 mt-1">
-                    {currentLocation.lat.toFixed(4)}, {currentLocation.lon.toFixed(4)}
+              )}
+            </div>
+
+            {isRecordingAudio && (
+              <motion.div
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="absolute bottom-3 left-3 text-white px-3 py-2 rounded-lg flex items-center gap-2"
+                style={{ background: '#dc2626' }}
+              >
+                <Mic size={16} />
+                Aufnahme läuft...
+              </motion.div>
+            )}
+
+            {isBursting && (
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+                className="absolute bottom-3 right-3 text-white px-3 py-2 rounded-lg flex items-center gap-2"
+                style={{ background: '#9333ea' }}
+              >
+                <Zap size={16} />
+                Burst läuft...
+              </motion.div>
+            )}
+
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+
+          {/* Control Buttons */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <button
+              className="bb-secondary"
+              onClick={() => {
+                setFacingMode((f) => (f === "user" ? "environment" : "user"));
+                triggerHaptic('selection');
+                playSound('click');
+              }}
+            >
+              <SwitchCamera size={16} className="mr-2" />
+              Kamera
+            </button>
+
+            <button
+              className="bb-action"
+              style={{ background: '#059669' }}
+              onClick={takeSnapshot}
+            >
+              <Camera size={16} className="mr-2" />
+              Snapshot
+            </button>
+
+            <button
+              className="bb-action"
+              style={{ background: '#9333ea' }}
+              onClick={doBurst}
+              disabled={isBursting}
+            >
+              <Zap size={16} className="mr-2" />
+              Burst ({burstCount})
+            </button>
+
+            <button
+              className={isRecordingAudio ? "bb-action" : "bb-secondary"}
+              style={isRecordingAudio ? { background: '#dc2626' } : {}}
+              onClick={toggleAudioRecording}
+            >
+              {isRecordingAudio ? <MicOff size={16} className="mr-2" /> : <Mic size={16} className="mr-2" />}
+              {isRecordingAudio ? "Stop" : "Voice"}
+            </button>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Auto-Messung */}
+            <div className="bb-card" style={{ background: 'var(--bb-surface)' }}>
+              <div className="bb-form-title text-sm flex items-center gap-2" style={{ color: 'var(--bb-cyan)' }}>
+                <Ruler size={16} />
+                Auto-Messung
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs" style={{ color: 'var(--bb-muted)' }}>Referenz (cm):</label>
+                  <Input
+                    type="number"
+                    value={referenceCm}
+                    onChange={(e) => setReferenceCm(Number(e.target.value))}
+                    className="bg-gray-800 border-gray-600 mt-1"
+                  />
+                </div>
+
+                <button
+                  className="bb-secondary w-full text-sm"
+                  onClick={() => {
+                    setMeasureMode(!measureMode);
+                    refClicks.current = [];
+                    triggerHaptic('selection');
+                    if (!measureMode) {
+                      toast.info("Klicke 2 Punkte im Video für die Referenz");
+                    }
+                  }}
+                >
+                  <Target size={16} className="mr-2" />
+                  {measureMode ? "Messmodus beenden" : "Referenz messen"}
+                </button>
+
+                {estimatedCm && (
+                  <div className="rounded-lg p-3 text-center" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                    <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>Geschätzte Länge:</div>
+                    <div className="text-2xl font-bold" style={{ color: '#34d399' }}>{estimatedCm} cm</div>
                   </div>
                 )}
               </div>
-
-              {isRecordingAudio && (
-                <motion.div
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="absolute bottom-3 left-3 bg-red-600 text-white px-3 py-2 rounded-lg flex items-center gap-2"
-                >
-                  <Mic className="w-4 h-4" />
-                  Aufnahme läuft...
-                </motion.div>
-              )}
-
-              {isBursting && (
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 0.5, repeat: Infinity }}
-                  className="absolute bottom-3 right-3 bg-purple-600 text-white px-3 py-2 rounded-lg flex items-center gap-2"
-                >
-                  <Zap className="w-4 h-4" />
-                  Burst läuft...
-                </motion.div>
-              )}
-
-              <canvas ref={canvasRef} className="hidden" />
             </div>
 
-            {/* Control Buttons */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Button
-                variant="outline"
-                className="border-gray-700"
-                onClick={() => {
-                  setFacingMode((f) => (f === "user" ? "environment" : "user"));
-                  triggerHaptic('selection');
-                  playSound('click');
-                }}
-              >
-                <SwitchCamera className="w-4 h-4 mr-2" />
-                Kamera
-              </Button>
-
-              <Button
-                className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={takeSnapshot}
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                Snapshot
-              </Button>
-
-              <Button
-                className="bg-purple-600 hover:bg-purple-700"
-                onClick={doBurst}
-                disabled={isBursting}
-              >
-                <Zap className="w-4 h-4 mr-2" />
-                Burst ({burstCount})
-              </Button>
-
-              <Button
-                variant={isRecordingAudio ? "destructive" : "outline"}
-                className={!isRecordingAudio && "border-gray-700"}
-                onClick={toggleAudioRecording}
-              >
-                {isRecordingAudio ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
-                {isRecordingAudio ? "Stop" : "Voice"}
-              </Button>
-            </div>
-
-            {/* Features Grid */}
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Auto-Messung */}
-              <Card className="bg-gray-800/30 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2 text-cyan-400">
-                    <Ruler className="w-4 h-4" />
-                    Auto-Messung
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <label className="text-xs text-gray-400">Referenz (cm):</label>
-                    <Input
-                      type="number"
-                      value={referenceCm}
-                      onChange={(e) => setReferenceCm(Number(e.target.value))}
-                      className="bg-gray-800 border-gray-600 mt-1"
-                    />
-                  </div>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-gray-600"
-                    onClick={() => {
-                      setMeasureMode(!measureMode);
-                      refClicks.current = [];
-                      triggerHaptic('selection');
-                      if (!measureMode) {
-                        toast.info("Klicke 2 Punkte im Video für die Referenz");
-                      }
-                    }}
-                  >
-                    <Target className="w-4 h-4 mr-2" />
-                    {measureMode ? "Messmodus beenden" : "Referenz messen"}
-                  </Button>
-
-                  {estimatedCm && (
-                    <div className="bg-emerald-900/30 border border-emerald-600/30 rounded-lg p-3 text-center">
-                      <div className="text-xs text-gray-400">Geschätzte Länge:</div>
-                      <div className="text-2xl font-bold text-emerald-400">{estimatedCm} cm</div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Highlight Clip */}
-              <Card className="bg-gray-800/30 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2 text-cyan-400">
-                    <Video className="w-4 h-4" />
-                    Highlight Clip
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="text-sm text-gray-400">
-                    Snapshots: {snapshots.length}
-                  </div>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-gray-600"
-                    onClick={createHighlightClip}
-                    disabled={isCreatingClip || snapshots.length === 0}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    {isCreatingClip ? "Erstelle..." : "Clip erstellen"}
-                  </Button>
-
-                  {highlightBlob && (
-                    <Button
-                      size="sm"
-                      className="w-full bg-rose-600 hover:bg-rose-700"
-                      onClick={() => downloadBlob(highlightBlob, "highlight.webm")}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Clip herunterladen
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Save Best Catch */}
-            {bestPhoto && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border-emerald-600/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold text-emerald-400">Bestes Foto ausgewählt!</div>
-                        <div className="text-sm text-gray-400">
-                          {estimatedCm && `Geschätzte Länge: ${estimatedCm}cm`}
-                        </div>
-                      </div>
-                      <Button
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                        onClick={saveBestCatch}
-                        disabled={isSaving}
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        {isSaving ? "Speichere..." : "Fang speichern"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Snapshots Gallery */}
-        {snapshots.length > 0 && (
-          <Card className="glass-morphism border-gray-800">
-            <CardHeader>
-              <CardTitle className="text-cyan-400">Aufnahmen ({snapshots.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <AnimatePresence>
-                  {snapshots.map((s, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className="rounded-lg overflow-hidden border border-gray-700 bg-gray-800/30"
-                    >
-                      <img src={s.img} alt={`snap-${i}`} className="w-full h-36 object-cover" />
-                      <div className="p-2 space-y-2">
-                        <div className="text-xs text-gray-400">
-                          {new Date(s.timestamp).toLocaleTimeString('de-DE')}
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full border-gray-600 text-xs"
-                          onClick={() => downloadBlob(s.blob, `snap_${i}.jpg`)}
-                        >
-                          <Download className="w-3 h-3 mr-1" />
-                          Download
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+            {/* Highlight Clip */}
+            <div className="bb-card" style={{ background: 'var(--bb-surface)' }}>
+              <div className="bb-form-title text-sm flex items-center gap-2" style={{ color: 'var(--bb-cyan)' }}>
+                <Video size={16} />
+                Highlight Clip
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div className="space-y-3">
+                <div className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+                  Snapshots: {snapshots.length}
+                </div>
 
-        <canvas ref={recordCanvasRef} className="hidden" />
+                <button
+                  className="bb-secondary w-full text-sm"
+                  onClick={createHighlightClip}
+                  disabled={isCreatingClip || snapshots.length === 0}
+                >
+                  <Sparkles size={16} className="mr-2" />
+                  {isCreatingClip ? "Erstelle..." : "Clip erstellen"}
+                </button>
+
+                {highlightBlob && (
+                  <button
+                    className="bb-action w-full text-sm"
+                    style={{ background: '#e11d48' }}
+                    onClick={() => downloadBlob(highlightBlob, "highlight.webm")}
+                  >
+                    <Download size={16} className="mr-2" />
+                    Clip herunterladen
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Save Best Catch */}
+          {bestPhoto && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="rounded-xl p-4" style={{ background: 'linear-gradient(to right, rgba(6,78,59,0.3), rgba(30,58,138,0.3))', border: '1px solid rgba(16,185,129,0.3)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold" style={{ color: '#34d399' }}>Bestes Foto ausgewählt!</div>
+                    <div className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+                      {estimatedCm && `Geschätzte Länge: ${estimatedCm}cm`}
+                    </div>
+                  </div>
+                  <button
+                    className="bb-action"
+                    style={{ background: '#059669' }}
+                    onClick={saveBestCatch}
+                    disabled={isSaving}
+                  >
+                    <Save size={16} className="mr-2" />
+                    {isSaving ? "Speichere..." : "Fang speichern"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
       </div>
+
+      {/* Snapshots Gallery */}
+      {snapshots.length > 0 && (
+        <div className="bb-card">
+          <div className="bb-form-title" style={{ color: 'var(--bb-cyan)' }}>Aufnahmen ({snapshots.length})</div>
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <AnimatePresence>
+                {snapshots.map((s, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="rounded-lg overflow-hidden"
+                    style={{ border: '1px solid var(--bb-border)', background: 'var(--bb-surface)' }}
+                  >
+                    <img src={s.img} alt={`snap-${i}`} className="w-full h-36 object-cover" />
+                    <div className="p-2 space-y-2">
+                      <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+                        {new Date(s.timestamp).toLocaleTimeString('de-DE')}
+                      </div>
+                      <button
+                        className="bb-secondary w-full text-xs"
+                        onClick={() => downloadBlob(s.blob, `snap_${i}.jpg`)}
+                      >
+                        <Download size={12} className="mr-1" />
+                        Download
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <canvas ref={recordCanvasRef} className="hidden" />
     </div>
   );
 }

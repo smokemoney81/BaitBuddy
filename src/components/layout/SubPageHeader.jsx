@@ -26,7 +26,7 @@ const PAGE_TITLES = {
   LiveTripPage: 'Live-Trip',
 };
 
-export default function SubPageHeader({ title }) {
+export default function SubPageHeader({ title, icon: Icon, iconColor, subtitle, rightAction }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { triggerHaptic } = useHaptic();
@@ -55,8 +55,14 @@ export default function SubPageHeader({ title }) {
         >
           <ArrowLeft size={20} aria-hidden="true" />
         </button>
-        <h1 className="bb-subpage-title">{displayTitle}</h1>
-        <div style={{ width: 40, flexShrink: 0 }} aria-hidden="true" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {Icon && <Icon size={20} style={iconColor ? { color: iconColor } : undefined} aria-hidden="true" />}
+          <div className="min-w-0">
+            <h1 className="bb-subpage-title">{displayTitle}</h1>
+            {subtitle && <p className="text-xs truncate" style={{ color: 'var(--bb-muted)', marginTop: 1 }}>{subtitle}</p>}
+          </div>
+        </div>
+        {rightAction || <div style={{ width: 40, flexShrink: 0 }} aria-hidden="true" />}
       </div>
     </div>
   );

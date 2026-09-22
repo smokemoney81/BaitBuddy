@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TabBar from "@/components/layout/TabBar";
 import { useLocation } from "@/components/location/LocationManager";
 import { InvokeLLM } from "@/integrations/Core";
 import { events } from "@/api/frontendClient";
@@ -222,30 +220,23 @@ Sei konkret, praktisch und detailliert!`;
   // Wenn kein Standort verfügbar ist
   if (!currentLocation && !locationLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 pb-32">
-        <Card className="glass-morphism border-amber-500/30 bg-amber-500/5 max-w-md">
-          <CardHeader>
-            <CardTitle className="text-amber-400 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
-              Standort erforderlich
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-gray-300">
-              Um Wetterdaten anzuzeigen, benötigt die App deinen aktuellen Standort.
-            </p>
-            <Button
-              onClick={handleRequestLocation}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
-            >
-              <MapPin className="w-4 h-4" />
-              Standort abrufen
-            </Button>
-            <p className="text-xs text-gray-500 text-center">
-              Du kannst auch auf der Karten-Seite einen Spot auswählen, um das Wetter für diesen Ort anzuzeigen.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center p-4 pb-32" style={{ background: 'var(--bb-bg)' }}>
+        <div className="bb-card max-w-md" style={{ borderColor: 'rgba(245,158,11,.3)' }}>
+          <div className="flex items-center gap-2 mb-4" style={{ color: '#fbbf24' }}>
+            <AlertCircle size={20} />
+            <span className="text-lg font-bold">Standort erforderlich</span>
+          </div>
+          <p style={{ color: 'var(--bb-muted)' }} className="mb-4">
+            Um Wetterdaten anzuzeigen, benötigt die App deinen aktuellen Standort.
+          </p>
+          <button onClick={handleRequestLocation} className="bb-action w-full flex items-center justify-center gap-2">
+            <MapPin size={16} />
+            Standort abrufen
+          </button>
+          <p className="text-xs text-center mt-3" style={{ color: 'var(--bb-muted)' }}>
+            Du kannst auch auf der Karten-Seite einen Spot auswählen, um das Wetter für diesen Ort anzuzeigen.
+          </p>
+        </div>
       </div>
     );
   }
@@ -255,38 +246,34 @@ Sei konkret, praktisch und detailliert!`;
   // weil weatherData nie gesetzt wurde).
   if (!loading && !locationLoading && !weatherData && weatherError) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 pb-32">
-        <Card className="glass-morphism border-red-500/30 bg-red-500/5 max-w-md">
-          <CardHeader>
-            <CardTitle className="text-red-400 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
-              Wetterdaten nicht verfügbar
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-gray-300">{weatherError}</p>
-            <Button
-              onClick={() => currentLocation && loadWeatherData(currentLocation.lat, currentLocation.lon)}
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-            >
-              Erneut versuchen
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center p-4 pb-32" style={{ background: 'var(--bb-bg)' }}>
+        <div className="bb-card max-w-md" style={{ borderColor: 'rgba(239,68,68,.3)' }}>
+          <div className="flex items-center gap-2 mb-4" style={{ color: '#f87171' }}>
+            <AlertCircle size={20} />
+            <span className="text-lg font-bold">Wetterdaten nicht verfügbar</span>
+          </div>
+          <p style={{ color: 'var(--bb-muted)' }} className="mb-4">{weatherError}</p>
+          <button
+            onClick={() => currentLocation && loadWeatherData(currentLocation.lat, currentLocation.lon)}
+            className="bb-action w-full"
+          >
+            Erneut versuchen
+          </button>
+        </div>
       </div>
     );
   }
 
   if (loading || !weatherData || locationLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 gap-4">
-        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-        <p className="text-gray-400 font-medium">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4" style={{ background: 'var(--bb-bg)' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--bb-cyan)' }} />
+        <p style={{ color: 'var(--bb-muted)' }} className="font-medium">
           {locationLoading ? "Ermittle Standort..." : "Lade Wetterdaten..."}
         </p>
         {currentLocation && (
-          <p className="text-gray-500 text-sm flex items-center gap-1">
-            <MapPin className="w-3 h-3" />
+          <p className="text-sm flex items-center gap-1" style={{ color: 'var(--bb-muted)' }}>
+            <MapPin size={12} />
             {currentLocation.name}
           </p>
         )}
@@ -307,308 +294,220 @@ Sei konkret, praktisch und detailliert!`;
   let hourlyStart = (hourly?.time || []).findIndex(t => new Date(t).getTime() >= nowHour.getTime());
   if (hourlyStart < 0) hourlyStart = 0;
 
-  return (
-    <div className="min-h-screen bg-gray-950 p-4 pb-32">
-      <div className="max-w-6xl mx-auto space-y-6">
+  const weatherTabs = [
+    { key: 'current', label: 'Aktuell' },
+    { key: 'radar', label: 'Radar' },
+    { key: 'forecast', label: 'Vorhersage' },
+  ];
 
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400">
-              Wetter & Angelprognose
-            </h1>
-            <div className="flex items-center gap-1.5 mt-1">
-              <MapPin className="w-3.5 h-3.5 text-cyan-500/60" />
-              <p className="text-gray-400 text-sm">
-                {currentLocation?.name || "Standort nicht verfügbar"}
-              </p>
+  return (
+    <div className="bb-page">
+
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
+            Wetter & Angelprognose
+          </h1>
+          <div className="flex items-center gap-1.5 mt-1">
+            <MapPin size={14} style={{ color: 'rgba(0,229,255,.5)' }} />
+            <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+              {currentLocation?.name || "Standort nicht verfügbar"}
+            </p>
+          </div>
+        </div>
+        <button onClick={handleRequestLocation} className="bb-secondary flex items-center gap-2 shrink-0">
+          <MapPin size={16} style={{ color: 'var(--bb-cyan)' }} />
+          Aktualisieren
+        </button>
+      </div>
+
+      <TabBar tabs={weatherTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {activeTab === 'current' && (
+        <>
+          <div className="bb-card">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="text-5xl font-bold text-white">{Math.round(current.temperature_2m)}°C</div>
+                <div className="mt-1" style={{ color: 'var(--bb-muted)' }}>{getWeatherDescription(current.weather_code)}</div>
+                <div className="text-sm" style={{ color: 'var(--bb-muted)' }}>Gefühlt: {Math.round(current.apparent_temperature)}°C</div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-sm mb-1" style={{ color: 'var(--bb-muted)' }}>Angel-Bedingungen</div>
+                <div className={`text-3xl font-bold ${condition.color}`}>
+                  {condition.rating}
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  {[...Array(5)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: i < condition.score ? '#34d399' : 'var(--bb-border)' }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+              <WeatherStat label="Luftdruck" value={`${Math.round(current.pressure_msl)} hPa`} trend={current.pressure_msl > 1013 ? "up" : "down"} icon={Gauge} color="#60a5fa" />
+              <WeatherStat label="Wind" value={`${Math.round(current.wind_speed_10m * 3.6)} km/h`} subtitle={`Böen: ${Math.round(current.wind_gusts_10m * 3.6)} km/h`} icon={Wind} color="#38bdf8" />
+              <WeatherStat label="Luftfeuchtigkeit" value={`${current.relative_humidity_2m}%`} icon={Droplets} color="#22d3ee" />
+              <WeatherStat label="Sichtweite" value={`${(current.visibility/1000).toFixed(1)} km`} icon={Eye} color="#34d399" />
+              <WeatherStat label="Bewölkung" value={`${current.cloud_cover}%`} icon={Cloud} color="#94a3b8" />
+              <WeatherStat label="Taupunkt" value={`${Math.round(current.dew_point_2m)}°C`} icon={Thermometer} color="#fb923c" />
+              <WeatherStat label="UV-Index" value={daily.uv_index_max[0]} icon={Eye} color="#facc15" />
+              <WeatherStat label="Regen heute" value={`${daily.precipitation_probability_max[0]}%`} icon={Droplets} color="#60a5fa" />
+            </div>
+
+            <div className="flex items-center justify-center gap-8 mt-6 pt-6" style={{ borderTop: '1px solid var(--bb-border)' }}>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>Sonnenaufgang</div>
+                <div className="text-sm font-medium text-white">
+                  {new Date(daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--bb-muted)' }}>Sonnenuntergang</div>
+                <div className="text-sm font-medium text-white">
+                  {new Date(daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
             </div>
           </div>
-          <Button
-            onClick={handleRequestLocation}
-            variant="outline"
-            size="sm"
-            className="border-gray-700 hover:bg-gray-800 text-gray-300 flex-shrink-0"
-          >
-            <MapPin className="w-4 h-4 mr-2 text-cyan-400" />
-            Aktualisieren
-          </Button>
-        </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800/50">
-            <TabsTrigger value="current">Aktuell</TabsTrigger>
-            <TabsTrigger value="radar">Radar</TabsTrigger>
-            <TabsTrigger value="forecast">Vorhersage</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="current" className="space-y-6">
-
-            <Card className="glass-morphism border-gray-800">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <div className="text-5xl font-bold text-white">{Math.round(current.temperature_2m)}°C</div>
-                    <div className="text-gray-400 mt-1">{getWeatherDescription(current.weather_code)}</div>
-                    <div className="text-sm text-gray-500">Gefühlt: {Math.round(current.apparent_temperature)}°C</div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-sm text-gray-400 mb-1">Angel-Bedingungen</div>
-                    <div className={`text-3xl font-bold ${condition.color}`}>
-                      {condition.rating}
-                    </div>
-                    <div className="flex items-center gap-1 mt-2">
-                      {[...Array(5)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`w-2 h-2 rounded-full ${
-                            i < condition.score ? 'bg-emerald-400' : 'bg-gray-700'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <WeatherStat
-                    label="Luftdruck"
-                    value={`${Math.round(current.pressure_msl)} hPa`}
-                    trend={current.pressure_msl > 1013 ? "up" : "down"}
-                    icon={Gauge}
-                    color="text-blue-400"
-                  />
-                  <WeatherStat
-                    label="Wind"
-                    value={`${Math.round(current.wind_speed_10m * 3.6)} km/h`}
-                    subtitle={`Böen: ${Math.round(current.wind_gusts_10m * 3.6)} km/h`}
-                    icon={Wind}
-                    color="text-sky-400"
-                  />
-                  <WeatherStat
-                    label="Luftfeuchtigkeit"
-                    value={`${current.relative_humidity_2m}%`}
-                    icon={Droplets}
-                    color="text-cyan-400"
-                  />
-                  <WeatherStat
-                    label="Sichtweite"
-                    value={`${(current.visibility/1000).toFixed(1)} km`}
-                    icon={Eye}
-                    color="text-emerald-400"
-                  />
-                  <WeatherStat
-                    label="Bewölkung"
-                    value={`${current.cloud_cover}%`}
-                    icon={Cloud}
-                    color="text-gray-400"
-                  />
-                  <WeatherStat
-                    label="Taupunkt"
-                    value={`${Math.round(current.dew_point_2m)}°C`}
-                    icon={Thermometer}
-                    color="text-orange-400"
-                  />
-                  <WeatherStat
-                    label="UV-Index"
-                    value={daily.uv_index_max[0]}
-                    icon={Eye}
-                    color="text-yellow-400"
-                  />
-                  <WeatherStat
-                    label="Regen heute"
-                    value={`${daily.precipitation_probability_max[0]}%`}
-                    icon={Droplets}
-                    color="text-blue-400"
-                  />
-                </div>
-
-                <div className="flex items-center justify-center gap-8 mt-6 pt-6 border-t border-gray-700">
-                  <div>
-                    <div className="text-xs text-gray-400">Sonnenaufgang</div>
-                    <div className="text-sm font-medium text-white">
-                      {new Date(daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-400">Sonnenuntergang</div>
-                    <div className="text-sm font-medium text-white">
-                      {new Date(daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-morphism border-emerald-600/50 bg-emerald-900/10">
-              <CardHeader>
-                <CardTitle className="text-emerald-400 flex items-center justify-between">
-                  <span>KI Angel-Assistent</span>
-                  <div className="flex items-center gap-2">
-                    {aiTips && (
-                      <Button
-                        onClick={handleReadAloud}
-                        disabled={isReadingAloud || loadingTips}
-                        size="sm"
-                        variant="outline"
-                        className="border-emerald-600/50 hover:bg-emerald-600/20 text-emerald-400"
-                      >
-                        {isReadingAloud ? 'Liest vor...' : 'Vorlesen'}
-                      </Button>
-                    )}
-                    <Button
-                      onClick={generateAITips}
-                      disabled={loadingTips}
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      {loadingTips ? 'Analysiere...' : 'Analyse starten'}
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {aiTips ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <div className="whitespace-pre-wrap text-gray-200 leading-relaxed">
-                      {aiTips}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-400">
-                    <p>Klicke auf "Analyse starten" für detaillierte Angel-Empfehlungen basierend auf den aktuellen Wetterbedingungen</p>
-                  </div>
+          <div className="bb-card" style={{ borderColor: 'rgba(16,185,129,.3)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-lg font-bold" style={{ color: '#34d399' }}>KI Angel-Assistent</span>
+              <div className="flex items-center gap-2">
+                {aiTips && (
+                  <button onClick={handleReadAloud} disabled={isReadingAloud || loadingTips} className="bb-secondary text-sm">
+                    {isReadingAloud ? 'Liest vor...' : 'Vorlesen'}
+                  </button>
                 )}
-              </CardContent>
-            </Card>
+                <button onClick={generateAITips} disabled={loadingTips} className="bb-action text-sm">
+                  {loadingTips ? 'Analysiere...' : 'Analyse starten'}
+                </button>
+              </div>
+            </div>
+            {aiTips ? (
+              <div className="whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--bb-text-secondary)' }}>
+                {aiTips}
+              </div>
+            ) : (
+              <div className="text-center py-8" style={{ color: 'var(--bb-muted)' }}>
+                <p>Klicke auf "Analyse starten" für detaillierte Angel-Empfehlungen basierend auf den aktuellen Wetterbedingungen</p>
+              </div>
+            )}
+          </div>
 
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Bewertungs-Faktoren</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {condition.reasons.map((reason, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="text-gray-300">{reason}</span>
+          <div className="bb-card">
+            <div className="text-base font-bold text-white mb-3">Bewertungs-Faktoren</div>
+            <div className="grid gap-2">
+              {condition.reasons.map((reason, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 rounded-full" style={{ background: '#34d399' }} />
+                  <span style={{ color: 'var(--bb-text-secondary)' }}>{reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'radar' && (
+        <div className="bb-card overflow-hidden" style={{ padding: 0 }}>
+          <div className="px-5 pt-5 pb-3">
+            <div className="text-base font-bold text-white">Wetter-Radar</div>
+          </div>
+          <div style={{ height: 600 }}>
+            <WeatherRadarMap />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'forecast' && (
+        <>
+          <div className="bb-card">
+            <div className="text-base font-bold text-white mb-4">7-Tage Vorhersage</div>
+            <div className="grid gap-3">
+              {daily.time.slice(0, 7).map((date, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(0,0,0,.25)' }}>
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-16" style={{ color: 'var(--bb-muted)' }}>
+                      {new Date(date).toLocaleDateString('de-DE', { weekday: 'short' })}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-          </TabsContent>
-
-          <TabsContent value="radar" className="space-y-6">
-            <Card className="glass-morphism border-gray-800 overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-white">Wetter-Radar</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[600px]">
-                  <WeatherRadarMap />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="forecast" className="space-y-6">
-
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">7-Tage Vorhersage</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {daily.time.slice(0, 7).map((date, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="text-gray-400 w-16">
-                          {new Date(date).toLocaleDateString('de-DE', { weekday: 'short' })}
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm text-gray-300">{getWeatherDescription(daily.weather_code[i])}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-sm text-blue-400">
-                          {daily.precipitation_probability_max[i]}%
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">{Math.round(daily.temperature_2m_min[i])}°</span>
-                          <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-red-500 rounded-full" />
-                          <span className="text-white font-medium">{Math.round(daily.temperature_2m_max[i])}°</span>
-                        </div>
-                      </div>
+                    <div className="flex-1">
+                      <div className="text-sm" style={{ color: 'var(--bb-text-secondary)' }}>{getWeatherDescription(daily.weather_code[i])}</div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Nächste 24 Stunden</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <div className="flex gap-4 pb-2">
-                    {hourly.time.slice(hourlyStart, hourlyStart + 24).map((time, idx) => {
-                      const i = hourlyStart + idx;
-                      return (
-                        <div key={i} className="flex-shrink-0 w-20 text-center p-3 bg-gray-800/30 rounded-lg">
-                          <div className="text-xs text-gray-400 mb-2">
-                            {new Date(time).toLocaleTimeString('de-DE', { hour: '2-digit' })}
-                          </div>
-                          <div className="text-sm font-medium text-white mb-1">
-                            {Math.round(hourly.temperature_2m[i])}°
-                          </div>
-                          <div className="text-xs text-blue-400">
-                            {hourly.precipitation_probability[i]}%
-                          </div>
-                        </div>
-                      );
-                    })}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm" style={{ color: '#60a5fa' }}>
+                      {daily.precipitation_probability_max[i]}%
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span style={{ color: 'var(--bb-muted)' }}>{Math.round(daily.temperature_2m_min[i])}°</span>
+                      <div className="w-16 h-1 rounded-full" style={{ background: 'linear-gradient(to right, #3b82f6, #ef4444)' }} />
+                      <span className="text-white font-medium">{Math.round(daily.temperature_2m_max[i])}°</span>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
+          </div>
 
-            {currentLocation?.lat && currentLocation?.lon && (
-              <>
-                <SafetyMode
-                  lat={currentLocation.lat}
-                  lon={currentLocation.lon}
-                  className="mb-2"
-                />
-                <WeatherWarnings lat={currentLocation.lat} lon={currentLocation.lon} />
-              </>
-            )}
+          <div className="bb-card">
+            <div className="text-base font-bold text-white mb-4">Nächste 24 Stunden</div>
+            <div className="overflow-x-auto">
+              <div className="flex gap-3 pb-2">
+                {hourly.time.slice(hourlyStart, hourlyStart + 24).map((time, idx) => {
+                  const i = hourlyStart + idx;
+                  return (
+                    <div key={i} className="shrink-0 w-20 text-center p-3 rounded-xl" style={{ background: 'rgba(0,0,0,.25)' }}>
+                      <div className="text-xs mb-2" style={{ color: 'var(--bb-muted)' }}>
+                        {new Date(time).toLocaleTimeString('de-DE', { hour: '2-digit' })}
+                      </div>
+                      <div className="text-sm font-medium text-white mb-1">
+                        {Math.round(hourly.temperature_2m[i])}°
+                      </div>
+                      <div className="text-xs" style={{ color: '#60a5fa' }}>
+                        {hourly.precipitation_probability[i]}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
-          </TabsContent>
+          {currentLocation?.lat && currentLocation?.lon && (
+            <>
+              <SafetyMode lat={currentLocation.lat} lon={currentLocation.lon} className="mb-2" />
+              <WeatherWarnings lat={currentLocation.lat} lon={currentLocation.lon} />
+            </>
+          )}
+        </>
+      )}
 
-        </Tabs>
-
-      </div>
     </div>
   );
 }
 
-function WeatherStat({ label, value, subtitle, trend, icon: Icon, color = "text-cyan-400" }) {
+function WeatherStat({ label, value, subtitle, trend, icon: Icon, color = 'var(--bb-cyan)' }) {
   return (
-    <div className="p-3 bg-gray-800/40 hover:bg-gray-800/60 rounded-xl border border-gray-700/40 hover:border-gray-700/60 transition-colors">
+    <div className="bb-stat-card">
       <div className="flex items-center gap-1.5 mb-2">
-        {Icon && <Icon className={`w-3.5 h-3.5 ${color}`} />}
-        <div className="text-xs text-gray-400 font-medium">{label}</div>
+        {Icon && <Icon size={14} style={{ color }} />}
+        <div className="text-xs font-medium" style={{ color: 'var(--bb-muted)' }}>{label}</div>
         {trend && (
-          <span className={`text-xs ml-auto font-bold ${trend === "up" ? "text-emerald-400" : "text-blue-400"}`}>
+          <span className="text-xs ml-auto font-bold" style={{ color: trend === 'up' ? '#34d399' : '#60a5fa' }}>
             {trend === "up" ? "↑" : "↓"}
           </span>
         )}
       </div>
-      <div className={`text-lg font-bold ${color}`}>{value}</div>
-      {subtitle && <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>}
+      <div className="text-lg font-bold" style={{ color }}>{value}</div>
+      {subtitle && <div className="text-xs mt-0.5" style={{ color: 'var(--bb-muted)' }}>{subtitle}</div>}
     </div>
   );
 }

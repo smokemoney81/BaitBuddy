@@ -1,9 +1,7 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-
 const Section = ({ number, title, children }) => (
   <section className="mb-6">
-    <h2 className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] text-lg font-bold mb-2">
+    <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--bb-cyan)' }}>
       {number}. {title}
     </h2>
     <div className="text-gray-300 text-sm leading-relaxed space-y-2">
@@ -14,15 +12,13 @@ const Section = ({ number, title, children }) => (
 
 export default function Datenschutz() {
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      <Card className="glass-morphism border-gray-800 rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)] text-xl sm:text-2xl">
-            Datenschutzerklärung - BaitBuddy
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6 text-sm text-gray-400">
+    <div className="bb-page max-w-4xl mx-auto">
+      <div className="bb-card">
+        <div className="text-xl sm:text-2xl font-bold mb-6" style={{ color: 'var(--bb-cyan)' }}>
+          Datenschutzerklärung - BaitBuddy
+        </div>
+        <div>
+          <div className="mb-6 text-sm" style={{ color: 'var(--bb-muted)' }}>
             <p><strong>Stand:</strong> 25.02.2026</p>
           </div>
 
@@ -101,8 +97,8 @@ export default function Datenschutz() {
           <Section number="11" title="Kontakt">
             <p>E-Mail: s.s.bedburg@gmail.com</p>
           </Section>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

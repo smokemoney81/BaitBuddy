@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Star, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,7 +16,7 @@ export default function FunctionRatings() {
   const loadData = async () => {
     try {
       const user = await auth.me();
-      
+
       if (user?.role !== 'admin') {
         setIsAdmin(false);
         toast.error('Nur Admins können Bewertungen einsehen');
@@ -59,7 +57,7 @@ export default function FunctionRatings() {
   if (loading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center text-slate-400">Lade Bewertungen...</div>
+        <div className="text-center" style={{ color: 'var(--bb-muted)' }}>Lade Bewertungen...</div>
       </div>
     );
   }
@@ -67,11 +65,11 @@ export default function FunctionRatings() {
   if (!isAdmin) {
     return (
       <div className="container mx-auto p-6">
-        <Card className="bg-gray-900/50 border-gray-800">
-          <CardContent className="pt-6 text-center">
-            <p className="text-slate-400">Zugriff verweigert. Nur Admins können diese Seite sehen.</p>
-          </CardContent>
-        </Card>
+        <div className="bb-card">
+          <div className="pt-6 text-center">
+            <p style={{ color: 'var(--bb-muted)' }}>Zugriff verweigert. Nur Admins können diese Seite sehen.</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -82,34 +80,33 @@ export default function FunctionRatings() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-50">Funktionsbewertungen</h1>
-        <Badge variant="outline" className="text-slate-300">
-          <Users className="w-4 h-4 mr-2" />
+        <span className="bb-pill-info" style={{ background: 'transparent', border: '1px solid var(--bb-border)', color: '#d1d5db', fontSize: '0.75rem' }}>
+          <Users size={16} className="mr-2" />
           {ratings.length} Bewertungen
-        </Badge>
+        </span>
       </div>
 
       <div className="grid gap-6">
         {stats.map((stat) => (
-          <Card key={stat.functionName} className="bg-gray-900/50 border-gray-800">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl text-slate-50">{stat.functionName}</CardTitle>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                    <span className="text-lg font-bold text-slate-50">{stat.avgRating}</span>
-                  </div>
-                  <Badge variant="secondary">
-                    {stat.count} Bewertung{stat.count !== 1 ? 'en' : ''}
-                  </Badge>
+          <div key={stat.functionName} className="bb-card">
+            <div className="flex items-center justify-between">
+              <div className="text-xl font-semibold text-slate-50">{stat.functionName}</div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Star size={20} className="fill-amber-400 text-amber-400" />
+                  <span className="text-lg font-bold text-slate-50">{stat.avgRating}</span>
                 </div>
+                <span className="bb-pill-info" style={{ background: 'var(--bb-surface)', color: 'var(--bb-muted)', fontSize: '0.75rem' }}>
+                  {stat.count} Bewertung{stat.count !== 1 ? 'en' : ''}
+                </span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
+            </div>
+            <div className="grid gap-3 mt-4">
               {stat.ratings.map((rating) => (
                 <div
                   key={rating.id}
-                  className="p-4 bg-gray-950/50 rounded-lg border border-gray-800"
+                  className="p-4 rounded-lg"
+                  style={{ background: 'var(--bb-bg)', border: '1px solid var(--bb-border)' }}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -117,17 +114,18 @@ export default function FunctionRatings() {
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
                             key={star}
-                            className={`w-4 h-4 ${
+                            size={16}
+                            className={
                               star <= rating.rating
                                 ? 'fill-amber-400 text-amber-400'
                                 : 'text-gray-600'
-                            }`}
+                            }
                           />
                         ))}
                       </div>
-                      <span className="text-sm text-slate-400">{rating.user_email}</span>
+                      <span className="text-sm" style={{ color: 'var(--bb-muted)' }}>{rating.user_email}</span>
                     </div>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs" style={{ color: 'var(--bb-muted)' }}>
                       {new Date(rating.created_date).toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: '2-digit',
@@ -138,21 +136,21 @@ export default function FunctionRatings() {
                     </span>
                   </div>
                   {rating.comment && (
-                    <p className="text-sm text-slate-300 mt-2">{rating.comment}</p>
+                    <p className="text-sm mt-2" style={{ color: '#d1d5db' }}>{rating.comment}</p>
                   )}
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
 
       {stats.length === 0 && (
-        <Card className="bg-gray-900/50 border-gray-800">
-          <CardContent className="pt-6 text-center">
-            <p className="text-slate-400">Noch keine Bewertungen vorhanden</p>
-          </CardContent>
-        </Card>
+        <div className="bb-card">
+          <div className="pt-6 text-center">
+            <p style={{ color: 'var(--bb-muted)' }}>Noch keine Bewertungen vorhanden</p>
+          </div>
+        </div>
       )}
     </div>
   );

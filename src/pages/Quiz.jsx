@@ -3,10 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { toast } from 'sonner';
 import { User } from '@/entities/User';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { BrainCircuit, Check, X, Award, Clock, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -118,7 +115,7 @@ export default function QuizPage() {
           profiPool.push(q);
       }
     });
-    
+
     // Shuffle questions within each pool once for a random base order
     const getLevelQuestions = (pool) => shuffleArray([...pool]);
 
@@ -198,8 +195,8 @@ export default function QuizPage() {
   // Function to start a new quiz
   const startQuiz = (levelConfig) => {
     // Shuffle the questions for the chosen level for this specific quiz run
-    const shuffledLevelQuestions = shuffleArray([...levelConfig.questions]); 
-    
+    const shuffledLevelQuestions = shuffleArray([...levelConfig.questions]);
+
     if (shuffledLevelQuestions.length === 0) {
       toast.error("Für dieses Level sind keine Fragen verfügbar. Bitte wähle ein anderes Level.");
       return;
@@ -221,7 +218,7 @@ export default function QuizPage() {
   // Function to handle answer selection as per outline
   const handleAnswer = useCallback((selectedIndex) => {
     if (answered) return; // Prevent multiple answers for the same question
-    
+
     // Clear the main countdown timer when an answer is selected
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -269,7 +266,7 @@ export default function QuizPage() {
     if (timeLeft === 0) {
       setWrongCount(prev => prev + 1); // Increment wrong answers (unanswered questions count as wrong)
       // No score awarded for unanswered questions
-      
+
       // Auto-advance to the next question or end the quiz
       if (questionIndex < currentQuestions.length - 1) {
         setQuestionIndex(prev => prev + 1);
@@ -304,17 +301,17 @@ export default function QuizPage() {
   if (isLoading) {
     return <div className="p-8 text-center"><LoadingSpinner /></div>;
   }
-  
+
   // Display message if no quiz levels are configured (should not happen with embedded data)
   if (quizLevelsConfig.length === 0 && !isLoading) {
       return (
           <div className="p-8 max-w-2xl mx-auto text-center">
-              <Card className="glass-morphism border-gray-800">
-                  <CardHeader><CardTitle className="text-white">Keine Quizfragen gefunden</CardTitle></CardHeader>
-                  <CardContent>
-                      <p className="text-gray-400 mb-4">Der Fragenkatalog ist leer. Es gab ein Problem beim Laden der eingebetteten Fragen.</p>
-                  </CardContent>
-              </Card>
+              <div className="bb-card">
+                  <div className="bb-form-title text-white">Keine Quizfragen gefunden</div>
+                  <div className="grid gap-4 mt-4">
+                      <p style={{ color: 'var(--bb-muted)' }} className="mb-4">Der Fragenkatalog ist leer. Es gab ein Problem beim Laden der eingebetteten Fragen.</p>
+                  </div>
+              </div>
           </div>
       );
   }
@@ -326,21 +323,21 @@ export default function QuizPage() {
           <motion.div key="level-selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="max-w-2xl mx-auto text-center">
               <h1 className="text-3xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-                <BrainCircuit className="w-8 h-8 text-emerald-400" /> Quiz-Zeit!
+                <BrainCircuit size={32} style={{ color: '#34d399' }} /> Quiz-Zeit!
               </h1>
-              <p className="text-gray-400 mb-8">Wähle deinen Schwierigkeitsgrad und sammle Punkte.</p>
+              <p className="mb-8" style={{ color: 'var(--bb-muted)' }}>Wähle deinen Schwierigkeitsgrad und sammle Punkte.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {quizLevelsConfig.map((level, index) => ( // Iterate through the new array structure
-                  <Card key={level.key || index} className="glass-morphism border-gray-800 hover:border-emerald-500/50 transition-all">
-                    <CardContent className="p-6">
+                {quizLevelsConfig.map((level, index) => (
+                  <div key={level.key || index} className="bb-card hover:border-emerald-500/50 transition-all">
+                    <div className="p-6">
                       <h3 className="text-xl font-semibold text-white mb-2">{level.name}</h3>
-                      <p className="text-gray-400 mb-2">{level.description}</p>
-                      <p className="text-gray-400 mb-4">Fragen: {level.questions.length} • Punkte/Frage: {level.pointsPerCorrectAnswer}</p>
-                      <Button onClick={() => startQuiz(level)} className={`${level.color} w-full text-white`}>
+                      <p className="mb-2" style={{ color: 'var(--bb-muted)' }}>{level.description}</p>
+                      <p className="mb-4" style={{ color: 'var(--bb-muted)' }}>Fragen: {level.questions.length} - Punkte/Frage: {level.pointsPerCorrectAnswer}</p>
+                      <button onClick={() => startQuiz(level)} className={`bb-action ${level.color} w-full text-white`}>
                         Start
-                      </Button>
-                    </CardContent>
-                  </Card>
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -349,76 +346,73 @@ export default function QuizPage() {
 
         {gameState === 'playing' && currentQuestion && (
           <motion.div key="playing" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="max-w-2xl mx-auto">
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
+            <div className="bb-card">
+              <div>
                 <div className="flex justify-between items-center">
-                  <Badge className={`${currentLevelData?.color || 'bg-gray-500'} text-white`}>{currentLevelData?.name}</Badge>
+                  <span className={`bb-pill-info ${currentLevelData?.color || 'bg-gray-500'} text-white`}>{currentLevelData?.name}</span>
                   <div className="flex items-center gap-2 font-mono text-lg text-white">
-                    <Clock className="w-5 h-5" /> {timeLeft}s
+                    <Clock size={20} /> {timeLeft}s
                   </div>
                 </div>
                 <Progress value={(questionIndex / currentQuestions.length) * 100} className="mt-4" />
-                <p className="text-sm text-gray-400 text-center mt-2">Frage {questionIndex + 1} von {currentQuestions.length}</p>
-              </CardHeader>
-              <CardContent className="text-center">
+                <p className="text-sm text-center mt-2" style={{ color: 'var(--bb-muted)' }}>Frage {questionIndex + 1} von {currentQuestions.length}</p>
+              </div>
+              <div className="grid gap-4 mt-4 text-center">
                 <h2 className="text-xl md:text-2xl font-semibold text-white mb-8">{currentQuestion.question}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                  {currentQuestion.options.map((option, idx) => { // Iterate through options array
-                    let buttonClass = "bg-gray-800/50 border-gray-700 hover:bg-gray-700/70";
-                    if (answered) { // Apply feedback styling only if an answer has been given
+                  {currentQuestion.options.map((option, idx) => {
+                    let buttonStyle = { background: 'rgba(0,0,0,.25)', border: '1px solid var(--bb-border)' };
+                    if (answered) {
                         if (idx === currentQuestion.correct) {
-                            buttonClass = "bg-green-500/80 border-green-400 text-white";
-                        } else if (idx === selectedOptionIndex) { // If it was selected and wrong
-                            buttonClass = "bg-red-500/80 border-red-400 text-white";
+                            buttonStyle = { background: 'rgba(34,197,94,0.8)', border: '1px solid #4ade80', color: '#fff' };
+                        } else if (idx === selectedOptionIndex) {
+                            buttonStyle = { background: 'rgba(239,68,68,0.8)', border: '1px solid #f87171', color: '#fff' };
                         }
                     }
                     return (
-                        <Button 
-                            key={idx} 
-                            onClick={() => handleAnswer(idx)} 
-                            disabled={answered} // Disable button if an answer has already been selected
-                            variant="outline" 
-                            className={`h-auto p-4 rounded-xl text-white text-base justify-start text-left whitespace-normal ${buttonClass}`}
+                        <button
+                            key={idx}
+                            onClick={() => handleAnswer(idx)}
+                            disabled={answered}
+                            className="h-auto p-4 rounded-xl text-white text-base justify-start text-left whitespace-normal"
+                            style={buttonStyle}
                         >
                             {option}
-                        </Button>
+                        </button>
                     );
                   })}
                 </div>
-                {/* The "Weiter" button is removed here as handleAnswer's setTimeout handles auto-progression. */}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         )}
 
         {gameState === 'results' && (
           <motion.div key="results" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="max-w-2xl mx-auto text-center">
-            <Card className="glass-morphism border-gray-800">
-                <CardHeader>
-                    <CardTitle className="text-3xl font-bold text-white flex items-center justify-center gap-3">
-                        <Award className="w-8 h-8 text-amber-400" /> Ergebnis
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-2xl font-bold text-emerald-400 mb-4">+{score} Punkte</p>
-                    <div className="grid grid-cols-2 gap-4 text-left text-gray-300 mb-8 p-4 bg-gray-800/50 rounded-xl">
-                        <div className="flex items-center gap-2"><Check className="w-5 h-5 text-green-500" /> Richtig: {correctCount}</div>
-                        <div className="flex items-center gap-2"><X className="w-5 h-5 text-red-500" /> Falsch: {wrongCount}</div>
-                        <div className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-500" /> Zeit: {Math.round((Date.now() - runStartTime) / 1000)}s</div>
-                        <div className="flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" /> Gesamtpunkte: {user?.quiz_points || 0}</div>
+            <div className="bb-card">
+                <div className="bb-form-title text-3xl font-bold text-white flex items-center justify-center gap-3">
+                    <Award size={32} style={{ color: '#fbbf24' }} /> Ergebnis
+                </div>
+                <div className="grid gap-4 mt-4">
+                    <p className="text-2xl font-bold mb-4" style={{ color: '#34d399' }}>+{score} Punkte</p>
+                    <div className="grid grid-cols-2 gap-4 text-left mb-8 p-4 rounded-xl" style={{ color: '#d1d5db', background: 'rgba(0,0,0,.25)' }}>
+                        <div className="flex items-center gap-2"><Check size={20} style={{ color: '#22c55e' }} /> Richtig: {correctCount}</div>
+                        <div className="flex items-center gap-2"><X size={20} style={{ color: '#ef4444' }} /> Falsch: {wrongCount}</div>
+                        <div className="flex items-center gap-2"><Clock size={20} style={{ color: '#3b82f6' }} /> Zeit: {Math.round((Date.now() - runStartTime) / 1000)}s</div>
+                        <div className="flex items-center gap-2"><Award size={20} style={{ color: '#f59e0b' }} /> Gesamtpunkte: {user?.quiz_points || 0}</div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4">
-                        <Button onClick={() => setGameState('level-selection')} variant="outline" className="w-full">
+                        <button onClick={() => setGameState('level-selection')} className="bb-secondary w-full">
                             Neue Runde
-                        </Button>
+                        </button>
                         <Link to={createPageUrl("Shop")} className="w-full">
-                            <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
-                                <ShoppingCart className="w-4 h-4 mr-2" /> Zum Shop
-                            </Button>
+                            <button className="bb-action w-full" style={{ background: '#059669' }}>
+                                <ShoppingCart size={16} className="mr-2" /> Zum Shop
+                            </button>
                         </Link>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { Loader2 } from "lucide-react";
 
 export default function AdminTracking() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [range, setRange] = useState(7); // Tage
+  const [range, setRange] = useState(7);
 
   useEffect(() => {
     (async () => {
@@ -94,25 +94,27 @@ export default function AdminTracking() {
 
   if (loading) {
     return (
-      <div className="p-6 text-gray-400">Lade Tracking-Daten...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bb-bg)' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--bb-cyan)' }} />
+      </div>
     );
   }
 
   if (user?.role !== "admin") {
     return (
-      <div className="p-6 max-w-md mx-auto text-center">
+      <div className="bb-page text-center">
         <h1 className="text-2xl font-bold text-white mb-2">Zugriff verweigert</h1>
-        <p className="text-gray-400">Diese Seite ist nur fuer Administratoren verfuegbar.</p>
+        <p style={{ color: 'var(--bb-muted)' }}>Diese Seite ist nur fuer Administratoren verfuegbar.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="bb-page">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Tracking Auswertung</h1>
-          <p className="text-sm text-gray-400">Nutzungsdaten der letzten {range} Tage</p>
+          <h1 className="text-2xl font-bold text-white">Tracking Auswertung</h1>
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Nutzungsdaten der letzten {range} Tage</p>
         </div>
         <div className="flex gap-2">
           {[1, 7, 30, 90].map((d) => (
@@ -120,10 +122,9 @@ export default function AdminTracking() {
               key={d}
               onClick={() => setRange(d)}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                range === d
-                  ? "bg-cyan-600 text-white"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                range === d ? "bb-action" : ""
               }`}
+              style={range !== d ? { background: 'var(--bb-surface)', color: 'var(--bb-muted)', border: '1px solid var(--bb-border)' } : undefined}
             >
               {d === 1 ? "Heute" : `${d} Tage`}
             </button>
@@ -131,97 +132,81 @@ export default function AdminTracking() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Seitenaufrufe" value={totalPageViews} />
-        <StatCard label="Feature-Klicks" value={totalClicks} />
-        <StatCard label="Aktive Nutzer" value={uniqueUsers} />
-        <StatCard label="Gesamt-Minuten" value={totalMinutes} />
+      <div className="bb-stat-row" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+        {[
+          { label: 'Seitenaufrufe', value: totalPageViews },
+          { label: 'Feature-Klicks', value: totalClicks },
+          { label: 'Aktive Nutzer', value: uniqueUsers },
+          { label: 'Gesamt-Minuten', value: totalMinutes },
+        ].map(s => (
+          <div key={s.label} className="bb-stat-card">
+            <div className="bb-stat-label">{s.label}</div>
+            <div className="bb-stat-value">{s.value}</div>
+          </div>
+        ))}
       </div>
 
-      <Card className="bg-gray-900/60 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white">Seitenaufrufe (Top 20)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pageViews.length === 0 ? (
-            <p className="text-gray-500 text-sm">Keine Daten</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={Math.max(220, pageViews.length * 28)}>
-              <BarChart data={pageViews} layout="vertical" margin={{ left: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis type="number" stroke="#9ca3af" />
-                <YAxis type="category" dataKey="name" stroke="#9ca3af" width={120} />
-                <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151" }} />
-                <Bar dataKey="count" fill="#22d3ee" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      <div className="bb-card">
+        <div className="font-bold text-white mb-4">Seitenaufrufe (Top 20)</div>
+        {pageViews.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Keine Daten</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(220, pageViews.length * 28)}>
+            <BarChart data={pageViews} layout="vertical" margin={{ left: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--bb-border)" />
+              <XAxis type="number" stroke="var(--bb-muted)" />
+              <YAxis type="category" dataKey="name" stroke="var(--bb-muted)" width={120} />
+              <Tooltip contentStyle={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }} />
+              <Bar dataKey="count" fill="#00E5FF" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
 
-      <Card className="bg-gray-900/60 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white">Feature-Nutzung (Top 20)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {featureClicks.length === 0 ? (
-            <p className="text-gray-500 text-sm">Keine Daten</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={Math.max(220, featureClicks.length * 28)}>
-              <BarChart data={featureClicks} layout="vertical" margin={{ left: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis type="number" stroke="#9ca3af" />
-                <YAxis type="category" dataKey="name" stroke="#9ca3af" width={120} />
-                <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151" }} />
-                <Bar dataKey="count" fill="#f59e0b" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      <div className="bb-card">
+        <div className="font-bold text-white mb-4">Feature-Nutzung (Top 20)</div>
+        {featureClicks.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Keine Daten</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(220, featureClicks.length * 28)}>
+            <BarChart data={featureClicks} layout="vertical" margin={{ left: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--bb-border)" />
+              <XAxis type="number" stroke="var(--bb-muted)" />
+              <YAxis type="category" dataKey="name" stroke="var(--bb-muted)" width={120} />
+              <Tooltip contentStyle={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }} />
+              <Bar dataKey="count" fill="#fbbf24" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
 
-      <Card className="bg-gray-900/60 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white">Sitzungsdauer pro Nutzer</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {userSessions.length === 0 ? (
-            <p className="text-gray-500 text-sm">Keine Daten</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-400 border-b border-gray-800">
-                    <th className="py-2 pr-4">Nutzer</th>
-                    <th className="py-2 pr-4 text-right">Sitzungen</th>
-                    <th className="py-2 text-right">Minuten gesamt</th>
+      <div className="bb-card">
+        <div className="font-bold text-white mb-4">Sitzungsdauer pro Nutzer</div>
+        {userSessions.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Keine Daten</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left" style={{ color: 'var(--bb-muted)', borderBottom: '1px solid var(--bb-border)' }}>
+                  <th className="py-2 pr-4">Nutzer</th>
+                  <th className="py-2 pr-4 text-right">Sitzungen</th>
+                  <th className="py-2 text-right">Minuten gesamt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userSessions.map((u) => (
+                  <tr key={u.user} style={{ borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                    <td className="py-2 pr-4 text-white">{u.user}</td>
+                    <td className="py-2 pr-4 text-right" style={{ color: 'var(--bb-muted)' }}>{u.count}</td>
+                    <td className="py-2 text-right font-medium" style={{ color: 'var(--bb-cyan)' }}>{u.minutes}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {userSessions.map((u) => (
-                    <tr key={u.user} className="border-b border-gray-800/50">
-                      <td className="py-2 pr-4 text-gray-200">{u.user}</td>
-                      <td className="py-2 pr-4 text-right text-gray-300">{u.count}</td>
-                      <td className="py-2 text-right text-cyan-400 font-medium">{u.minutes}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
-  );
-}
-
-function StatCard({ label, value }) {
-  return (
-    <Card className="bg-gray-900/60 border-gray-800">
-      <CardContent className="p-4">
-        <div className="text-xs text-gray-400 uppercase tracking-wide">{label}</div>
-        <div className="text-2xl md:text-3xl font-bold text-white mt-1">{value}</div>
-      </CardContent>
-    </Card>
   );
 }
