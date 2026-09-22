@@ -17,7 +17,6 @@ import {
   Save,
   Trash2,
   Heart,
-  Zap,
   BookOpen,
   Download,
   Rotate3d,

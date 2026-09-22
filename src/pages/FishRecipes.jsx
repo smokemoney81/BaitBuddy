@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, ChefHat, Clock, Users, ArrowLeft, Leaf, AlertCircle, UtensilsCrossed, Star } from "lucide-react";
+import { Loader2, ChefHat, Clock, Users, Leaf, AlertCircle, UtensilsCrossed, Star } from "lucide-react";
 import { ai } from "@/api/frontendClient";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import SubPageHeader from "@/components/layout/SubPageHeader";
