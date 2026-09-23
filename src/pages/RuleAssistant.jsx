@@ -160,7 +160,7 @@ export default function RuleAssistant() {
         : aiQuestion;
       const res = await ai.chat([{ role: "user", content: question }]);
       setAiAnswer(res?.content || res?.reply || "Keine Antwort erhalten.");
-    } catch (e) {
+    } catch {
       toast.error("KI-Abfrage fehlgeschlagen");
     } finally {
       setAiLoading(false);

@@ -55,7 +55,7 @@ function VoiceLectureInner() {
   useFeatureTracking('voice_lecture');
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [lectureContent, setLectureContent] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const { speak, stop, isSpeaking } = useElevenLabsVoice();

@@ -129,7 +129,7 @@ Sei konkret, praktisch und detailliert!`;
       if (activeEventId) {
         trackWeatherCheck(activeEventId);
       }
-    } catch (error) {
+    } catch {
       toast.error("KI-Analyse fehlgeschlagen");
     }
     setLoadingTips(false);

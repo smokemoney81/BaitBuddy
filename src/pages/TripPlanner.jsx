@@ -172,7 +172,7 @@ function TripPlannerContent() {
         ? actionMessages.tripActivated(plan.title)
         : actionMessages.tripDeactivated(plan.title);
       notifyAction(msg.title, msg);
-    } catch (error) {
+    } catch {
       toast.error("Status konnte nicht gespeichert werden");
       await loadPlans();
     }
@@ -188,7 +188,7 @@ function TripPlannerContent() {
       toast.success("Trip gelöscht");
       const msg = actionMessages.tripDeleted();
       notifyAction(msg.title, msg);
-    } catch (error) {
+    } catch {
       toast.error("Trip konnte nicht gelöscht werden");
     }
   };
@@ -495,7 +495,7 @@ export default function TripPlanner() {
     (async () => {
       try {
         setUser(await User.me());
-      } catch (e) {
+      } catch {
       }
       setLoading(false);
     })();
