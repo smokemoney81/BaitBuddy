@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Fish, MapPin, Calendar, Brain, Lock } from 'lucide-react';
+import { Plus, Fish, MapPin, Calendar, Brain, Lock, Camera, Mic } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useNavigationContext } from '@/lib/NavigationContext';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { navigationItems } from '@/components/navigation/navigationItems';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
-// Map route names to English aria-labels for accessibility
+
 const ARIA_LABELS = {
   Dashboard: 'Dashboard',
   Logbook: 'Logbook',
@@ -32,60 +32,142 @@ export default function BottomTabs() {
   const activePage = location.pathname.split('/')[1] || 'Dashboard';
 
   const follow = (event, path) => {
-    event.preventDefault(); trackFeatureClick(path, { source: 'bottom_tabs' }); switchTab(path);
-    const stack = getTabStack(path); navigate(stack.length ? stack[stack.length - 1] : `/${path}`);
+    event.preventDefault();
+    trackFeatureClick(path, { source: 'bottom_tabs' });
+    switchTab(path);
+    const stack = getTabStack(path);
+    navigate(stack.length ? stack[stack.length - 1] : `/${path}`);
   };
 
   const renderLink = path => {
-    // Nachschlagen ueber die ROUTE, nicht ueber den Seitennamen: die Tool-IDs
-    // sind kebab-case ('catches', 'ki-buddy'), die Navigationsschluessel aber
-    // Routennamen ('Logbook', 'KiBuddyBeta'). `getTool('Logbook')` traf deshalb
-    // nie ein Tool, und die Zugriffspruefung lief ins Leere.
     const tool = getToolByRoute(`/${path}`);
     const accessible = tool ? isToolAccessible(tool.id) : true;
     const { name, icon: Icon } = tool || navigationItems[path];
     const ariaLabel = ARIA_LABELS[path] || name;
+    const isActive = activePage === path;
 
     if (!accessible) {
-      // Auch die gesperrte Variante braucht einen zugaenglichen Namen — ohne
-      // aria-label meldet ein Screenreader nur "Tab", und die Tab-Leiste war
-      // ueber ihre Rolle nicht mehr auffindbar.
-      return <div key={path} role="tab" aria-label={ariaLabel} aria-disabled="true" className="bb-bottom-link opacity-50 cursor-not-allowed" title={`Freischalten über ${tool.requires || 'Premium'}`}><Lock size={22} aria-hidden="true"/><span>{name}</span></div>;
+      return (
+        <div
+          key={path}
+          role="tab"
+          aria-label={ariaLabel}
+          aria-disabled="true"
+          className="bb-nav-item bb-nav-locked"
+          title={`Freischalten über ${tool.requires || 'Premium'}`}
+        >
+          <Lock size={20} aria-hidden="true" />
+          <span>{name}</span>
+        </div>
+      );
     }
 
-    return <Link key={path} to={`/${path}`} onClick={e => follow(e, path)} role="tab" aria-label={ariaLabel} aria-selected={activePage === path} className="bb-bottom-link" aria-current={activePage === path ? 'page' : undefined}><Icon size={22} aria-hidden="true"/><span>{name}</span></Link>;
-  };
-  const split = Math.ceil(navigation.length / 2);
-  return <>
-    <nav className="bb-bottom" role="tablist" aria-label="Hauptnavigation"><div className="bb-bottom-items">
-      {navigation.slice(0, split).map(renderLink)}
-      <button
-        type="button"
-        className="bb-bottom-plus bb-glow-pulse"
-        aria-label="Schnellaktionen öffnen"
-        onClick={() => setOpen(true)}
-        style={{ margin: '0 4px' }}
+    return (
+      <Link
+        key={path}
+        to={`/${path}`}
+        onClick={e => follow(e, path)}
+        role="tab"
+        aria-label={ariaLabel}
+        aria-selected={isActive}
+        className={`bb-nav-item ${isActive ? 'bb-nav-active' : ''}`}
+        aria-current={isActive ? 'page' : undefined}
       >
-        <Plus size={26} strokeWidth={2.5}/>
-      </button>
-      {navigation.slice(split).map(renderLink)}
-    </div></nav>
-    <Sheet open={open} onOpenChange={setOpen}><SheetContent side="bottom" className="bb-app rounded-t-3xl border-0 pb-[calc(24px+env(safe-area-inset-bottom))] [&>button]:h-11 [&>button]:w-11">
-      <SheetHeader><SheetTitle className="text-white">Was möchtest du machen?</SheetTitle><SheetDescription className="bb-muted">Dein nächster Schritt am Wasser.</SheetDescription></SheetHeader>
-      <div className="grid gap-3 mt-6 max-w-xl mx-auto">
-        <button type="button" className="bb-secondary" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('openCatchDialog')); }}><Fish size={20}/>Fang hinzufügen</button>
-        {[[Calendar, 'Ausflug planen', 'TripPlanner', '/TripPlanner?new=1'], [Brain, 'KI-Buddy', 'KiBuddyBeta', '/KiBuddyBeta'], [MapPin, 'Spot speichern', 'Map', '/Map?addSpot=1']].map(([Icon, label, page, to]) => {
-          // Wie oben ueber die Route nachschlagen: `getTool('TripPlanner')`
-          // traf nie ein Tool, die Pruefung lief also auch hier ins Leere.
-          const tool = getToolByRoute(`/${page}`);
-          const accessible = tool ? isToolAccessible(tool.id) : true;
-          return accessible ? (
-            <Link key={to} className="bb-secondary" to={to} onClick={() => setOpen(false)}><Icon size={20}/>{label}</Link>
-          ) : (
-            <div key={to} className="bb-secondary opacity-50 cursor-not-allowed" title={`Freischalten über ${tool?.requires || 'Premium'}`}><Lock size={20}/>{label}</div>
-          );
-        })}
-      </div>
-    </SheetContent></Sheet>
-  </>;
+        <Icon size={20} aria-hidden="true" />
+        <span>{name}</span>
+      </Link>
+    );
+  };
+
+  const split = Math.ceil(navigation.length / 2);
+
+  return (
+    <>
+      <nav className="bb-navbar" role="tablist" aria-label="Hauptnavigation">
+        <div className="bb-navbar-inner">
+          {navigation.slice(0, split).map(renderLink)}
+
+          <div className="bb-fab-container">
+            <button
+              type="button"
+              className="bb-fab"
+              aria-label="Schnellaktionen öffnen"
+              onClick={() => setOpen(true)}
+            >
+              <Plus size={28} strokeWidth={2.5} />
+            </button>
+          </div>
+
+          {navigation.slice(split).map(renderLink)}
+        </div>
+      </nav>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="bottom"
+          className="bb-app rounded-t-3xl border-0 pb-[calc(24px+env(safe-area-inset-bottom))] [&>button]:h-11 [&>button]:w-11"
+        >
+          <SheetHeader>
+            <SheetTitle className="text-white text-lg">
+              Was möchtest du machen?
+            </SheetTitle>
+            <SheetDescription className="bb-muted">
+              Dein nächster Schritt am Wasser.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid grid-cols-2 gap-3 mt-6 max-w-xl mx-auto">
+            <button
+              type="button"
+              className="bb-quick-action-card"
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(new CustomEvent('openCatchDialog'));
+              }}
+            >
+              <div className="bb-quick-action-icon" style={{ background: 'rgba(0,229,255,.12)' }}>
+                <Camera size={22} className="text-bb-cyan" />
+              </div>
+              <span className="font-semibold text-sm">Fang erfassen</span>
+              <span className="text-xs text-slate-400">Foto, Daten, Köder</span>
+            </button>
+
+            {[
+              [Calendar, 'Ausflug planen', 'TripPlanner', '/TripPlanner?new=1', 'rgba(0,255,157,.12)', 'text-bb-green'],
+              [Brain, 'KI-Buddy', 'KiBuddyBeta', '/KiBuddyBeta', 'rgba(0,229,255,.12)', 'text-bb-cyan'],
+              [MapPin, 'Spot speichern', 'Map', '/Map?addSpot=1', 'rgba(255,159,10,.12)', 'text-bb-orange'],
+              [Mic, 'Voice Buddy', 'KiBuddyBeta', '/KiBuddyBeta?voice=1', 'rgba(0,229,255,.12)', 'text-bb-cyan'],
+              [Fish, 'Fangbuch', 'Logbook', '/Logbook', 'rgba(0,255,157,.12)', 'text-bb-green'],
+            ].map(([Icon, label, page, to, bgColor, textColor]) => {
+              const tool = getToolByRoute(`/${page}`);
+              const accessible = tool ? isToolAccessible(tool.id) : true;
+              return accessible ? (
+                <Link
+                  key={to}
+                  className="bb-quick-action-card"
+                  to={to}
+                  onClick={() => setOpen(false)}
+                >
+                  <div className="bb-quick-action-icon" style={{ background: bgColor }}>
+                    <Icon size={22} className={textColor} />
+                  </div>
+                  <span className="font-semibold text-sm">{label}</span>
+                </Link>
+              ) : (
+                <div
+                  key={to}
+                  className="bb-quick-action-card opacity-40 cursor-not-allowed"
+                  title={`Freischalten über ${tool?.requires || 'Premium'}`}
+                >
+                  <div className="bb-quick-action-icon" style={{ background: 'rgba(255,255,255,.05)' }}>
+                    <Lock size={22} className="text-slate-500" />
+                  </div>
+                  <span className="font-semibold text-sm">{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
 }

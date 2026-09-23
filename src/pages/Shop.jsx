@@ -1,8 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Store,
@@ -95,11 +92,11 @@ function AngelshopFinderContent() {
 
   return (
     <div className="space-y-6">
-      <Card className="glass-morphism border-gray-800 rounded-2xl">
-        <CardContent className="p-4 space-y-3">
+      <div className="bb-card">
+        <div className="p-4 space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--bb-muted)' }} />
               <Input
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setVisible(PAGE_SIZE); }}
@@ -108,18 +105,18 @@ function AngelshopFinderContent() {
                 aria-label="Angelladen suchen"
               />
             </div>
-            <Button
+            <button
               onClick={requestLocation}
               disabled={locState === 'loading'}
-              className="bg-cyan-600 hover:bg-cyan-700 shrink-0"
+              className="bb-action shrink-0"
             >
               {locState === 'loading'
-                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                : <LocateFixed className="w-4 h-4 mr-2" />}
+                ? <Loader2 size={16} className="mr-2 animate-spin" />
+                : <LocateFixed size={16} className="mr-2" />}
               {locState === 'ready' ? 'Standort aktualisieren' : 'Läden in der Nähe'}
-            </Button>
+            </button>
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs" style={{ color: 'var(--bb-muted)' }}>
             <span>{shops.length} Angelläden gefunden</span>
             {locState === 'denied' && (
               <span className="text-amber-400">
@@ -130,34 +127,34 @@ function AngelshopFinderContent() {
               <span className="text-emerald-400">Nach Entfernung sortiert.</span>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {shown.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {shown.map((shop) => (
-            <Card
+            <div
               key={shop.id}
-              className="glass-morphism border-gray-800 rounded-2xl hover:border-cyan-600/50 transition-colors"
+              className="bb-card hover:border-cyan-600/50 transition-colors"
             >
-              <CardContent className="p-4 flex flex-col h-full">
+              <div className="p-4 flex flex-col h-full">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center shrink-0">
-                    <Store className="w-5 h-5 text-cyan-400" />
+                    <Store size={20} style={{ color: 'var(--bb-cyan)' }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-white font-semibold leading-tight truncate">{shop.name}</h3>
-                    <div className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <div className="text-sm flex items-center gap-1 mt-1" style={{ color: 'var(--bb-muted)' }}>
+                      <MapPin size={14} className="shrink-0" />
                       <span className="truncate">
                         {[shop.street, shop.city].filter(Boolean).join(', ')}
                       </span>
                     </div>
                   </div>
                   {shop._dist != null && (
-                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs shrink-0">
+                    <span className="bb-pill-info text-xs shrink-0" style={{ background: 'rgba(16,185,129,.2)', color: '#34d399', border: '1px solid rgba(16,185,129,.3)' }}>
                       {shop._dist < 10 ? shop._dist.toFixed(1) : Math.round(shop._dist)} km
-                    </Badge>
+                    </span>
                   )}
                 </div>
                 <a
@@ -166,33 +163,31 @@ function AngelshopFinderContent() {
                   rel="noopener noreferrer"
                   className="mt-auto"
                 >
-                  <Button
-                    variant="outline"
-                    className="w-full border-cyan-700/50 text-cyan-300 hover:bg-cyan-900/30"
+                  <button
+                    className="bb-secondary w-full"
                   >
-                    <Navigation className="w-4 h-4 mr-2" />
+                    <Navigation size={16} className="mr-2" />
                     Route planen
-                  </Button>
+                  </button>
                 </a>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12" style={{ color: 'var(--bb-muted)' }}>
           Keine Angelläden für „{query}" gefunden.
         </div>
       )}
 
       {visible < shops.length && (
         <div className="text-center">
-          <Button
-            variant="outline"
+          <button
             onClick={() => setVisible((v) => v + PAGE_SIZE)}
-            className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            className="bb-secondary"
           >
             Weitere Läden laden
-          </Button>
+          </button>
         </div>
       )}
     </div>
@@ -207,23 +202,23 @@ export default function ShopPage() {
       <div className="space-y-8">
 
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
             BaitBuddy Shop
           </h1>
-          <p className="text-gray-400">
+          <p style={{ color: 'var(--bb-muted)' }}>
             Angelläden, Gebrauchtmarkt und alles, was du für dein nächstes Abenteuer brauchst.
           </p>
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="shops" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-900/50 border border-gray-800">
+          <TabsList className="grid w-full grid-cols-2" style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}>
             <TabsTrigger value="shops" className="data-[state=active]:bg-cyan-600">
-              <Store className="w-4 h-4 mr-2" />
+              <Store size={16} className="mr-2" />
               Angelläden
             </TabsTrigger>
             <TabsTrigger value="used" className="data-[state=active]:bg-cyan-600">
-              <Package className="w-4 h-4 mr-2" />
+              <Package size={16} className="mr-2" />
               Gebrauchtmarkt
             </TabsTrigger>
           </TabsList>
@@ -238,13 +233,13 @@ export default function ShopPage() {
         </Tabs>
 
         {/* Premium CTA */}
-        <Card className="glass-morphism border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-blue-500/10">
-          <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+        <div className="bb-card" style={{ borderColor: 'rgba(6,182,212,.3)', background: 'linear-gradient(to bottom right, rgba(6,182,212,.1), rgba(59,130,246,.1))' }}>
+          <div className="p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
             <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-              <Crown className="w-6 h-6 text-amber-400" />
+              <Crown size={24} className="text-amber-400" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.7)]">
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--bb-cyan)' }}>
                 BaitBuddy Premium
               </h3>
               <p className="text-gray-300 text-sm">
@@ -256,10 +251,10 @@ export default function ShopPage() {
               className="inline-flex items-center px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors shrink-0"
             >
               Zu Premium
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight size={16} className="ml-1" />
             </a>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </PageContainer>
   );

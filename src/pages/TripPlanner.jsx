@@ -3,9 +3,6 @@ import { User } from "@/entities/User";
 import { analytics, events } from "@/api/frontendClient";
 import { useEventActivityTracking } from "@/hooks/useEventActivityTracking";
 import PremiumGuard from "@/components/premium/PremiumGuard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { FishingPlan } from "@/entities/FishingPlan";
 import {
@@ -198,30 +195,30 @@ function TripPlannerContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 p-6">
+      <div className="bb-page">
         <div className="max-w-6xl mx-auto animate-pulse space-y-4">
-          <div className="h-8 bg-gray-800 rounded w-1/3" />
-          <div className="h-16 bg-gray-800 rounded" />
-          <div className="h-32 bg-gray-800 rounded" />
-          <div className="h-32 bg-gray-800 rounded" />
+          <div className="h-8 rounded w-1/3" style={{ background: 'var(--bb-surface)' }} />
+          <div className="h-16 rounded" style={{ background: 'var(--bb-surface)' }} />
+          <div className="h-32 rounded" style={{ background: 'var(--bb-surface)' }} />
+          <div className="h-32 rounded" style={{ background: 'var(--bb-surface)' }} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 p-4 sm:p-6 pb-32">
+    <div className="bb-page">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">
+            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
               Meine Trips
             </h1>
-            <p className="text-sm text-gray-400">Plane deine Touren mit allen Details — und sammle durch Nutzung Event-Punkte.</p>
+            <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Plane deine Touren mit allen Details — und sammle durch Nutzung Event-Punkte.</p>
           </div>
-          <Button onClick={openNewTrip} className="bg-emerald-600 hover:bg-emerald-700">
-            <Plus className="w-4 h-4 mr-2" /> Neuer Trip
-          </Button>
+          <button onClick={openNewTrip} className="bb-action" style={{ background: '#059669' }}>
+            <Plus size={16} className="mr-2" /> Neuer Trip
+          </button>
         </div>
 
         <TripLiveTicker plans={plans} />
@@ -237,16 +234,16 @@ function TripPlannerContent() {
             />
           </div>
         ) : plans.length === 0 ? (
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="p-8 text-center">
-              <Compass className="w-12 h-12 text-cyan-500/70 mx-auto mb-3" />
-              <h3 className="text-xl font-semibold text-cyan-400 mb-2">Noch keine Trips geplant</h3>
-              <p className="text-gray-400 mb-6">Lege deinen ersten Trip an und trag alles ein, was deine Tour braucht.</p>
-              <Button onClick={openNewTrip} className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="w-4 h-4 mr-2" /> Ersten Trip planen
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="bb-card">
+            <div className="p-8 text-center">
+              <Compass size={48} className="mx-auto mb-3" style={{ color: 'rgba(6,182,212,0.7)' }} />
+              <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--bb-cyan)' }}>Noch keine Trips geplant</h3>
+              <p className="mb-6" style={{ color: 'var(--bb-muted)' }}>Lege deinen ersten Trip an und trag alles ein, was deine Tour braucht.</p>
+              <button onClick={openNewTrip} className="bb-action" style={{ background: '#059669' }}>
+                <Plus size={16} className="mr-2" /> Ersten Trip planen
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Liste */}
@@ -261,59 +258,71 @@ function TripPlannerContent() {
                     : null;
 
                 return (
-                  <Card
+                  <div
                     key={plan.id}
-                    className={`glass-morphism border-gray-800 cursor-pointer transition-all hover:border-emerald-600/50 ${
+                    className={`bb-card cursor-pointer transition-all hover:border-emerald-600/50 ${
                       selectedPlan?.id === plan.id ? "border-emerald-600 bg-emerald-900/20" : ""
                     } ${plan.is_active ? "border-l-4 border-l-emerald-500" : ""}`}
                     onClick={() => setSelectedPlan(plan)}
                   >
-                    <CardHeader className="pb-3">
+                    <div className="pb-3">
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          <CardTitle className="text-cyan-400 text-lg truncate">{plan.title}</CardTitle>
-                          {plan.is_active && <Badge className="bg-emerald-600 text-white text-xs">Aktiv</Badge>}
+                          <div className="text-lg font-semibold truncate" style={{ color: 'var(--bb-cyan)' }}>{plan.title}</div>
+                          {plan.is_active && <span className="bb-pill-info" style={{ background: '#059669', color: '#fff', fontSize: '0.75rem' }}>Aktiv</span>}
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button variant="ghost" size="icon" aria-label={plan.is_active ? "Deaktivieren" : "Aktivieren"}
-                            onClick={(e) => { e.stopPropagation(); toggleActivePlan(plan); }}
-                            className={plan.is_active ? "text-emerald-400" : "text-gray-400 hover:text-white"}>
-                            <Power aria-hidden="true" className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" aria-label="Bearbeiten"
-                            onClick={(e) => { e.stopPropagation(); openEditTrip(plan); }}
-                            className="text-gray-400 hover:text-white">
-                            <Pencil aria-hidden="true" className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" aria-label="Löschen"
-                            onClick={(e) => { e.stopPropagation(); deletePlan(plan.id); }}
-                            className="text-gray-400 hover:text-red-400">
-                            <Trash2 aria-hidden="true" className="w-4 h-4" />
-                          </Button>
+                          <button className="p-2 rounded-lg" style={{ color: plan.is_active ? '#34d399' : 'var(--bb-muted)' }}
+                            aria-label={plan.is_active ? "Deaktivieren" : "Aktivieren"}
+                            onClick={(e) => { e.stopPropagation(); toggleActivePlan(plan); }}>
+                            <Power size={16} aria-hidden="true" />
+                          </button>
+                          <button className="p-2 rounded-lg" style={{ color: 'var(--bb-muted)' }}
+                            aria-label="Bearbeiten"
+                            onClick={(e) => { e.stopPropagation(); openEditTrip(plan); }}>
+                            <Pencil size={16} aria-hidden="true" />
+                          </button>
+                          <button className="p-2 rounded-lg hover:text-red-400" style={{ color: 'var(--bb-muted)' }}
+                            aria-label="Löschen"
+                            onClick={(e) => { e.stopPropagation(); deletePlan(plan.id); }}>
+                            <Trash2 size={16} aria-hidden="true" />
+                          </button>
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
+                    </div>
+                    <div>
                       <div className="flex flex-wrap gap-2 mb-2">
-                        {plan.target_fish && <Badge className="bg-cyan-900/60 text-cyan-200 border border-cyan-700"><Fish className="w-3 h-3 mr-1" />{plan.target_fish}</Badge>}
-                        {spot.water_type && <Badge variant="outline" className="text-gray-300"><Anchor className="w-3 h-3 mr-1" />{spot.water_type}</Badge>}
-                        {details.method && <Badge variant="outline" className="text-gray-300"><Compass className="w-3 h-3 mr-1" />{details.method}</Badge>}
+                        {plan.target_fish && (
+                          <span className="bb-pill-info" style={{ background: 'rgba(8,145,178,0.3)', color: '#a5f3fc', border: '1px solid rgba(14,116,144,0.7)', fontSize: '0.75rem' }}>
+                            <Fish size={12} className="mr-1" />{plan.target_fish}
+                          </span>
+                        )}
+                        {spot.water_type && (
+                          <span className="bb-pill-info" style={{ background: 'transparent', border: '1px solid var(--bb-border)', color: '#d1d5db', fontSize: '0.75rem' }}>
+                            <Anchor size={12} className="mr-1" />{spot.water_type}
+                          </span>
+                        )}
+                        {details.method && (
+                          <span className="bb-pill-info" style={{ background: 'transparent', border: '1px solid var(--bb-border)', color: '#d1d5db', fontSize: '0.75rem' }}>
+                            <Compass size={12} className="mr-1" />{details.method}
+                          </span>
+                        )}
                       </div>
-                      <div className="space-y-1 text-sm text-gray-300">
+                      <div className="space-y-1 text-sm" style={{ color: '#d1d5db' }}>
                         {spot.name && (
-                          <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-cyan-400" /> {spot.name}</div>
+                          <div className="flex items-center gap-2"><MapPin size={16} style={{ color: 'var(--bb-cyan)' }} /> {spot.name}</div>
                         )}
                         {when && (
-                          <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-amber-400" /> {when}{details.duration_hours ? ` · ${details.duration_hours} Std` : ""}</div>
+                          <div className="flex items-center gap-2"><Calendar size={16} style={{ color: '#fbbf24' }} /> {when}{details.duration_hours ? ` · ${details.duration_hours} Std` : ""}</div>
                         )}
                         {distance != null && (
-                          <div className="flex items-center gap-2 text-gray-400">
-                            <Ruler className="w-4 h-4 text-emerald-400" /> {distance.toFixed(1)} km Luftlinie
+                          <div className="flex items-center gap-2" style={{ color: 'var(--bb-muted)' }}>
+                            <Ruler size={16} style={{ color: '#34d399' }} /> {distance.toFixed(1)} km Luftlinie
                           </div>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -336,11 +345,11 @@ function TripPlannerContent() {
                   onDelete={deletePlan}
                 />
               ) : (
-                <Card className="glass-morphism border-gray-800">
-                  <CardContent className="p-8 text-center text-gray-400">
+                <div className="bb-card">
+                  <div className="p-8 text-center" style={{ color: 'var(--bb-muted)' }}>
                     Wähle einen Trip aus der Liste, um alle Details zu sehen.
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -365,23 +374,21 @@ function TripDetail({
   const Row = ({ icon: Icon, label, value }) =>
     value ? (
       <div className="flex items-start gap-2 text-sm">
-        <Icon className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
-        <span className="text-gray-400 w-28 shrink-0">{label}</span>
-        <span className="text-gray-200">{value}</span>
+        <Icon size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--bb-cyan)' }} />
+        <span className="w-28 shrink-0" style={{ color: 'var(--bb-muted)' }}>{label}</span>
+        <span style={{ color: '#e5e7eb' }}>{value}</span>
       </div>
     ) : null;
 
   return (
-    <Card className="glass-morphism border-gray-800">
-      <CardHeader>
-        <CardTitle className="text-cyan-400">{plan.title}</CardTitle>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {plan.target_fish && <Badge className="bg-emerald-600">{plan.target_fish}</Badge>}
-          {when && <Badge variant="outline">{when}</Badge>}
-          {plan.is_active && <Badge className="bg-emerald-600 animate-pulse">Aktiver Trip</Badge>}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="bb-card">
+      <div className="bb-form-title">{plan.title}</div>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {plan.target_fish && <span className="bb-pill-info" style={{ background: '#059669', color: '#fff' }}>{plan.target_fish}</span>}
+        {when && <span className="bb-pill-info" style={{ background: 'transparent', border: '1px solid var(--bb-border)', color: 'var(--bb-muted)' }}>{when}</span>}
+        {plan.is_active && <span className="bb-pill-info animate-pulse" style={{ background: '#059669', color: '#fff' }}>Aktiver Trip</span>}
+      </div>
+      <div className="grid gap-4 mt-4">
         <div className="space-y-2">
           <Row icon={MapPin} label="Spot" value={spot.name} />
           <Row icon={Anchor} label="Gewässer" value={spot.water_type} />
@@ -393,27 +400,27 @@ function TripDetail({
         </div>
 
         {spot.lat != null && spot.lon != null && (
-          <Button variant="outline" size="sm" onClick={() => onNavigate(spot)} className="w-full">
-            <Navigation className="w-4 h-4 mr-2" /> Navigation starten <ExternalLink className="w-3 h-3 ml-2" />
-          </Button>
+          <button className="bb-secondary w-full text-sm" onClick={() => onNavigate(spot)}>
+            <Navigation size={16} className="mr-2" /> Navigation starten <ExternalLink size={12} className="ml-2" />
+          </button>
         )}
 
         {details.gear && (
           <div>
-            <h4 className="font-semibold text-cyan-400 mb-1 text-sm">Ausrüstung</h4>
-            <p className="text-gray-300 text-sm whitespace-pre-wrap">{details.gear}</p>
+            <h4 className="font-semibold mb-1 text-sm" style={{ color: 'var(--bb-cyan)' }}>Ausrüstung</h4>
+            <p className="text-sm whitespace-pre-wrap" style={{ color: '#d1d5db' }}>{details.gear}</p>
           </div>
         )}
 
         {Array.isArray(plan.steps) && plan.steps.length > 0 && (
           <div>
-            <h4 className="font-semibold text-cyan-400 mb-2 text-sm flex items-center gap-2">
-              <ListChecks className="w-4 h-4" /> Packliste / Checkliste
+            <h4 className="font-semibold mb-2 text-sm flex items-center gap-2" style={{ color: 'var(--bb-cyan)' }}>
+              <ListChecks size={16} /> Packliste / Checkliste
             </h4>
             <ul className="space-y-1">
               {plan.steps.map((step, i) => (
-                <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
-                  <span className="text-emerald-400 mt-1">•</span>
+                <li key={i} className="text-sm flex items-start gap-2" style={{ color: '#d1d5db' }}>
+                  <span className="mt-1" style={{ color: '#34d399' }}>•</span>
                   <span>{step}</span>
                 </li>
               ))}
@@ -423,16 +430,16 @@ function TripDetail({
 
         {details.notes && (
           <div>
-            <h4 className="font-semibold text-cyan-400 mb-1 text-sm">Notizen</h4>
-            <p className="text-gray-300 text-sm whitespace-pre-wrap">{details.notes}</p>
+            <h4 className="font-semibold mb-1 text-sm" style={{ color: 'var(--bb-cyan)' }}>Notizen</h4>
+            <p className="text-sm whitespace-pre-wrap" style={{ color: '#d1d5db' }}>{details.notes}</p>
           </div>
         )}
 
         {/* Offline-Notizen (lokal) */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h4 className="font-semibold text-cyan-400 text-sm">Notizen vor Ort (Offline)</h4>
-            <Badge className="text-xs bg-emerald-600/20 border-emerald-600 text-emerald-300">Lokal gespeichert</Badge>
+            <h4 className="font-semibold text-sm" style={{ color: 'var(--bb-cyan)' }}>Notizen vor Ort (Offline)</h4>
+            <span className="bb-pill-info" style={{ fontSize: '0.75rem', background: 'rgba(5,150,105,0.2)', border: '1px solid #059669', color: '#6ee7b7' }}>Lokal gespeichert</span>
           </div>
           {editingNotes[plan.id] ? (
             <div className="space-y-2">
@@ -442,41 +449,41 @@ function TripDetail({
                 placeholder="Schreibe deine Beobachtungen vor Ort ..."
                 className="bg-gray-800/50 border-gray-700 text-white min-h-[100px]"
               />
-              <Button
+              <button
                 onClick={() => { saveOfflineNotes(plan.id, offlineNotes[plan.id] || ""); setEditingNotes((p) => ({ ...p, [plan.id]: false })); }}
-                className="w-full bg-emerald-600 hover:bg-emerald-700" size="sm"
+                className="bb-action w-full text-sm" style={{ background: '#059669' }}
               >
-                <Save className="w-4 h-4 mr-2" /> Speichern
-              </Button>
+                <Save size={16} className="mr-2" /> Speichern
+              </button>
             </div>
           ) : (
             <div>
-              <div className="bg-gray-800/50 rounded-lg p-3 min-h-[60px] max-h-[200px] overflow-y-auto mb-2">
-                <p className="text-gray-300 text-sm whitespace-pre-wrap">
+              <div className="rounded-lg p-3 min-h-[60px] max-h-[200px] overflow-y-auto mb-2" style={{ background: 'rgba(0,0,0,.25)' }}>
+                <p className="text-sm whitespace-pre-wrap" style={{ color: '#d1d5db' }}>
                   {offlineNotes[plan.id] || "Noch keine Notizen. Klicke auf Bearbeiten."}
                 </p>
               </div>
-              <Button onClick={() => setEditingNotes((p) => ({ ...p, [plan.id]: true }))} variant="outline" className="w-full" size="sm">
+              <button onClick={() => setEditingNotes((p) => ({ ...p, [plan.id]: true }))} className="bb-secondary w-full text-sm">
                 Bearbeiten
-              </Button>
+              </button>
             </div>
           )}
         </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
-          <Button variant="outline" onClick={() => onToggle(plan)}
-            className={plan.is_active ? "bg-emerald-600/20 border-emerald-600" : ""}>
-            <Power className="w-4 h-4 mr-2" /> {plan.is_active ? "Deaktivieren" : "Aktivieren"}
-          </Button>
-          <Button variant="outline" onClick={() => onEdit(plan)} className="flex-1">
-            <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
-          </Button>
-          <Button variant="destructive" onClick={() => onDelete(plan.id)} className="flex-1">
-            <Trash2 className="w-4 h-4 mr-2" /> Löschen
-          </Button>
+          <button className="bb-secondary" onClick={() => onToggle(plan)}
+            style={plan.is_active ? { background: 'rgba(5,150,105,0.2)', borderColor: '#059669' } : {}}>
+            <Power size={16} className="mr-2" /> {plan.is_active ? "Deaktivieren" : "Aktivieren"}
+          </button>
+          <button className="bb-secondary flex-1" onClick={() => onEdit(plan)}>
+            <Pencil size={16} className="mr-2" /> Bearbeiten
+          </button>
+          <button className="bb-action flex-1" onClick={() => onDelete(plan.id)} style={{ background: '#dc2626' }}>
+            <Trash2 size={16} className="mr-2" /> Löschen
+          </button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -496,8 +503,8 @@ export default function TripPlanner() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-cyan-400">Laden...</div>
+      <div className="bb-page flex items-center justify-center">
+        <div style={{ color: 'var(--bb-cyan)' }}>Laden...</div>
       </div>
     );
   }

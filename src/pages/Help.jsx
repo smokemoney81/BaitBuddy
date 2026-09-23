@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { integrations } from "@/api/frontendClient";
 import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
@@ -116,17 +113,17 @@ export default function Help() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-safe-fixed">
-      <div className="max-w-4xl mx-auto p-6 space-y-6 pb-32">
+    <div className="bb-page pb-safe-fixed">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)]">
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
             Hilfe & Support
           </h1>
-          <p className="text-gray-400 mt-1">Wir helfen dir gerne weiter</p>
+          <p className="mt-1" style={{ color: 'var(--bb-muted)' }}>Wir helfen dir gerne weiter</p>
         </div>
 
         <Tabs defaultValue="ticket" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-gray-900/60 border border-gray-800">
+          <TabsList className="grid w-full grid-cols-4" style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}>
             <TabsTrigger value="ticket">Ticket erstellen</TabsTrigger>
             <TabsTrigger value="meine">Meine Tickets</TabsTrigger>
             <TabsTrigger value="ki">KI-Hilfe</TabsTrigger>
@@ -134,11 +131,9 @@ export default function Help() {
           </TabsList>
 
           <TabsContent value="ticket" className="mt-4">
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Neues Support-Ticket</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bb-card">
+              <div className="bb-form-title mb-4">Neues Support-Ticket</div>
+              <div className="grid gap-4">
                 <div>
                   <label className="text-sm text-gray-300 mb-1 block">Betreff</label>
                   <Input
@@ -175,46 +170,45 @@ export default function Help() {
                   />
                 </div>
 
-                <Button
+                <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  className="bb-action w-full"
+                  style={{ background: '#059669' }}
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 size={16} className="mr-2 animate-spin" />
                       Wird gesendet...
                     </>
                   ) : (
                     "Ticket absenden"
                   )}
-                </Button>
-              </CardContent>
-            </Card>
+                </button>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="meine" className="mt-4">
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Meine Tickets</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="bb-card">
+              <div className="bb-form-title mb-4">Meine Tickets</div>
+              <div>
                 {loadingTickets ? (
-                  <div className="flex items-center justify-center py-8 text-cyan-400">
-                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  <div className="flex items-center justify-center py-8" style={{ color: 'var(--bb-cyan)' }}>
+                    <Loader2 size={20} className="animate-spin mr-2" />
                     Lade Tickets...
                   </div>
                 ) : tickets.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">Noch keine Tickets vorhanden</p>
+                  <p className="text-center py-8" style={{ color: 'var(--bb-muted)' }}>Noch keine Tickets vorhanden</p>
                 ) : (
                   <div className="space-y-3">
                     {tickets.map((t) => (
-                      <div key={t.id} className="p-4 bg-gray-800/40 border border-gray-700 rounded-lg">
+                      <div key={t.id} className="p-4 rounded-lg" style={{ background: 'rgba(0,0,0,.25)', border: '1px solid var(--bb-border)' }}>
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h3 className="font-semibold text-white">{t.subject}</h3>
-                          <Badge className={statusColor(t.status)}>{t.status}</Badge>
+                          <span className={`bb-pill-info ${statusColor(t.status)}`}>{t.status}</span>
                         </div>
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className="text-xs mb-2" style={{ color: 'var(--bb-muted)' }}>
                           {new Date(t.created_date).toLocaleString("de-DE")} - {t.category}
                         </p>
                         <p className="text-sm text-gray-300 whitespace-pre-wrap">{t.message}</p>
@@ -228,36 +222,34 @@ export default function Help() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="ki" className="mt-4">
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">KI-Soforthilfe</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bb-card">
+              <div className="bb-form-title mb-4">KI-Soforthilfe</div>
+              <div className="grid gap-4">
                 <Textarea
                   value={aiQuestion}
                   onChange={(e) => setAiQuestion(e.target.value)}
                   placeholder="Stelle deine Frage zur App..."
                   className="bg-gray-800/50 border-gray-700 text-white min-h-[100px]"
                 />
-                <Button
+                <button
                   onClick={handleAiAsk}
                   disabled={aiLoading}
-                  className="w-full bg-cyan-600 hover:bg-cyan-700"
+                  className="bb-action w-full"
                 >
                   {aiLoading ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 size={16} className="mr-2 animate-spin" />
                       Frage wird beantwortet...
                     </>
                   ) : (
                     "Frage stellen"
                   )}
-                </Button>
+                </button>
 
                 {aiAnswer && (
                   <div className="p-4 bg-cyan-900/20 border border-cyan-700/40 rounded-lg">
@@ -265,27 +257,26 @@ export default function Help() {
                     <p className="text-sm text-gray-200 whitespace-pre-wrap">{aiAnswer}</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="bewertungen" className="mt-4">
-            <Card className="glass-morphism border-gray-800">
-              <CardHeader>
-                <CardTitle className="text-white">Funktionsbewertungen</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="bb-card">
+              <div className="bb-form-title mb-4">Funktionsbewertungen</div>
+              <div>
                 <p className="text-gray-300 mb-4">
                   Sieh dir an, wie andere Nutzer die Funktionen der App bewerten oder gib selbst eine Bewertung ab.
                 </p>
-                <Button
+                <button
                   onClick={() => window.location.href = "/FunctionRatings"}
-                  className="w-full bg-amber-600 hover:bg-amber-700"
+                  className="bb-action w-full"
+                  style={{ background: '#d97706' }}
                 >
                   Zu den Funktionsbewertungen
-                </Button>
-              </CardContent>
-            </Card>
+                </button>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

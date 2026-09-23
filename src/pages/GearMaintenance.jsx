@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -127,25 +124,25 @@ export default function GearMaintenance() {
   const overdue = logs.filter(l => isOverdue(l.next_due_at));
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-24">
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bb-bg)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur border-b border-gray-800 px-4 py-3">
+      <div className="sticky top-0 z-10 backdrop-blur px-4 py-3" style={{ background: 'var(--bb-surface)', borderBottom: '1px solid var(--bb-border)' }}>
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-gray-800 transition">
-              <ArrowLeft className="w-5 h-5 text-gray-400" />
+            <button onClick={() => navigate(-1)} className="p-2 rounded-lg" style={{ color: 'var(--bb-muted)' }}>
+              <ArrowLeft size={20} />
             </button>
-            <Wrench className="w-5 h-5 text-amber-400" />
-            <h1 className="text-lg font-bold text-white">Ausrüstungswartung</h1>
+            <Wrench size={20} style={{ color: '#f59e0b' }} />
+            <h1 className="text-lg font-bold" style={{ color: 'var(--bb-text)' }}>Ausrüstungswartung</h1>
           </div>
-          <Button
-            size="sm"
-            className="bg-amber-700 hover:bg-amber-600 text-white h-8"
+          <button
+            className="bb-action h-8 text-sm"
+            style={{ background: '#b45309' }}
             onClick={() => setShowLog(true)}
           >
-            <Plus className="w-3.5 h-3.5 mr-1" />
+            <Plus size={14} className="mr-1" />
             Eintragen
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -153,13 +150,13 @@ export default function GearMaintenance() {
 
         {/* Überfällige Wartungen */}
         {overdue.length > 0 && (
-          <div className="p-3 rounded-xl bg-red-900/20 border border-red-700/40 space-y-2">
-            <div className="flex items-center gap-2 text-red-400">
-              <AlertTriangle className="w-4 h-4" />
+          <div className="p-3 rounded-xl space-y-2" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <div className="flex items-center gap-2" style={{ color: '#f87171' }}>
+              <AlertTriangle size={16} />
               <span className="text-sm font-semibold">{overdue.length} überfällige Wartung{overdue.length > 1 ? "en" : ""}</span>
             </div>
             {overdue.map(l => (
-              <p key={l.id} className="text-xs text-red-300 pl-6">
+              <p key={l.id} className="text-xs pl-6" style={{ color: '#fca5a5' }}>
                 {l.gear_name} — {l.action} (fällig {formatDate(l.next_due_at)})
               </p>
             ))}
@@ -167,38 +164,37 @@ export default function GearMaintenance() {
         )}
 
         {/* KI-Tipps */}
-        <Card className="bg-gray-800/40 border-gray-700/40">
-          <CardContent className="pt-4 space-y-3">
+        <div className="bb-card" style={{ background: 'var(--bb-surface)' }}>
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm font-medium text-white">KI-Wartungsanalyse</span>
+                <Lightbulb size={16} style={{ color: '#facc15' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--bb-text)' }}>KI-Wartungsanalyse</span>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-yellow-700 text-yellow-300 hover:bg-yellow-900/30 h-7 text-xs"
+              <button
+                className="bb-secondary h-7 text-xs"
+                style={{ borderColor: '#a16207', color: '#fde047' }}
                 onClick={loadAiTips}
                 disabled={loadingTips}
               >
-                {loadingTips ? <Loader2 className="w-3 h-3 animate-spin" /> : "Analysieren"}
-              </Button>
+                {loadingTips ? <Loader2 size={12} className="animate-spin" /> : "Analysieren"}
+              </button>
             </div>
 
             {aiTips && (
               <div className="space-y-2">
                 {aiTips.generalTip && (
-                  <p className="text-xs text-gray-400 italic">{aiTips.generalTip}</p>
+                  <p className="text-xs italic" style={{ color: 'var(--bb-muted)' }}>{aiTips.generalTip}</p>
                 )}
                 {(aiTips.recommendations || []).map((rec, i) => (
-                  <div key={i} className="flex items-start gap-2.5 p-2 rounded-lg bg-gray-700/40">
-                    <Badge variant="outline" className={`text-xs mt-0.5 flex-shrink-0 ${URGENCY_STYLE[rec.urgency] || URGENCY_STYLE["Routinemäßig"]}`}>
+                  <div key={i} className="flex items-start gap-2.5 p-2 rounded-lg" style={{ background: 'var(--bb-bg)' }}>
+                    <span className={`bb-pill-info text-xs mt-0.5 flex-shrink-0 border ${URGENCY_STYLE[rec.urgency] || URGENCY_STYLE["Routinemäßig"]}`}>
                       {rec.urgency}
-                    </Badge>
+                    </span>
                     <div>
-                      <p className="text-xs font-medium text-white">{rec.itemName}</p>
-                      <p className="text-xs text-gray-400">{rec.action}</p>
-                      {rec.reason && <p className="text-xs text-gray-500 mt-0.5">{rec.reason}</p>}
+                      <p className="text-xs font-medium" style={{ color: 'var(--bb-text)' }}>{rec.itemName}</p>
+                      <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>{rec.action}</p>
+                      {rec.reason && <p className="text-xs mt-0.5" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>{rec.reason}</p>}
                     </div>
                   </div>
                 ))}
@@ -206,65 +202,71 @@ export default function GearMaintenance() {
             )}
 
             {!aiTips && !loadingTips && (
-              <p className="text-xs text-gray-500">Analysiert Nutzung und letzte Wartungen deiner Ausrüstung.</p>
+              <p className="text-xs" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>Analysiert Nutzung und letzte Wartungen deiner Ausrüstung.</p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Wartungsprotokoll */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Protokoll</p>
-            <span className="text-xs text-gray-600">{logs.length} Einträge</span>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--bb-muted)' }}>Protokoll</p>
+            <span className="text-xs" style={{ color: 'var(--bb-muted)', opacity: 0.5 }}>{logs.length} Einträge</span>
           </div>
 
           {isLoading && (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--bb-muted)' }} />
             </div>
           )}
 
           {!isLoading && logs.length === 0 && (
             <div className="flex flex-col items-center py-12 gap-3 text-center">
-              <Wrench className="w-10 h-10 text-gray-700" />
-              <p className="text-sm text-gray-500">Noch keine Wartungen eingetragen.</p>
-              <p className="text-xs text-gray-600">Trage Schnurwechsel, Rollenpflege & Co. ein, um Wartungsintervalle zu verfolgen.</p>
+              <Wrench size={40} style={{ color: 'var(--bb-border)' }} />
+              <p className="text-sm" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>Noch keine Wartungen eingetragen.</p>
+              <p className="text-xs" style={{ color: 'var(--bb-muted)', opacity: 0.4 }}>Trage Schnurwechsel, Rollenpflege & Co. ein, um Wartungsintervalle zu verfolgen.</p>
             </div>
           )}
 
           {logs.map(log => (
-            <Card key={log.id} className={`border ${isOverdue(log.next_due_at) ? "border-red-800/60 bg-red-950/20" : "border-gray-700/50 bg-gray-800/40"}`}>
-              <CardContent className="pt-3 pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-white">{log.gear_name}</span>
-                      <Badge variant="secondary" className="text-xs bg-gray-700/60 text-gray-300">{log.category}</Badge>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1 pl-5">{log.action}</p>
-                    {log.notes && <p className="text-xs text-gray-500 mt-0.5 pl-5">{log.notes}</p>}
-                    <div className="flex items-center gap-3 mt-1.5 pl-5 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {formatDate(log.performed_at)}
-                      </span>
-                      {log.next_due_at && (
-                        <span className={isOverdue(log.next_due_at) ? "text-red-400" : "text-gray-500"}>
-                          nächste: {formatDate(log.next_due_at)}
-                        </span>
-                      )}
-                    </div>
+            <div
+              key={log.id}
+              className="bb-card"
+              style={{
+                borderColor: isOverdue(log.next_due_at) ? 'rgba(239,68,68,0.4)' : 'var(--bb-border)',
+                background: isOverdue(log.next_due_at) ? 'rgba(239,68,68,0.05)' : 'var(--bb-surface)',
+              }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={14} style={{ color: '#22c55e' }} className="flex-shrink-0" />
+                    <span className="text-sm font-medium" style={{ color: 'var(--bb-text)' }}>{log.gear_name}</span>
+                    <span className="bb-pill-info text-xs" style={{ background: 'var(--bb-bg)', color: 'var(--bb-muted)' }}>{log.category}</span>
                   </div>
-                  <button
-                    onClick={() => deleteMutation.mutate(log.id)}
-                    className="p-1.5 rounded hover:bg-red-900/30 text-gray-600 hover:text-red-400 transition"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <p className="text-xs mt-1 pl-5" style={{ color: 'var(--bb-muted)' }}>{log.action}</p>
+                  {log.notes && <p className="text-xs mt-0.5 pl-5" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>{log.notes}</p>}
+                  <div className="flex items-center gap-3 mt-1.5 pl-5 text-xs" style={{ color: 'var(--bb-muted)', opacity: 0.6 }}>
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      {formatDate(log.performed_at)}
+                    </span>
+                    {log.next_due_at && (
+                      <span style={{ color: isOverdue(log.next_due_at) ? '#f87171' : 'var(--bb-muted)' }}>
+                        nächste: {formatDate(log.next_due_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                <button
+                  onClick={() => deleteMutation.mutate(log.id)}
+                  className="p-1.5 rounded transition"
+                  style={{ color: 'var(--bb-muted)' }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -319,7 +321,7 @@ export default function GearMaintenance() {
               <Textarea
                 value={logForm.notes}
                 onChange={e => setLogForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Details zur Wartung …"
+                placeholder="Details zur Wartung ..."
                 className="bg-gray-800 border-gray-600 text-white text-sm resize-none"
                 rows={2}
               />
@@ -336,14 +338,15 @@ export default function GearMaintenance() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowLog(false)} className="text-gray-400">Abbrechen</Button>
-            <Button
+            <button onClick={() => setShowLog(false)} className="p-2 rounded-lg" style={{ color: 'var(--bb-muted)' }}>Abbrechen</button>
+            <button
               onClick={handleSubmit}
               disabled={logMutation.isPending}
-              className="bg-amber-700 hover:bg-amber-600 text-white"
+              className="bb-action"
+              style={{ background: '#b45309' }}
             >
-              {logMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Speichern"}
-            </Button>
+              {logMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : "Speichern"}
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

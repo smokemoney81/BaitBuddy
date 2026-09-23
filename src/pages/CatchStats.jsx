@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Catch } from "@/entities/Catch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -121,7 +120,7 @@ function CatchStatsContent() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6 pb-safe-fixed">
-      <h1 className="text-2xl font-bold text-cyan-400">
+      <h1 className="text-2xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
         Fang-Statistiken
       </h1>
 
@@ -145,18 +144,16 @@ function CatchStatsContent() {
         ].map(({ label, value, Icon, color, bg, border }) => (
           <div key={label} className={`rounded-xl bg-gradient-to-br ${bg} border ${border} p-4 text-center`}>
             <Icon className={`w-5 h-5 ${color} mx-auto mb-2`} />
-            <p className="text-xs text-gray-400 mb-1">{label}</p>
+            <p className="text-xs mb-1" style={{ color: 'var(--bb-muted)' }}>{label}</p>
             <p className={`text-lg font-bold ${color} leading-tight`}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* Faenge nach Art */}
-      <Card className="glass-morphism border-gray-800 rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-white text-base">Faenge nach Fischart</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="bb-card">
+        <div className="text-base font-bold text-white mb-4">Faenge nach Fischart</div>
+        <div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={stats?.speciesCountData} margin={{ top: 4, right: 8, left: -10, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -170,16 +167,14 @@ function CatchStatsContent() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Gewicht nach Art */}
       {stats?.speciesWeightData.length > 0 && (
-        <Card className="glass-morphism border-gray-800 rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-white text-base">Gewicht nach Fischart (kg)</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bb-card">
+          <div className="text-base font-bold text-white mb-4">Gewicht nach Fischart (kg)</div>
+          <div>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={stats.speciesWeightData} margin={{ top: 4, right: 8, left: -10, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -190,17 +185,15 @@ function CatchStatsContent() {
                 <Bar dataKey="maxGewicht" name="Max. Einzelfang (kg)" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Monatliche Aktivitaet */}
       {stats?.monthlyData.length > 1 && (
-        <Card className="glass-morphism border-gray-800 rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-white text-base">Monatliche Aktivitaet</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bb-card">
+          <div className="text-base font-bold text-white mb-4">Monatliche Aktivitaet</div>
+          <div>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={stats.monthlyData} margin={{ top: 4, right: 8, left: -10, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -210,17 +203,15 @@ function CatchStatsContent() {
                 <Bar dataKey="count" name="Faenge" fill="#a78bfa" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Koeder-Verteilung */}
       {stats?.baitData.length > 0 && (
-        <Card className="glass-morphism border-gray-800 rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-white text-base">Koeder-Verteilung</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="bb-card">
+          <div className="text-base font-bold text-white mb-4">Koeder-Verteilung</div>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
@@ -240,8 +231,8 @@ function CatchStatsContent() {
                 <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -249,7 +240,7 @@ function CatchStatsContent() {
 
 export default function CatchStats() {
   return (
-    <div className="min-h-screen bg-gray-950 p-4 sm:p-6">
+    <div className="bb-page">
       {/* Fang-Statistiken sind laut Plan eine Free-Funktion. */}
       <CatchStatsContent />
     </div>

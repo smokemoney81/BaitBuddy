@@ -4,7 +4,6 @@ import { functions } from "@/api/frontendClient";
 import { Spot } from "@/entities/Spot";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useLocation } from "@/components/location/LocationManager";
 import AddSpotModal from "@/components/map/v2/AddSpotModal";
@@ -401,17 +400,17 @@ export default function MapPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="bb-page flex items-center justify-center" style={{ minHeight: '100vh' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-cyan-400">Lade Karten-Daten...</div>
+          <div style={{ color: 'var(--bb-cyan)' }}>Lade Karten-Daten...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-950 pb-32 overflow-y-auto">
+    <div className="pb-32 overflow-y-auto" style={{ background: 'var(--bb-bg)' }}>
       {/* Mode Manager & Guided Tour */}
       <MapModeManager
         mapMode={mapMode}
@@ -425,7 +424,7 @@ export default function MapPage() {
         {/* Removed: MapFeaturesInfo - Integriert in MapNavigationHub */}
 
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg sm:text-2xl font-bold text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">
+          <h1 className="text-lg sm:text-2xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
             Karte & Spots
           </h1>
           <button type="button"
@@ -499,8 +498,8 @@ export default function MapPage() {
         {/* Einklappbare Detail-Karten */}
         {showDetails && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="glass-morphism border-cyan-700 bg-cyan-900/20">
-            <CardContent className="p-4">
+          <div className="bb-card" style={{ borderColor: 'rgba(14,116,144,.7)', background: 'rgba(22,78,99,.2)' }}>
+            <div className="p-4">
               <div className="text-xs text-cyan-400 mb-2 font-semibold">6 ADVANCED FEATURES</div>
               <div className="space-y-1 text-xs text-cyan-200">
                 <div>Offline Tile-Caching</div>
@@ -513,12 +512,12 @@ export default function MapPage() {
               <div className="text-xs text-cyan-600 mt-2 italic">
                 Klick den Hub rechts unten um Features zu aktivieren
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="glass-morphism border-gray-800">
-            <CardContent className="p-4">
-              <div className="text-xs text-gray-400 mb-2">DEINE SPOTS & ORTE</div>
+          <div className="bb-card">
+            <div className="p-4">
+              <div className="text-xs mb-2" style={{ color: 'var(--bb-muted)' }}>DEINE SPOTS & ORTE</div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-300">Deine Spots:</span>
@@ -544,7 +543,7 @@ export default function MapPage() {
                     Öffentliche Spots verbergen
                   </button>
                 )}
-                <div className="border-t border-gray-700 pt-2 mt-2">
+                <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--bb-border)' }}>
                   <div className="flex justify-between text-sm items-center">
                     <span className="text-gray-300">Angelkarten-Verkaufsstellen:</span>
                     <span className="text-orange-400 font-semibold">
@@ -582,10 +581,10 @@ export default function MapPage() {
                 </div>
                 {nearestSpot && travelInfo && (
                   <>
-                    <div className="border-t border-gray-700 pt-2 mt-2">
-                      <div className="text-xs text-gray-500 mb-1">Nächster Spot:</div>
+                    <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--bb-border)' }}>
+                      <div className="text-xs mb-1" style={{ color: 'var(--bb-muted)' }}>Nächster Spot:</div>
                       <div className="font-semibold text-white text-sm">{nearestSpot.name}</div>
-                      <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                      <div className="flex gap-2 text-xs mt-1" style={{ color: 'var(--bb-muted)' }}>
                         <span>{travelInfo.distance_km?.toFixed(1)} km</span>
                         <span>{travelInfo.duration_min} min</span>
                       </div>
@@ -593,8 +592,8 @@ export default function MapPage() {
                   </>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
         )}
 

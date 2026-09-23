@@ -4,8 +4,7 @@ import { entities } from "@/api/frontendClient";
 import { Catch } from "@/entities/Catch";
 import { Spot } from "@/entities/Spot";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,16 +25,13 @@ import { toLocalDatetimeInputValue } from "@/lib/utils";
 import SocialMediaShareDialog from "@/components/log/SocialMediaShareDialog";
 import FishRecognitionResult from "@/components/log/FishRecognitionResult";
 import { mergeRecognitionNote } from "@/lib/fishRecognition";
+import TabBar from "@/components/layout/TabBar";
 
 export default function Logbook() {
   useFeatureTracking("catch_log");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // ---- Data fetching via TanStack Query ----
-  // Ohne explizites Limit liefert das Backend nur die letzten 50 Fänge — das
-  // würde sowohl die Liste als auch die Kopf-Statistik (Einträge/Arten/kg)
-  // deckeln. Großzügiges Limit, damit das komplette Fangbuch sichtbar ist.
   const { data: catches = [], isLoading: catchesLoading } = useQuery({
     queryKey: ['catches'],
     queryFn: () => Catch.list('-catch_time', 1000),
@@ -48,7 +44,6 @@ export default function Logbook() {
 
   const loading = catchesLoading || spotsLoading;
 
-  // ---- Form field state ----
   const [photoUrl, setPhotoUrl] = useState("");
   const [species, setSpecies] = useState("");
   const [spotId, setSpotId] = useState("");
@@ -59,42 +54,31 @@ export default function Logbook() {
   const [catchTime, setCatchTime] = useState(toLocalDatetimeInputValue(new Date()));
   const [editingCatch, setEditingCatch] = useState(null);
 
-  // ---- Upload / analysis ----
   const [uploading, setUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  // Vollständiges KI-Erkennungsergebnis (Art, Länge, Gewicht, wiss. Name,
-  // Geschlecht, Alter, Zustand …). Wird als Review-Karte gezeigt und erst auf
-  // Nutzeraktion ins Formular übernommen.
   const [aiResult, setAiResult] = useState(null);
 
-  // ---- Community share ----
   const [shareInCommunity, setShareInCommunity] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [savedCatchData, setSavedCatchData] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
 
-  // ---- Social media share ----
   const [showSocialMediaDialog, setShowSocialMediaDialog] = useState(false);
 
-  // ---- Pending photos ----
   const [pendingPhotos, setPendingPhotos] = useState([]);
 
-  // ---- Catch filtering ----
   const [filterSpecies, setFilterSpecies] = useState("Alle");
   const [filterYear, setFilterYear] = useState("Alle Jahre");
 
-  // Ref so onSuccess closure always sees latest shareInCommunity value.
   const shareRef = useRef(shareInCommunity);
   useEffect(() => { shareRef.current = shareInCommunity; }, [shareInCommunity]);
 
-  // Reload catches when external event fires (e.g. QuickCatchDialog).
   useEffect(() => {
     const handleCatchSaved = () => queryClient.invalidateQueries({ queryKey: ['catches'] });
     window.addEventListener('catch-saved', handleCatchSaved);
     return () => window.removeEventListener('catch-saved', handleCatchSaved);
   }, [queryClient]);
 
-  // ---- Pending photos ----
   useEffect(() => {
     loadPendingPhotos();
   }, []);
@@ -117,7 +101,6 @@ export default function Logbook() {
     }
   };
 
-  // ---- Spot nearest helper ----
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -142,7 +125,6 @@ export default function Logbook() {
     return nearest;
   }, [spots]);
 
-  // ---- Reset form ----
   const resetForm = useCallback(() => {
     setPhotoUrl(""); setSpecies(""); setSpotId(""); setLengthCm("");
     setWeightKg(""); setBaitUsed(""); setNotes("");
@@ -151,10 +133,6 @@ export default function Logbook() {
     setAiResult(null);
   }, []);
 
-  // Übernimmt das KI-Erkennungsergebnis ins Formular: Kernfelder (Art, Länge,
-  // Gewicht, Köder) in die Eingabefelder, die Zusatzmerkmale (wiss. Name,
-  // Geschlecht, Alter, Umfang, Zustand, Konfidenz) als KI-Notiz in die Notizen —
-  // ohne bereits vom Nutzer eingetragene Werte zu überschreiben.
   const applyRecognition = useCallback((data) => {
     if (!data) return;
     if (data.species_name) setSpecies((prev) => prev?.trim() ? prev : data.species_name);
@@ -166,7 +144,6 @@ export default function Logbook() {
     toast.success("KI-Daten ins Fangbuch übernommen");
   }, []);
 
-  // ---- Mutations with Optimistic UI (TanStack Query cache) ----
   const createCatchMutation = useMutation({
     mutationFn: (catchData) => Catch.create(catchData),
     onMutate: async (catchData) => {
@@ -260,7 +237,6 @@ export default function Logbook() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['catches'] }),
   });
 
-  // ---- Handlers ----
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -283,7 +259,6 @@ export default function Logbook() {
     e.preventDefault();
     if (!species?.trim()) { toast.error("Bitte Fischart angeben"); return; }
 
-    // P3.1, P3.2: Validate numeric inputs with bounds
     let parsedLength = null;
     let parsedWeight = null;
 
@@ -371,12 +346,15 @@ export default function Logbook() {
 
   const isSaving = createCatchMutation.isPending || updateCatchMutation.isPending;
 
+  const speciesTabs = ["Alle", ...[...new Set(catches.map(c => c.species).filter(Boolean))]];
+  const yearTabs = ["Alle Jahre", new Date().getFullYear().toString(), String(new Date().getFullYear() - 1), String(new Date().getFullYear() - 2)];
+
   if (loading && catches.length === 0 && spots.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-cyan-400" />
-          <p className="text-gray-400">Lade Fangbuch...</p>
+          <p style={{ color: 'var(--bb-muted)' }}>Lade Fangbuch...</p>
         </div>
       </div>
     );
@@ -384,129 +362,127 @@ export default function Logbook() {
 
   return (
     <SwipeToRefresh onRefresh={() => queryClient.invalidateQueries({ queryKey: ['catches'] })}>
-      <div className="max-w-6xl mx-auto p-6 space-y-8 pb-safe-fixed">
-      {catches.length > 0 && !loading && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl bg-gradient-to-br from-cyan-900/30 to-cyan-900/10 border border-cyan-800/40 p-3 text-center">
-            <div className="text-2xl font-bold text-cyan-400">{catches.length}</div>
-            <div className="text-xs text-gray-400 mt-0.5">Einträge</div>
-          </div>
-          <div className="rounded-xl bg-gradient-to-br from-emerald-900/30 to-emerald-900/10 border border-emerald-800/40 p-3 text-center">
-            <div className="text-2xl font-bold text-emerald-400">
-              {[...new Set(catches.map(c => c.species).filter(Boolean))].length}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">Arten</div>
-          </div>
-          <div className="rounded-xl bg-gradient-to-br from-amber-900/30 to-amber-900/10 border border-amber-800/40 p-3 text-center">
-            <div className="text-2xl font-bold text-amber-400">
-              {catches.filter(c => c.weight_kg).reduce((s, c) => s + c.weight_kg, 0).toFixed(1)}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">kg gesamt</div>
-          </div>
-        </div>
-      )}
+      <div className="bb-page">
 
-      <Card id="fang-erfassen" className="glass-morphism border-gray-800 rounded-2xl scroll-mt-24">
-        <CardHeader>
+        {/* ── Stats ──────────────────────────────── */}
+        {catches.length > 0 && !loading && (
+          <div className="bb-stat-row">
+            <div className="bb-stat-card">
+              <div className="bb-stat-value" style={{ color: 'var(--bb-cyan)' }}>{catches.length}</div>
+              <div className="bb-stat-label">Einträge</div>
+            </div>
+            <div className="bb-stat-card">
+              <div className="bb-stat-value" style={{ color: 'var(--bb-green)' }}>
+                {[...new Set(catches.map(c => c.species).filter(Boolean))].length}
+              </div>
+              <div className="bb-stat-label">Arten</div>
+            </div>
+            <div className="bb-stat-card">
+              <div className="bb-stat-value" style={{ color: 'var(--bb-orange)' }}>
+                {catches.filter(c => c.weight_kg).reduce((s, c) => s + c.weight_kg, 0).toFixed(1)}
+              </div>
+              <div className="bb-stat-label">kg gesamt</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Form ───────────────────────────────── */}
+        <section id="fang-erfassen" className="bb-card scroll-mt-24">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <h2 className="bb-form-title">
+              {editingCatch ? "Fang bearbeiten" : "Neuen Fang erfassen"}
+            </h2>
+          </div>
+
           {!editingCatch && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              <Button
+            <div className="bb-toolbar mb-5">
+              <button
                 type="button"
-                variant="outline"
                 onClick={() => setShareInCommunity(prev => !prev)}
-                className={`text-sm border ${shareInCommunity ? "border-cyan-500 text-cyan-400 bg-cyan-950/40" : "border-gray-700 text-gray-300 hover:bg-gray-700"}`}
+                className={`bb-secondary text-sm ${shareInCommunity ? 'border-cyan-500/50 text-cyan-400' : ''}`}
               >
-                {shareInCommunity ? "In Community posten: An" : "In Community posten"}
-              </Button>
-              <div className="inline-flex items-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="file"
-                  id="ai-analyze-upload"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (file.size > 10 * 1024 * 1024) {
-                      toast.error("Datei zu groß (max. 10 MB)");
+                {shareInCommunity ? "Community: An" : "Community posten"}
+              </button>
+              <input
+                type="file"
+                id="ai-analyze-upload"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast.error("Datei zu groß (max. 10 MB)");
+                    return;
+                  }
+                  setIsAnalyzing(true);
+                  try {
+                    const result = await UploadFile({ file });
+                    if (!result?.file_url) {
+                      toast.error("Datei-Upload fehlgeschlagen");
+                      setIsAnalyzing(false);
                       return;
                     }
-                    setIsAnalyzing(true);
-                    try {
-                      const result = await UploadFile({ file });
-                      if (!result?.file_url) {
-                        toast.error("Datei-Upload fehlgeschlagen");
-                        setIsAnalyzing(false);
-                        return;
-                      }
-                      const { file_url } = result;
-                      setPhotoUrl(file_url);
+                    const { file_url } = result;
+                    setPhotoUrl(file_url);
 
-                      if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                          (pos) => {
-                            const nearest = findNearestSpot(pos.coords.latitude, pos.coords.longitude);
-                            if (nearest) {
-                              setSpotId(nearest.id);
-                              toast.info(`Spot zugewiesen: ${nearest.name}`);
-                            }
-                          },
-                          () => {},
-                          { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
-                        );
-                      }
-
-                      toast.info("KI analysiert das Bild...");
-                      const analysisResult = await functions.invoke('analyzeCatchPhoto', { file_url });
-                      const data = analysisResult?.data;
-                      if (data?.result_data) {
-                        const ai = data.result_data;
-                        setAiResult(ai);
-                        const parts = [];
-                        if (ai.species_name) parts.push(ai.species_name);
-                        if (ai.length_cm) parts.push(`${ai.length_cm} cm`);
-                        if (ai.weight_kg) parts.push(`${ai.weight_kg} kg`);
-                        const confText = ai.confidence ? ` (${Math.round(ai.confidence * 100)}% sicher)` : '';
-                        toast.success(`KI erkannt: ${parts.join(', ')}${confText}`);
-                      } else {
-                        setAiResult(null);
-                        toast.warning("Foto hochgeladen, aber KI konnte keinen Fisch erkennen");
-                      }
-                    } catch (error) {
-                      toast.error("KI-Analyse fehlgeschlagen");
-                    } finally {
-                      setIsAnalyzing(false);
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          const nearest = findNearestSpot(pos.coords.latitude, pos.coords.longitude);
+                          if (nearest) {
+                            setSpotId(nearest.id);
+                            toast.info(`Spot zugewiesen: ${nearest.name}`);
+                          }
+                        },
+                        () => {},
+                        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+                      );
                     }
-                  }}
-                  disabled={isAnalyzing}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-sm border-cyan-600 text-cyan-400 hover:bg-cyan-900/30 cursor-pointer"
-                  disabled={isAnalyzing}
-                  onClick={() => document.getElementById('ai-analyze-upload').click()}
-                >
-                  {isAnalyzing ? (
-                    <><Loader2 className="animate-spin h-4 w-4 mr-1" />KI analysiert...</>
-                  ) : (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      Foto + KI-Erkennung
-                    </>
-                  )}
-                </Button>
-              </div>
+
+                    toast.info("KI analysiert das Bild...");
+                    const analysisResult = await functions.invoke('analyzeCatchPhoto', { file_url });
+                    const data = analysisResult?.data;
+                    if (data?.result_data) {
+                      const ai = data.result_data;
+                      setAiResult(ai);
+                      const parts = [];
+                      if (ai.species_name) parts.push(ai.species_name);
+                      if (ai.length_cm) parts.push(`${ai.length_cm} cm`);
+                      if (ai.weight_kg) parts.push(`${ai.weight_kg} kg`);
+                      const confText = ai.confidence ? ` (${Math.round(ai.confidence * 100)}% sicher)` : '';
+                      toast.success(`KI erkannt: ${parts.join(', ')}${confText}`);
+                    } else {
+                      setAiResult(null);
+                      toast.warning("Foto hochgeladen, aber KI konnte keinen Fisch erkennen");
+                    }
+                  } catch (error) {
+                    toast.error("KI-Analyse fehlgeschlagen");
+                  } finally {
+                    setIsAnalyzing(false);
+                  }
+                }}
+                disabled={isAnalyzing}
+              />
+              <button
+                type="button"
+                className="bb-secondary text-sm"
+                style={{ borderColor: 'rgba(0,229,255,.3)', color: 'var(--bb-cyan)' }}
+                disabled={isAnalyzing}
+                onClick={() => document.getElementById('ai-analyze-upload').click()}
+              >
+                {isAnalyzing ? (
+                  <><Loader2 className="animate-spin" size={16} />KI analysiert...</>
+                ) : (
+                  <><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Foto + KI-Erkennung</>
+                )}
+              </button>
             </div>
           )}
-          <CardTitle className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
-            {editingCatch ? "Fang bearbeiten" : "Neuen Fang erfassen"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+
           {aiResult && (
-            <div className="mb-6">
+            <div className="mb-5">
               <FishRecognitionResult
                 data={aiResult}
                 onApply={applyRecognition}
@@ -514,50 +490,51 @@ export default function Logbook() {
               />
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="catch-photo" className="text-white">Foto hochladen</Label>
-              <div className="flex items-center gap-4">
+
+          <form onSubmit={handleSubmit} className="grid gap-4">
+            {/* Photo upload */}
+            <div className="grid gap-2">
+              <Label htmlFor="catch-photo" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Foto</Label>
+              <div className="flex items-center gap-3">
                 <input type="file" id="catch-photo" accept="image/*" onChange={handleFileUpload} disabled={uploading} className="hidden" />
-                <label
-                  htmlFor="catch-photo"
-                  className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-gray-800 hover:bg-gray-700 text-white rounded-lg cursor-pointer transition-colors"
-                >
+                <label htmlFor="catch-photo" className="bb-photo-upload">
                   {uploading ? (
-                    <><Loader2 className="animate-spin h-5 w-5" />Wird hochgeladen...</>
+                    <><Loader2 className="animate-spin" size={18} />Wird hochgeladen...</>
                   ) : (
-                    <><Upload className="w-5 h-5" />Bild auswählen</>
+                    <><Upload size={18} />Bild auswählen</>
                   )}
                 </label>
                 {photoUrl && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => setPhotoUrl("")} className="border-gray-700 hover:bg-gray-700 text-white" aria-label="Foto entfernen">
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <button type="button" onClick={() => setPhotoUrl("")} className="bb-secondary" style={{ padding: '10px' }} aria-label="Foto entfernen">
+                    <X size={16} />
+                  </button>
                 )}
               </div>
               {photoUrl && (
-                <div className="mt-4 relative w-full h-48 rounded-lg overflow-hidden bg-gray-800">
+                <div className="bb-photo-preview mt-1">
                   <LazyImage src={photoUrl} alt="Vorschau" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="species" className="text-white">Fischart *</Label>
-              <Input id="species" value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="z.B. Hecht, Zander, Karpfen..." className="bg-gray-800/50 border-gray-700 text-white" required />
+            {/* Species */}
+            <div className="grid gap-2">
+              <Label htmlFor="species" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Fischart *</Label>
+              <Input id="species" value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="z.B. Hecht, Zander, Karpfen..." className="bg-black/25 border-white/10 text-white" required />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="spot-select" className="text-white">Angelspot</Label>
+            {/* Spot */}
+            <div className="grid gap-2">
+              <Label htmlFor="spot-select" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Angelspot</Label>
               <div className="md:hidden">
-                <MobileSelect value={spotId} onValueChange={setSpotId} placeholder="Spot auswählen (optional)" label="Angelspot" options={[{ value: "", label: "Kein Spot" }, ...spots.map(s => ({ value: s.id, label: s.name }))]} className="bg-gray-800/50 border-gray-700 text-white" />
+                <MobileSelect value={spotId} onValueChange={setSpotId} placeholder="Spot auswählen (optional)" label="Angelspot" options={[{ value: "", label: "Kein Spot" }, ...spots.map(s => ({ value: s.id, label: s.name }))]} className="bg-black/25 border-white/10 text-white" />
               </div>
               <div className="hidden md:block">
                 <Select value={spotId || "none"} onValueChange={(v) => setSpotId(v === "none" ? "" : v)}>
-                  <SelectTrigger id="spot-select" className="bg-gray-800/50 border-gray-700 text-white">
+                  <SelectTrigger id="spot-select" className="bg-black/25 border-white/10 text-white">
                     <SelectValue placeholder="Spot auswählen (optional)" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                  <SelectContent className="bg-gray-900 border-white/10 text-white">
                     <SelectItem value="none">Kein Spot</SelectItem>
                     {spots.map((spot) => (
                       <SelectItem key={spot.id} value={spot.id}>{spot.name}</SelectItem>
@@ -567,182 +544,169 @@ export default function Logbook() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="length-cm" className="text-white">Länge (cm)</Label>
-                <Input id="length-cm" type="number" step="0.1" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} placeholder="z.B. 65" className="bg-gray-800/50 border-gray-700 text-white" />
+            {/* Length + Weight */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="length-cm" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Länge (cm)</Label>
+                <Input id="length-cm" type="number" step="0.1" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} placeholder="z.B. 65" className="bg-black/25 border-white/10 text-white" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="weight-kg" className="text-white">Gewicht (kg)</Label>
-                <Input id="weight-kg" type="number" step="0.01" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="z.B. 3.5" className="bg-gray-800/50 border-gray-700 text-white" />
+              <div className="grid gap-2">
+                <Label htmlFor="weight-kg" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Gewicht (kg)</Label>
+                <Input id="weight-kg" type="number" step="0.01" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="z.B. 3.5" className="bg-black/25 border-white/10 text-white" />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="bait-used" className="text-white">Verwendeter Köder</Label>
-              <Input id="bait-used" value={baitUsed} onChange={(e) => setBaitUsed(e.target.value)} placeholder="z.B. Gummifisch, Wobbler..." className="bg-gray-800/50 border-gray-700 text-white" />
+            {/* Bait */}
+            <div className="grid gap-2">
+              <Label htmlFor="bait-used" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Verwendeter Köder</Label>
+              <Input id="bait-used" value={baitUsed} onChange={(e) => setBaitUsed(e.target.value)} placeholder="z.B. Gummifisch, Wobbler..." className="bg-black/25 border-white/10 text-white" />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="catch-time" className="text-white">Fangzeitpunkt</Label>
-              <Input id="catch-time" type="datetime-local" value={catchTime} onChange={(e) => setCatchTime(e.target.value)} className="bg-gray-800/50 border-gray-700 text-white" />
+            {/* Catch time */}
+            <div className="grid gap-2">
+              <Label htmlFor="catch-time" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Fangzeitpunkt</Label>
+              <Input id="catch-time" type="datetime-local" value={catchTime} onChange={(e) => setCatchTime(e.target.value)} className="bg-black/25 border-white/10 text-white" />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-white">Notizen</Label>
-              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Wetter, Bedingungen, Besonderheiten..." className="bg-gray-800/50 border-gray-700 text-white min-h-[100px]" />
+            {/* Notes */}
+            <div className="grid gap-2">
+              <Label htmlFor="notes" className="text-sm" style={{ color: 'var(--bb-muted)' }}>Notizen</Label>
+              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Wetter, Bedingungen, Besonderheiten..." className="bg-black/25 border-white/10 text-white min-h-[100px]" />
             </div>
 
-            <div className="flex gap-3">
-              <Button type="submit" disabled={isSaving || uploading} className="flex-1 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-semibold min-h-[44px] shadow-lg shadow-cyan-900/30 transition-all">
+            {/* Submit */}
+            <div className="flex gap-3 pt-1">
+              <button type="submit" disabled={isSaving || uploading} className="bb-action flex-1">
                 {isSaving ? (
-                  <><Loader2 className="animate-spin h-5 w-5 mr-2" />Wird gespeichert...</>
+                  <><Loader2 className="animate-spin" size={18} />Wird gespeichert...</>
                 ) : (editingCatch ? "Änderungen speichern" : "Fang speichern")}
-              </Button>
+              </button>
               {editingCatch && (
-                <Button type="button" variant="outline" onClick={resetForm} className="border-gray-700 text-gray-300 hover:bg-gray-700 min-h-[44px]">
+                <button type="button" onClick={resetForm} className="bb-secondary">
                   Abbrechen
-                </Button>
+                </button>
               )}
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </section>
 
-      {pendingPhotos.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-6 bg-amber-500 rounded-full" />
-            <h2 className="text-xl font-semibold text-amber-400">Fotos zur Analyse ({pendingPhotos.length})</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <AnimatePresence>
-              {pendingPhotos.map(photo => (
-                <PendingPhotoCard key={photo.id} photo={photo} spots={spots} findNearestSpot={findNearestSpot} onAnalyzed={handlePhotoAnalyzed} onDeleted={handlePhotoDeleted} />
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-end">
-        <Link to="/CatchStats">
-          <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-cyan-400 text-sm font-medium transition-colors min-h-[44px]">
-            <BarChart2 className="w-4 h-4" />
-            Fang-Statistiken anzeigen
-          </button>
-        </Link>
-      </div>
-
-      {catches.length > 0 && !loading && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Filter</h3>
-          <div className="flex gap-2 flex-wrap">
-            {["Alle", ...new Set(catches.map(c => c.species).filter(Boolean))].map(species => (
-              <button type="button"
-                key={species}
-                onClick={() => setFilterSpecies(species)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-                  filterSpecies === species
-                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-300"
-                    : "bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800"
-                }`}
-              >
-                {species}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {["Alle Jahre", new Date().getFullYear().toString(), new Date().getFullYear() - 1, new Date().getFullYear() - 2].map(year => (
-              <button type="button"
-                key={year}
-                onClick={() => setFilterYear(year)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-                  filterYear === year
-                    ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
-                    : "bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800"
-                }`}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <CatchHistory
-        catches={catches.filter(c => {
-          const matchesSpecies = filterSpecies === "Alle" || c.species === filterSpecies;
-          const catchYear = c.catch_time ? new Date(c.catch_time).getFullYear().toString() : '';
-          const matchesYear = filterYear === "Alle Jahre" || catchYear === filterYear;
-          return matchesSpecies && matchesYear;
-        })}
-        isLoading={loading}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: ['catches'] })}
-      />
-
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="bg-gray-900 border-gray-800 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-cyan-400">In Community teilen?</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-gray-300 mb-4">Möchtest du diesen Fang mit der Community teilen?</p>
-            {savedCatchData?.photo_url && (
-               <div className="relative w-full h-48 rounded-lg overflow-hidden mb-4">
-                 <LazyImage src={savedCatchData.photo_url} alt={savedCatchData.species} className="w-full h-full object-cover" />
-               </div>
-             )}
-            {savedCatchData && (
-              <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                <p className="text-white font-semibold">{savedCatchData.species}</p>
-                {savedCatchData.length_cm && <p className="text-gray-300 text-sm">Länge: {savedCatchData.length_cm}cm</p>}
-                {savedCatchData.weight_kg && <p className="text-gray-300 text-sm">Gewicht: {savedCatchData.weight_kg}kg</p>}
-                {savedCatchData.bait_used && <p className="text-gray-300 text-sm">Köder: {savedCatchData.bait_used}</p>}
-              </div>
-            )}
-          </div>
-          <DialogFooter className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => { setShowShareDialog(false); setSavedCatchData(null); }} disabled={isSharing} className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-700 min-h-[44px]">
-                Nein, danke
-              </Button>
-              <Button onClick={handleShareToCommunity} disabled={isSharing} className="flex-1 bg-cyan-600 hover:bg-cyan-700 min-h-[44px]">
-                {isSharing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Wird geteilt...</> : <><Share2 className="w-4 h-4 mr-2" />Community</>}
-              </Button>
+        {/* ── Pending photos ─────────────────────── */}
+        {pendingPhotos.length > 0 && (
+          <section>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-1 h-5 rounded-full" style={{ background: 'var(--bb-orange)' }} />
+              <h2 className="text-base font-semibold" style={{ color: 'var(--bb-orange)' }}>
+                Fotos zur Analyse ({pendingPhotos.length})
+              </h2>
             </div>
-            <Button onClick={() => setShowSocialMediaDialog(true)} disabled={isSharing} variant="outline" className="w-full border-gray-700 text-gray-300 hover:bg-gray-700 min-h-[44px]">
-              Auf Social Media teilen
-            </Button>
-          </DialogFooter>
+            <div className="grid gap-3 md:grid-cols-2">
+              <AnimatePresence>
+                {pendingPhotos.map(photo => (
+                  <PendingPhotoCard key={photo.id} photo={photo} spots={spots} findNearestSpot={findNearestSpot} onAnalyzed={handlePhotoAnalyzed} onDeleted={handlePhotoDeleted} />
+                ))}
+              </AnimatePresence>
+            </div>
+          </section>
+        )}
+
+        {/* ── Stats link ─────────────────────────── */}
+        <Link to="/CatchStats" className="bb-link-row">
+          <BarChart2 size={18} />
+          Fang-Statistiken anzeigen
+        </Link>
+
+        {/* ── Filters + History ──────────────────── */}
+        {catches.length > 0 && !loading && (
+          <section className="grid gap-3">
+            <span className="bb-section-label">Filter</span>
+            <TabBar
+              tabs={speciesTabs}
+              activeTab={filterSpecies}
+              onTabChange={setFilterSpecies}
+            />
+            <TabBar
+              tabs={yearTabs}
+              activeTab={filterYear}
+              onTabChange={setFilterYear}
+            />
+          </section>
+        )}
+
+        <CatchHistory
+          catches={catches.filter(c => {
+            const matchesSpecies = filterSpecies === "Alle" || c.species === filterSpecies;
+            const catchYear = c.catch_time ? new Date(c.catch_time).getFullYear().toString() : '';
+            const matchesYear = filterYear === "Alle Jahre" || catchYear === filterYear;
+            return matchesSpecies && matchesYear;
+          })}
+          isLoading={loading}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onRefresh={() => queryClient.invalidateQueries({ queryKey: ['catches'] })}
+        />
+
+        {/* ── Share dialog ───────────────────────── */}
+        <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+          <DialogContent className="bg-gray-900 border-white/10 text-white">
+            <DialogHeader>
+              <DialogTitle style={{ color: 'var(--bb-cyan)' }}>In Community teilen?</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm mb-4" style={{ color: 'var(--bb-muted)' }}>Möchtest du diesen Fang mit der Community teilen?</p>
+              {savedCatchData?.photo_url && (
+                <div className="bb-photo-preview mb-4">
+                  <LazyImage src={savedCatchData.photo_url} alt={savedCatchData.species} className="w-full h-full object-cover" />
+                </div>
+              )}
+              {savedCatchData && (
+                <div className="rounded-xl p-4 space-y-1" style={{ background: 'rgba(0,0,0,.25)' }}>
+                  <p className="font-semibold">{savedCatchData.species}</p>
+                  {savedCatchData.length_cm && <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Länge: {savedCatchData.length_cm}cm</p>}
+                  {savedCatchData.weight_kg && <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Gewicht: {savedCatchData.weight_kg}kg</p>}
+                  {savedCatchData.bait_used && <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Köder: {savedCatchData.bait_used}</p>}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button type="button" onClick={() => { setShowShareDialog(false); setSavedCatchData(null); }} disabled={isSharing} className="bb-secondary flex-1 justify-center min-h-[44px]">
+                  Nein, danke
+                </button>
+                <button type="button" onClick={handleShareToCommunity} disabled={isSharing} className="bb-action flex-1">
+                  {isSharing ? <><Loader2 size={16} className="animate-spin" />Wird geteilt...</> : <><Share2 size={16} />Community</>}
+                </button>
+              </div>
+              <button type="button" onClick={() => setShowSocialMediaDialog(true)} disabled={isSharing} className="bb-secondary w-full justify-center min-h-[44px]">
+                Auf Social Media teilen
+              </button>
+            </DialogFooter>
           </DialogContent>
-          </Dialog>
+        </Dialog>
 
-      <SocialMediaShareDialog
-        open={showSocialMediaDialog}
-        onOpenChange={setShowSocialMediaDialog}
-        catchData={savedCatchData}
-      />
+        <SocialMediaShareDialog
+          open={showSocialMediaDialog}
+          onOpenChange={setShowSocialMediaDialog}
+          catchData={savedCatchData}
+        />
 
-      <button type="button"
-        type="button"
-        aria-label="Neuen Fang eintragen"
-        onClick={() => {
-          const form = document.getElementById('fang-erfassen');
-          if (form) {
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const speciesInput = form.querySelector('input, select, textarea');
-            if (speciesInput) setTimeout(() => speciesInput.focus(), 400);
-          }
-        }}
-        className="fixed right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 shadow-lg shadow-cyan-500/40 flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.5rem)' }}
-      >
-        <Plus className="w-7 h-7" />
-      </button>
-          </div>
-          </SwipeToRefresh>
-          );
-          }
+        {/* ── Scroll-to-form FAB ─────────────────── */}
+        <button
+          type="button"
+          aria-label="Neuen Fang eintragen"
+          onClick={() => {
+            const form = document.getElementById('fang-erfassen');
+            if (form) {
+              form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              const speciesInput = form.querySelector('input, select, textarea');
+              if (speciesInput) setTimeout(() => speciesInput.focus(), 400);
+            }
+          }}
+          className="bb-fab fixed right-5 z-40"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.5rem)' }}
+        >
+          <Plus size={26} />
+        </button>
+      </div>
+    </SwipeToRefresh>
+  );
+}

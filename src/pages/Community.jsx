@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { integrations, entities, api, community } from "@/api/frontendClient";
+import TabBar from "@/components/layout/TabBar";
 import { auth } from "@/api/auth";
 import { User } from "@/entities/User";
 import { toast } from "sonner";
@@ -42,9 +41,9 @@ const CommentInput = memo(function CommentInput({ onSubmit }) {
           }
         }}
       />
-      <Button onClick={submit} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+      <button onClick={submit} className="bb-action px-3 py-1.5">
         <Send className="w-4 h-4" />
-      </Button>
+      </button>
     </div>
   );
 });
@@ -177,101 +176,97 @@ const PostCard = memo(function PostCard({
   const displayName = nameOf(post.created_by);
 
   return (
-    <div>
-      <Card className="glass-morphism border-gray-800">
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {profilePic ? (
-                <img src={profilePic} alt={displayName} className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 flex-shrink-0" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center border-2 border-emerald-400 flex-shrink-0">
-                  <UserIcon className="w-5 h-5 text-white" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-white">{displayName}</p>
-                  <UserBadges userEmail={post.created_by} userCache={userCache} />
-                </div>
-                <p className="text-xs text-gray-400">
-                  {new Date(post.created_at).toLocaleDateString('de-DE', {
-                    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                  })}
-                </p>
-              </div>
+    <div className="bb-card">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {profilePic ? (
+            <img src={profilePic} alt={displayName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid var(--bb-cyan)' }} />
+          ) : (
+            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,229,255,.15)', border: '2px solid rgba(0,229,255,.3)' }}>
+              <UserIcon className="w-5 h-5" style={{ color: 'var(--bb-cyan)' }} />
             </div>
-
-            {isOwnPost && (
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => onDelete(post.id)}
-                disabled={isDeleting}
-                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-              >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {post.text && <p className="text-gray-200 whitespace-pre-wrap">{post.text}</p>}
-
-          {post.photo_url && (
-            <img src={post.photo_url} alt="Post" className="w-full rounded-lg max-h-96 object-cover" />
           )}
-
-          <div className="flex items-center gap-4 pt-2 border-t border-gray-800">
-            <Button variant="ghost" size="sm" onClick={() => onLike(post.id, post.likes || 0)} className="text-gray-400 hover:text-red-400">
-              <Heart className="w-4 h-4 mr-1" />
-              {post.likes || 0}
-            </Button>
-
-            <Button variant="ghost" size="sm" onClick={() => onToggleComment(post.id)} className="text-gray-400 hover:text-cyan-400">
-              <MessageCircle className="w-4 h-4 mr-1" />
-              {post.comments?.length || 0}
-            </Button>
-
-            {!isOwnPost && (
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => onReport(post.id)}
-                className={`ml-auto ${isReported ? 'text-amber-400 cursor-default' : 'text-gray-400 hover:text-amber-400'}`}
-                title={isReported ? 'Bereits gemeldet' : 'Post melden'}
-              >
-                <AlertTriangle className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-
-          {post.comments && post.comments.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-gray-800">
-              {post.comments.map((comment) => {
-                const commentProfilePic = picOf(comment.created_by);
-                const commentDisplayName = nameOf(comment.created_by);
-                return (
-                  <div key={comment.id} className="flex gap-2">
-                    {commentProfilePic ? (
-                      <img src={commentProfilePic} alt={commentDisplayName} className="w-8 h-8 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-                        <UserIcon className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                    <div className="flex-1 bg-gray-800/50 rounded-lg p-2">
-                      <p className="text-xs font-semibold text-emerald-400 mb-1">{commentDisplayName}</p>
-                      <p className="text-sm text-gray-300">{comment.text}</p>
-                    </div>
-                  </div>
-                );
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold">{displayName}</p>
+              <UserBadges userEmail={post.created_by} userCache={userCache} />
+            </div>
+            <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+              {new Date(post.created_at).toLocaleDateString('de-DE', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
               })}
-            </div>
-          )}
+            </p>
+          </div>
+        </div>
 
-          {isCommenting && <CommentInput onSubmit={(text) => onSubmitComment(post.id, text)} />}
-        </CardContent>
-      </Card>
+        {isOwnPost && (
+          <button
+            type="button"
+            onClick={() => onDelete(post.id)}
+            disabled={isDeleting}
+            className="bb-header-icon-btn"
+            style={{ color: 'var(--bb-red)' }}
+          >
+            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+          </button>
+        )}
+      </div>
+
+      {post.text && <p className="whitespace-pre-wrap mb-3" style={{ color: '#dce8f2' }}>{post.text}</p>}
+
+      {post.photo_url && (
+        <img src={post.photo_url} alt="Post" className="w-full rounded-xl max-h-96 object-cover mb-3" />
+      )}
+
+      <div className="flex items-center gap-4 pt-3" style={{ borderTop: '1px solid var(--bb-border)' }}>
+        <button type="button" onClick={() => onLike(post.id, post.likes || 0)} className="flex items-center gap-1 text-sm" style={{ color: 'var(--bb-muted)' }}>
+          <Heart size={16} />
+          {post.likes || 0}
+        </button>
+
+        <button type="button" onClick={() => onToggleComment(post.id)} className="flex items-center gap-1 text-sm" style={{ color: 'var(--bb-muted)' }}>
+          <MessageCircle size={16} />
+          {post.comments?.length || 0}
+        </button>
+
+        {!isOwnPost && (
+          <button
+            type="button"
+            onClick={() => onReport(post.id)}
+            className="ml-auto flex items-center text-sm"
+            style={{ color: isReported ? 'var(--bb-orange)' : 'var(--bb-muted)' }}
+            title={isReported ? 'Bereits gemeldet' : 'Post melden'}
+          >
+            <AlertTriangle size={16} />
+          </button>
+        )}
+      </div>
+
+      {post.comments && post.comments.length > 0 && (
+        <div className="space-y-2 pt-3 mt-3" style={{ borderTop: '1px solid var(--bb-border)' }}>
+          {post.comments.map((comment) => {
+            const commentProfilePic = picOf(comment.created_by);
+            const commentDisplayName = nameOf(comment.created_by);
+            return (
+              <div key={comment.id} className="flex gap-2">
+                {commentProfilePic ? (
+                  <img src={commentProfilePic} alt={commentDisplayName} className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,229,255,.12)' }}>
+                    <UserIcon className="w-4 h-4" style={{ color: 'var(--bb-cyan)' }} />
+                  </div>
+                )}
+                <div className="flex-1 rounded-xl p-2" style={{ background: 'rgba(0,0,0,.2)' }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--bb-cyan)' }}>{commentDisplayName}</p>
+                  <p className="text-sm" style={{ color: '#c0d8e4' }}>{comment.text}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isCommenting && <CommentInput onSubmit={(text) => onSubmitComment(post.id, text)} />}
     </div>
   );
 });
@@ -687,95 +682,31 @@ export default function Community() {
 
   return (
     <PageContainer maxWidth="max-w-4xl" enableSwipeRefresh={true} onRefresh={handleRefresh}>
-      {pullDistance > 0 && (
-        <div
-          className="fixed top-0 left-0 right-0 flex items-center justify-center z-50 transition-opacity"
-          style={{
-            height: `${pullDistance}px`,
-            opacity: Math.min(pullDistance / 80, 1)
-          }}
-        >
-          <div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
-
-      {isRefreshing && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-cyan-600 text-white px-4 py-2 rounded-full shadow-lg">
-          Aktualisiere...
-        </div>
-      )}
-
-      <div className="space-y-8">
+      <div className="grid gap-6">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <p className="bb-eyebrow mb-2">Gemeinschaft</p>
+            <p className="bb-eyebrow mb-1">Gemeinschaft</p>
             <h1 className="bb-title">Community</h1>
             <p className="bb-muted mt-1">Tausche dich mit anderen Anglern aus.</p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700">
-            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-            <span className="text-sm text-slate-300">{activeUserCount} online</span>
+          <div className="bb-pill-success">
+            <span className="w-2 h-2 rounded-full" style={{ background: 'var(--bb-green)' }} />
+            {activeUserCount} online
           </div>
         </header>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 p-1 bg-slate-900/60 border border-slate-800 rounded-2xl overflow-x-auto">
-          <button type="button"
-            onClick={() => setActiveTab("feed")}
-            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "feed"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <MessageCircle className="w-4 h-4" />
-            Feed
-          </button>
-          <button type="button"
-            onClick={() => setActiveTab("waters")}
-            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "waters"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Droplet className="w-4 h-4" />
-            Gewässer
-          </button>
-          <button type="button"
-            onClick={() => setActiveTab("challenges")}
-            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "challenges"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Zap className="w-4 h-4" />
-            Challenges
-          </button>
-          <button type="button"
-            onClick={() => setActiveTab("competitions")}
-            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "competitions"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Trophy className="w-4 h-4" />
-            Wettbewerbe
-          </button>
-          <button type="button"
-            onClick={() => setActiveTab("leaderboards")}
-            className={`flex-1 min-w-fit flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === "leaderboards"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            Bestenlisten
-          </button>
-        </div>
+        <TabBar
+          tabs={[
+            { key: 'feed', label: 'Feed' },
+            { key: 'waters', label: 'Gewässer' },
+            { key: 'challenges', label: 'Challenges' },
+            { key: 'competitions', label: 'Wettbewerbe' },
+            { key: 'leaderboards', label: 'Bestenlisten' },
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
         {activeTab === "feed" && (<>
         {/* Suchleiste */}
@@ -787,12 +718,12 @@ export default function Community() {
               placeholder="Suche nach Beiträgen, Erstellern..."
               className="bg-slate-800/50 border-slate-700 text-white flex-1"
             />
-            <Button
+            <button
               onClick={() => setShowChat(!showChat)}
               className="bb-secondary"
             >
               Chat
-            </Button>
+            </button>
           </div>
         </div>
 
@@ -823,10 +754,9 @@ export default function Community() {
                   alt="Preview"
                   className="w-full rounded-lg max-h-64 object-cover"
                 />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="absolute top-2 right-2"
+                <button
+                  className="absolute top-2 right-2 p-1.5 rounded-lg"
+                  style={{ background: 'rgba(239,68,68,.8)', color: 'white' }}
                   onClick={() => {
                     setNewPostImage(null);
                     setImagePreview(null);
@@ -834,7 +764,7 @@ export default function Community() {
                   disabled={uploading}
                 >
                   <X className="w-4 h-4" />
-                </Button>
+                </button>
               </div>
             )}
 
@@ -848,33 +778,32 @@ export default function Community() {
                   onChange={handleImageSelect}
                   disabled={uploading}
                 />
-                <Button
-                  variant="outline"
+                <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex-1 bb-secondary"
+                  className="flex-1 bb-secondary flex items-center justify-center gap-2"
                 >
-                  <Camera className="w-4 h-4 mr-2" />
+                  <Camera className="w-4 h-4" />
                   {newPostImage ? "Bild ändern" : "Bild hinzufügen"}
-                </Button>
+                </button>
 
-                <Button
+                <button
                   onClick={handleCreatePost}
                   disabled={uploading || (!newPostText.trim() && !newPostImage)}
-                  className="flex-1 bb-action"
+                  className="flex-1 bb-action flex items-center justify-center gap-2"
                 >
                   {uploading ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       Wird hochgeladen...
                     </>
                   ) : (
                     <>
-                      <Send className="w-4 h-4 mr-2" />
+                      <Send className="w-4 h-4" />
                       Posten
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -1071,5 +1000,6 @@ export default function Community() {
         </div>
       </div>
     </PageContainer>
+
   );
 }
