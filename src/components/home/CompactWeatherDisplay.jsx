@@ -23,7 +23,7 @@ function CompactWeatherDisplay() {
         setData(parsedData);
         setLoading(false);
         return;
-      } catch (error) {
+      } catch {
         localStorage.removeItem(key);
       }
     }

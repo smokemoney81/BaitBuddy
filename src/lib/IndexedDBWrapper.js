@@ -151,7 +151,7 @@ export const OfflineDataStore = {
       };
       await idb.put('catches', data);
       await idb.setMetadata('lastSync_catches', new Date().toISOString());
-    } catch (e) {
+    } catch {
     }
   },
 
@@ -159,7 +159,7 @@ export const OfflineDataStore = {
     try {
       const data = await idb.get('catches', 'catches_main');
       return data?.records || [];
-    } catch (e) {
+    } catch {
       return [];
     }
   },
@@ -172,7 +172,7 @@ export const OfflineDataStore = {
         updated_at: new Date().toISOString(),
       };
       await idb.put('spots', data);
-    } catch (e) {
+    } catch {
     }
   },
 
@@ -180,7 +180,7 @@ export const OfflineDataStore = {
     try {
       const data = await idb.get('spots', 'spots_main');
       return data?.records || [];
-    } catch (e) {
+    } catch {
       return [];
     }
   },
@@ -189,7 +189,7 @@ export const OfflineDataStore = {
     try {
       const ts = await idb.getMetadata('lastSync_catches');
       return ts ? new Date(ts) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   },
@@ -210,7 +210,7 @@ export const OfflineDataStore = {
       };
       await idb.put('pending_syncs', record);
       return record.id;
-    } catch (e) {
+    } catch {
       return null;
     }
   },
@@ -218,7 +218,7 @@ export const OfflineDataStore = {
   async getPendingSyncs(entityType) {
     try {
       return await idb.query('pending_syncs', 'entity_type', entityType);
-    } catch (e) {
+    } catch {
       return [];
     }
   },
@@ -226,7 +226,7 @@ export const OfflineDataStore = {
   async removePendingSync(id) {
     try {
       await idb.delete('pending_syncs', id);
-    } catch (e) {
+    } catch {
     }
   },
 
@@ -236,7 +236,7 @@ export const OfflineDataStore = {
       await idb.clear('spots');
       await idb.clear('pending_syncs');
       await idb.clear('metadata');
-    } catch (e) {
+    } catch {
     }
   },
 

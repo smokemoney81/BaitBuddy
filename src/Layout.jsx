@@ -120,7 +120,7 @@ function LayoutContent({ children, currentPageName }) {
         setAuthLoading(false);
       });
       window.dispatchEvent(new CustomEvent('user-refresh-request'));
-    } catch (error) {
+    } catch {
       startTransition(() => {
         setUser(null);
         setAuthLoading(false);

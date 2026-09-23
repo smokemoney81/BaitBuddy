@@ -26,7 +26,7 @@ export async function trackPageView(pageName) {
       event_type: "page_view",
       page_name: pageName,
     });
-  } catch (e) {
+  } catch {
     // silent
   }
 }
@@ -41,7 +41,7 @@ export async function trackFeatureClick(featureId, metadata = {}) {
       feature_id: featureId,
       metadata,
     });
-  } catch (e) {
+  } catch {
     // silent
   }
 }

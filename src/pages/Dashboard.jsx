@@ -81,7 +81,7 @@ export default function Dashboard() {
     try {
       lastTs = Number(localStorage.getItem('bb_last_greeting_ts')) || 0;
       lastGreeting = localStorage.getItem('bb_last_greeting_text') || '';
-    } catch (e) {
+    } catch {
       // localStorage nicht verfügbar - dann normal begrüßen
     }
 
@@ -130,7 +130,7 @@ export default function Dashboard() {
     try {
       localStorage.setItem('bb_last_greeting_ts', String(Date.now()));
       localStorage.setItem('bb_last_greeting_text', greeting);
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -145,7 +145,7 @@ export default function Dashboard() {
     const cleanupSessions = async () => {
       try {
         await functions.invoke('cleanupOldSessions');
-      } catch (error) {
+      } catch {
         // Session cleanup errors are non-critical
       }
     };

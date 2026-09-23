@@ -20,7 +20,7 @@ export default function ShopSection() {
     try {
       const currentUser = await User.me();
       setUser(currentUser);
-    } catch (error) {
+    } catch {
       // User not logged in
     }
   };

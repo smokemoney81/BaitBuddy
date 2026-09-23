@@ -21,7 +21,7 @@ function NotificationSettings({ isOpen, onClose }) {
       } else {
         toast.error('Benachrichtigungen wurden abgelehnt');
       }
-    } catch (error) {
+    } catch {
       toast.error('Fehler beim Aktivieren von Benachrichtigungen');
     } finally {
       setLoading(false);
@@ -39,7 +39,7 @@ function NotificationSettings({ isOpen, onClose }) {
     try {
       await NotificationService.sendTestNotification();
       toast.success('Test-Notification gesendet');
-    } catch (error) {
+    } catch {
       toast.error('Fehler beim Senden der Test-Notification');
     }
   };

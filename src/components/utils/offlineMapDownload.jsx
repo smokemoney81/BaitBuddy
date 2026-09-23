@@ -137,7 +137,7 @@ export async function downloadMapArea(bounds, zoomLevels, tileUrl, onProgress) {
           } else {
             failedTiles++;
           }
-        } catch (error) {
+        } catch {
           failedTiles++;
         }
 

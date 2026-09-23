@@ -38,7 +38,7 @@ function TripHistory() {
       setTrips(trips.filter(t => t.id !== tripId));
       toast.success('Tour gelöscht');
       loadTrips();
-    } catch (error) {
+    } catch {
       toast.error('Fehler beim Löschen');
     }
   };
@@ -54,7 +54,7 @@ function TripHistory() {
       const result = await TripSyncService.syncTripsToCloud(token);
       toast.success(`${result.synced} Touren synchronisiert`);
       loadTrips();
-    } catch (error) {
+    } catch {
       toast.error('Sync-Fehler');
     } finally {
       setSyncing(false);

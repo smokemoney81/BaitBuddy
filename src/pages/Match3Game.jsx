@@ -472,7 +472,7 @@ export default function Match3Game() {
       try {
         const u = await User.me();
         setUser(u);
-      } catch (error) {
+      } catch {
         setUser(null);
       }
     };

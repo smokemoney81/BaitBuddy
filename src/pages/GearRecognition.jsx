@@ -109,7 +109,7 @@ function GearRecognitionInner() {
       setStream(s);
       setCameraActive(true);
       if (videoRef.current) videoRef.current.srcObject = s;
-    } catch (e) {
+    } catch {
       setError("Kamerazugriff verweigert. Bitte Kamera-Permission erteilen oder ein Foto hochladen.");
     }
   };

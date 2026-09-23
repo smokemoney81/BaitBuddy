@@ -181,7 +181,7 @@ export default function ProfilePage() {
       setCopiedReferral(true);
       toast.success('Einladungslink kopiert!');
       setTimeout(() => setCopiedReferral(false), 2000);
-    } catch (error) {
+    } catch {
       toast.error('Kopieren fehlgeschlagen.');
     }
   };

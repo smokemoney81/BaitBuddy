@@ -4,7 +4,7 @@ export function safeParse(key, defaultValue = null) {
     const raw = localStorage.getItem(key);
     if (!raw) return defaultValue;
     return JSON.parse(raw);
-  } catch (err) {
+  } catch {
     try {
       localStorage.removeItem(key);
     } catch {}
@@ -16,7 +16,7 @@ export function safeStringify(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -25,7 +25,7 @@ export function safeRemove(key) {
   try {
     localStorage.removeItem(key);
     return true;
-  } catch (err) {
+  } catch {
     return false;
   }
 }

@@ -42,7 +42,7 @@ export default function AdminUsers() {
     try {
       const allUsers = await User.list();
       setUsers(allUsers);
-    } catch (error) {
+    } catch {
       toast.error("Fehler beim Laden der Benutzer");
     }
     setLoading(false);

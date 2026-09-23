@@ -205,7 +205,7 @@ export default function ExportPanel({ waterData }) {
       try {
         await navigator.clipboard.writeText(shareText);
         toast.success("Link in Zwischenablage kopiert!");
-      } catch (error) {
+      } catch {
         toast.error("Teilen nicht unterstützt");
       }
     }

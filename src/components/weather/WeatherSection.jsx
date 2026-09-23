@@ -27,7 +27,7 @@ export default function WeatherSection() {
         setLoading(false); 
         setLastUpdate(new Date());
         return;
-      } catch (error) {
+      } catch {
         localStorage.removeItem(key);
       }
     }

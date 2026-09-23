@@ -95,7 +95,7 @@ export default function Logbook() {
           setPendingPhotos([]);
         }
       }
-    } catch (error) {
+    } catch {
       localStorage.removeItem('catchgbt_pending_photos');
       setPendingPhotos([]);
     }
@@ -337,7 +337,7 @@ export default function Logbook() {
       toast.success("Fang in der Community geteilt!");
       setShowShareDialog(false);
       setSavedCatchData(null);
-    } catch (error) {
+    } catch {
       toast.error("Fehler beim Teilen des Fangs");
     } finally {
       setIsSharing(false);
@@ -457,7 +457,7 @@ export default function Logbook() {
                       setAiResult(null);
                       toast.warning("Foto hochgeladen, aber KI konnte keinen Fisch erkennen");
                     }
-                  } catch (error) {
+                  } catch {
                     toast.error("KI-Analyse fehlgeschlagen");
                   } finally {
                     setIsAnalyzing(false);
