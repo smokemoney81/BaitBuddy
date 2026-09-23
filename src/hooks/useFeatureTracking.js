@@ -13,7 +13,7 @@ export function useFeatureTracking(featureId) {
     if (!featureId) return;
 
     let cancelled = false;
-    let userEmail = null;
+    let _userEmail = null;
 
     const startSession = async () => {
       try {

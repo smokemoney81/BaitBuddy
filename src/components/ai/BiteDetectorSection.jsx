@@ -20,7 +20,7 @@ export default function BiteDetectorSection() {
 }
 
 function BiteDetectorSectionInner() {
-  const [user, setUser] = useState(null);
+  const [_user, setUser] = useState(null);
   const [running, setRunning] = useState(false);
   const [alarmActive, setAlarmActive] = useState(false);
   const [lineScore, setLineScore] = useState(0);
@@ -29,9 +29,9 @@ function BiteDetectorSectionInner() {
   const [error, setError] = useState(null); // New state for error messages
 
   // Premium Metering (Temporarily disabled)
-  const [sessionId, setSessionId] = useState(null);
-  const [remainingCredits, setRemainingCredits] = useState(0);
-  const heartbeatIntervalRef = useRef(null);
+  const [_sessionId, _setSessionId] = useState(null);
+  const [_remainingCredits, _setRemainingCredits] = useState(0);
+  const _heartbeatIntervalRef = useRef(null);
 
   // Refs für DOM-Elemente
   const videoRef = useRef(null);
@@ -62,7 +62,7 @@ function BiteDetectorSectionInner() {
 
   // Low-CPU params
   const PROC_W = 160;
-  const TARGET_FPS = 10;
+  const _TARGET_FPS = 10;
   const STRIDE = 4;
 
   const { playSound } = useSound();
@@ -324,8 +324,8 @@ function BiteDetectorSectionInner() {
       }, [id.data.buffer]); // Transferable object
     }
     
-    const { e: eL, z: zL } = energyFor(state.roiLine, state.stLine);
-    const { e: eT, z: zT } = energyFor(state.roiTip, state.stTip);
+    const { e: _eL, z: zL } = energyFor(state.roiLine, state.stLine);
+    const { e: _eT, z: zT } = energyFor(state.roiTip, state.stTip);
     
     setTipScore(Math.abs(zT));
     
@@ -525,7 +525,7 @@ function BiteDetectorSectionInner() {
 
   const stopDetection = async (triggeredByUser = false) => {
     const video = videoRef.current;
-    const state = stateRef.current;
+    const _state = stateRef.current;
 
     const wasRunning = runningRef.current;
     runningRef.current = false;

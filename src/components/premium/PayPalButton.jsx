@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Crown, Mail, ExternalLink, Clock } from 'lucide-react';
 
-export default function PayPalButton({ planId, planName, planPrice, onSuccess }) {
+export default function PayPalButton({ planId, planName, planPrice, onSuccess: _onSuccess }) {
   const features = {
     basic: ['KI-Fangberatung', 'Spot-Verwaltung', 'Fangbuch', 'Wetter-Integration'],
     standard: ['Alles aus Basic', 'Offline-Karten', 'Erweiterte Analysen', 'Geraete-Anbindung'],

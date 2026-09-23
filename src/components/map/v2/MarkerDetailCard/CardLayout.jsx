@@ -9,7 +9,7 @@ function CardLayout({
   markerType,
   heroImage,
   onImageError,
-  imageError,
+  imageError: _imageError,
   onAction
 }) {
   return (

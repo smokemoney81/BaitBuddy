@@ -11,7 +11,7 @@ function MarkerDetailCardContainer({
 }) {
   const [normalizedData, setNormalizedData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [_error, setError] = useState(null);
 
   useEffect(() => {
     if (!marker || !isVisible) return;

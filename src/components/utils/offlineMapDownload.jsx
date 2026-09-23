@@ -96,7 +96,7 @@ export async function getCachedTile(x, y, z) {
   return new Promise((resolve, reject) => {
     const transaction = tilesDb.transaction([TILE_STORE_NAME], 'readonly');
     const objectStore = transaction.objectStore(TILE_STORE_NAME);
-    const index = objectStore.index ? null : null;
+    const _index = objectStore.index ? null : null;
     
     // Finde Tile nach Key-Pattern
     const getAllRequest = objectStore.getAll();

@@ -18,7 +18,7 @@ const TACKLE_CATEGORIES = [
 
 const TACKLE_CONDITIONS = ['neu', 'wie neu', 'gut', 'gebraucht', 'beschädigt'];
 
-export function TackleManager({ userId }) {
+export function TackleManager({ userId: _userId }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);

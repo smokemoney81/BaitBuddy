@@ -37,7 +37,7 @@ function LiveTripPage() {
   const [watchId, setWatchId] = useState(null);
   const [showCatchModal, setShowCatchModal] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [mapCenter, setMapCenter] = useState([51.1657, 10.4515]);
+  const [_mapCenter, setMapCenter] = useState([51.1657, 10.4515]);
   const [infoTab, setInfoTab] = useState('tides'); // 'tides', 'solunar', 'prediction'
   const routeRef = useRef([]);
   const startTimeRef = useRef(null);

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React, { useState } from 'react';
 
 // Mock Login Form Component
-function LoginForm({ onSubmit, onForgotPassword }) {
+function _LoginForm({ onSubmit, onForgotPassword }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);

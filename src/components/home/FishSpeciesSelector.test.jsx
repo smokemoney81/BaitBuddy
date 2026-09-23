@@ -44,7 +44,7 @@ describe('FishSpeciesSelector – Fischarten-Auswahl', () => {
   });
 
   it('speichert die ausgewählte Fischart', () => {
-    const { rerender } = render(<FishSpeciesSelector />);
+    const { rerender: _rerender } = render(<FishSpeciesSelector />);
 
     fireEvent.click(screen.getByText('Hecht'));
 

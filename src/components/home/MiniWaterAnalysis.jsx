@@ -34,7 +34,7 @@ export default function MiniWaterAnalysis() {
     return "text-red-400";
   };
 
-  const getQualityLabel = (score) => {
+  const _getQualityLabel = (score) => {
     if (score >= 80) return "Ausgezeichnet";
     if (score >= 60) return "Gut";
     return "Mäßig";

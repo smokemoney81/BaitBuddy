@@ -14,7 +14,7 @@ import { speakWithFallback, cancelElevenLabs } from '@/components/utils/elevenLa
  * - Smart Positioning: versucht unter dem Element zu sitzen, weicht aus
  */
 export default function SabrinaTourTooltip({
-  step,
+  step: _step,
   title,
   content,
   currentIndex,

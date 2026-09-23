@@ -107,7 +107,7 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
     hideWidget,
     showWidget,
     isVoiceEnabled: buddyVoiceEnabled,
-    toggleVoice: toggleBuddyVoice,
+    toggleVoice: _toggleBuddyVoice,
     getLocation: getStoredLocation,
   } = useBuddyStorage();
 
@@ -117,7 +117,7 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
 
   // Persisted state to localStorage
   const isHidden = isWidgetHidden;
-  const [isNodding, setIsNodding] = useState(false);
+  const [_isNodding, setIsNodding] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [chatError, setChatError] = useState(null);
   const [smallBubbleText, setSmallBubbleText] = useState('');
@@ -578,7 +578,7 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
     hideWidget();
   }, [hideWidget]);
 
-  const handleShowBubble = useCallback(() => {
+  const _handleShowBubble = useCallback(() => {
     showWidget();
     setIsOpen(true);
   }, [showWidget]);

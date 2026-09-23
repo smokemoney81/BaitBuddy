@@ -74,7 +74,7 @@ const PointsExplanation = () => (
   </motion.div>
 );
 
-const CompetitionTypeCard = ({ type, title, icon: Icon, description, count, color }) => (
+const CompetitionTypeCard = ({ type: _type, title, icon: Icon, description, count, color }) => (
   <motion.div
     whileHover={{ y: -4, borderColor: color.border }}
     className={`bg-gradient-to-br ${color.bg} border ${color.border} rounded-xl p-4 cursor-pointer transition`}
@@ -102,7 +102,7 @@ export default function CompetitionsSection({
   eventCompetitions,
   onCompetitionUpdated
 }) {
-  const [expandedSection, setExpandedSection] = useState(null);
+  const [_expandedSection, _setExpandedSection] = useState(null);
 
   const containerVariants = {
     hidden: { opacity: 0 },

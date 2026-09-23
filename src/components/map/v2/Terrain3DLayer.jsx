@@ -6,10 +6,10 @@ import L from 'leaflet';
  * Terrain3DLayer - 3D Terrain Visualisierung mit Canvas
  * Gradient-basierte Höhenvisualisierung mit Konturlinien
  */
-function Terrain3DLayer({ visible = false, mode = 'canvas' }) {
+function Terrain3DLayer({ visible = false, mode: _mode = 'canvas' }) {
   const map = useMap();
   const [terrain, setTerrain] = useState(null);
-  const [stats, setStats] = useState(null);
+  const [_stats, setStats] = useState(null);
 
   React.useEffect(() => {
     if (!map || !visible) return;

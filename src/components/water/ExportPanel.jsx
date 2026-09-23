@@ -20,7 +20,7 @@ export default function ExportPanel({ waterData }) {
       let csv = "Parameter,Wert,Einheit,Qualität\n";
 
       // Parameter hinzufügen
-      Object.entries(waterData.parameters).forEach(([key, param]) => {
+      Object.entries(waterData.parameters).forEach(([_key, param]) => {
         csv += `${param.label},${param.value.toFixed(2)},${param.unit},${param.quality}\n`;
       });
 
@@ -124,7 +124,7 @@ export default function ExportPanel({ waterData }) {
     <h2>Wasser-Parameter</h2>
 `;
 
-      Object.entries(waterData.parameters).forEach(([key, param]) => {
+      Object.entries(waterData.parameters).forEach(([_key, param]) => {
         const qualityClass = param.quality === 'gut' || param.quality === 'optimal' ? 'quality-good' : 
                             param.quality === 'mittel' ? 'quality-medium' : 'quality-bad';
         html += `

@@ -26,12 +26,12 @@ export default function ProfilePage() {
    const [isEditing, setIsEditing] = useState(false);
    const [nickname, setNickname] = useState('');
    const [isUploading, setIsUploading] = useState(false);
-   const [isSaving, setIsSaving] = useState(false);
+   const [_isSaving, _setIsSaving] = useState(false);
    const [copiedReferral, setCopiedReferral] = useState(false);
    const [postsCount, setPostsCount] = useState(0);
    const [currentPlan, setCurrentPlan] = useState(null);
    const [chatHistory, setChatHistory] = useState([]);
-   const [loadingHistory, setLoadingHistory] = useState(false);
+   const [_loadingHistory, _setLoadingHistory] = useState(false);
    const [expandedConversation, setExpandedConversation] = useState(null);
    const [navigationAnnouncement, setNavigationAnnouncement] = useState('');
 
@@ -223,7 +223,7 @@ export default function ProfilePage() {
     );
   }
 
-  const planBadgeColor = {
+  const _planBadgeColor = {
     free: 'bg-gray-600',
     basic: 'bg-blue-600',
     pro: 'bg-purple-600',

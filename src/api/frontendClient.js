@@ -767,7 +767,7 @@ export const integrations = {
       }
     },
     GenerateImage: () => Promise.resolve({ url: '' }),
-    ExtractDataFromUploadedFile: async ({ file_url, json_schema }) => {
+    ExtractDataFromUploadedFile: async ({ file_url, json_schema: _json_schema }) => {
       if (!file_url) throw new Error('file_url erforderlich');
       const response = await api.post('/api/analyze-photo', { image: file_url });
       return {

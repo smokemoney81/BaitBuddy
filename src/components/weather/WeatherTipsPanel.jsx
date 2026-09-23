@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
 export default function WeatherTipsPanel() {
-  const [loc, setLoc] = useState(null); // {lat, lon, name, source}
+  const [_loc, setLoc] = useState(null); // {lat, lon, name, source}
   const [text, setText] = useState("Wetter wird geladen …");
   const trackRef = useRef(null);
 

@@ -58,7 +58,7 @@ export default function MonthlyLeaderboard() {
   const handleClaimReward = async (leaderboardId) => {
     try {
       setClaimingReward(leaderboardId);
-      const result = await rewards.claim(leaderboardId);
+      const _result = await rewards.claim(leaderboardId);
       toast.success('Reward erfolgreich beansprucht! Dein Basic Plan ist aktiviert.');
       await loadData();
     } catch (error) {
@@ -223,7 +223,7 @@ export default function MonthlyLeaderboard() {
           <div className="grid gap-4 mt-4">
             {leaderboard.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {leaderboard.map((entry, index) => (
+                {leaderboard.map((entry, _index) => (
                   <div
                     key={entry.id}
                     className="flex items-center justify-between p-4 rounded-lg border transition-all"

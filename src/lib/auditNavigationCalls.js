@@ -24,16 +24,16 @@ export const DIRECT_NAVIGATION_VIOLATIONS = [
 ];
 
 export function auditNavigationCompliance() {
-  const violations = [];
-  
+  const _violations = [];
+
   // Check for window.location.href assignments
-  const hrefPattern = /window\.location\.href\s*=/g;
-  
+  const _hrefPattern = /window\.location\.href\s*=/g;
+
   // Check for window.location.replace calls
-  const replacePattern = /window\.location\.replace\(/g;
-  
+  const _replacePattern = /window\.location\.replace\(/g;
+
   // Check for direct pathname access for navigation logic
-  const pathnameNavPattern = /window\.location\.pathname.*(?:push|navigate|switch|redirect)/gi;
+  const _pathnameNavPattern = /window\.location\.pathname.*(?:push|navigate|switch|redirect)/gi;
   
   return {
     directViolations: DIRECT_NAVIGATION_VIOLATIONS,

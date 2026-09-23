@@ -4,7 +4,7 @@ import L from "leaflet";
 
 export default function OfflineMapLayer({ isOnline }) {
   const map = useMap();
-  const [tileLayer, setTileLayer] = useState(null);
+  const [_tileLayer, setTileLayer] = useState(null);
 
   useEffect(() => {
     if (!map || !L) return;

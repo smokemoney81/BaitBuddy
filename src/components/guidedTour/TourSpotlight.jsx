@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
  */
 export default function TourSpotlight({ targetRef, isVisible, padding = 12 }) {
   const canvasRef = useRef(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [_canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const animationFrameRef = useRef(null);
 
   // Berechne Spotlight-Position und Größe aus Target-Element

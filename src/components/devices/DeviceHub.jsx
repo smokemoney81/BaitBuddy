@@ -190,17 +190,17 @@ export default function DeviceHub() {
     const duration = Math.floor((Date.now() - hrSessionStart) / 1000);
     
     try {
-      const user = await auth.me();
-      
-      const avgBpm = hrSamples.length > 0 
+      const _user = await auth.me();
+
+      const avgBpm = hrSamples.length > 0
         ? Math.round(hrSamples.reduce((sum, s) => sum + s.bpm, 0) / hrSamples.length)
         : null;
-      
-      const maxBpm = hrSamples.length > 0 
+
+      const _maxBpm = hrSamples.length > 0
         ? Math.max(...hrSamples.map(s => s.bpm))
         : null;
-      
-      const minBpm = hrSamples.length > 0 
+
+      const _minBpm = hrSamples.length > 0
         ? Math.min(...hrSamples.map(s => s.bpm))
         : null;
       

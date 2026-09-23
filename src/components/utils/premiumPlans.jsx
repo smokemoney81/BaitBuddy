@@ -27,15 +27,15 @@ export const PLAN_NAMES = {
 /**
  * Prüft ob der Benutzer Zugriff auf ein Feature hat
  */
-export function hasFeatureAccess(userPlan, requiredPlan) {
+export function hasFeatureAccess(_userPlan, _requiredPlan) {
   return true;
 }
 
 /**
  * Gibt den minimalen Plan zurück, der für ein Feature benötigt wird
  */
-export function getRequiredPlan(featureId) {
-  const featureMap = {
+export function getRequiredPlan(_featureId) {
+  const _featureMap = {
     // Free
     'dashboard': 'free',
     'logbook': 'free',

@@ -124,7 +124,7 @@ function WaterBodyRooms() {
 }
 
 // Community-Challenges: zeitlich begrenzte Aufgaben
-function CommunityChallenge({ challenge, userCache }) {
+function CommunityChallenge({ challenge, userCache: _userCache }) {
   const daysLeft = Math.ceil((new Date(challenge.end_date) - Date.now()) / (1000 * 60 * 60 * 24));
   const progress = Math.min(100, (challenge.submissions || 0) / (challenge.target || 10) * 100);
 
@@ -288,9 +288,9 @@ export default function Community() {
   });
   const [competitions, setCompetitions] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pullStart, setPullStart] = useState(0);
-  const [pullDistance, setPullDistance] = useState(0);
+  const [_isRefreshing, setIsRefreshing] = useState(false);
+  const [_pullStart, setPullStart] = useState(0);
+  const [_pullDistance, setPullDistance] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [showChat, setShowChat] = useState(false);
   const [activeUserCount, setActiveUserCount] = useState(0);

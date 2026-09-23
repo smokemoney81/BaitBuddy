@@ -26,10 +26,10 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 export default function Dashboard() {
   console.log('[Dashboard] Component mounted');
   const { buddy } = useBuddyPreferences();
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   usePredictivePrefetch('Dashboard');
   const { speak } = useAITTS();
-  const { data: dashboardData, isLoading, error, refetch, invalidateCache } = useDashboardData();
+  const { data: dashboardData, isLoading, error, refetch, invalidateCache: _invalidateCache } = useDashboardData();
   const [user, setUser] = useState(null);
   const [greetingPlayed, setGreetingPlayed] = useState(false);
   const statusAnnouncementRef = React.useRef(null);
@@ -158,7 +158,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  const getWeatherDesc = (code) => {
+  const _getWeatherDesc = (code) => {
     if ([0, 1].includes(code)) return "Sonnig";
     if ([2, 3].includes(code)) return "Bewoelkt";
     if ([45, 48].includes(code)) return "Nebel";
@@ -166,7 +166,7 @@ export default function Dashboard() {
     return "Wechselhaft";
   };
 
-  const getGreeting = () => {
+  const _getGreeting = () => {
     const hour = new Date().getHours();
     const name = user?.nickname || user?.full_name?.split(' ')[0] || "Angler";
     

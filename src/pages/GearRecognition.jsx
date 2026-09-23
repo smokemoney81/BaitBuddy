@@ -82,7 +82,7 @@ function GearRecognitionInner() {
 
   const [stream, setStream] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
-  const [photo, setPhoto] = useState(null); // base64
+  const [_photo, setPhoto] = useState(null); // base64
   const [photoPreview, setPhotoPreview] = useState(null);
 
   const [loading, setLoading] = useState(false);

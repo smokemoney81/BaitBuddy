@@ -45,7 +45,7 @@ function NotificationSettings({ isOpen, onClose }) {
   };
 
   // Starte Monitoring
-  const handleStartMonitoring = () => {
+  const _handleStartMonitoring = () => {
     if (permissionStatus !== 'granted') {
       toast.error('Benachrichtigungen müssen zuerst aktiviert werden');
       return;
