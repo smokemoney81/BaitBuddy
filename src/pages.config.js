@@ -111,6 +111,7 @@ const OfflineFishingPack = lazyPage(() => import('./pages/OfflineFishingPack'));
 const RuleAssistant = lazyPage(() => import('./pages/RuleAssistant'));
 const SatelliteAnalysis = lazyPage(() => import('./pages/SatelliteAnalysis'));
 const Weather = lazyPage(() => import('./pages/Weather'));
+const Privatsphaere = lazyPage(() => import('./pages/Privatsphaere'));
 import __Layout from './Layout.jsx';
 
 
@@ -169,6 +170,7 @@ export const PAGES = {
     "OfflineFishingPack": OfflineFishingPack,
     "RuleAssistant": RuleAssistant,
     "SatelliteAnalysis": SatelliteAnalysis,
+    "Privatsphaere": Privatsphaere,
 }
 
 export const pagesConfig = {
