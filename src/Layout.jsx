@@ -3,10 +3,11 @@ import { usePrefetch } from "@/hooks/usePrefetch";
 import SEO from "@/components/pwa/SEO";
 import { LocationProvider } from "@/components/location/LocationManager";
 import OfflineWrapper from "@/components/utils/OfflineWrapper";
-import Header from "@/components/layout/Header";
+import AppTopBar from "@/components/layout/AppTopBar";
+import { ROOT_SEGMENTS } from "@/lib/NavigationContext";
+import { recordRecentPage } from "@/lib/pageMeta";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import BottomTabs from "@/components/layout/BottomTabs";
-import SubPageHeader from "@/components/layout/SubPageHeader";
 import UpdateNotification from "@/components/pwa/UpdateNotification";
 import OfflineIndicator from "@/components/pwa/OfflineIndicator";
 import { entities } from "@/api/frontendClient";
@@ -34,15 +35,16 @@ import ErrorBoundary from "@/lib/ErrorBoundary";
 import WaterScene from "@/components/home/WaterScene";
 
 // Lazy-loaded nicht-kritische Komponenten
-const Sidebar = lazy(() => import("@/components/layout/Sidebar"));
+const CommandCenter = lazy(() => import("@/components/layout/CommandCenter"));
 const QuickCatchDialog = lazy(() => import("@/components/log/QuickCatchDialog"));
-const EnhancedTicker = lazy(() => import("@/components/layout/TipTicker"));
 const FeedbackManager = lazy(() => import("@/components/feedback/FeedbackManager"));
-const AIBuddyWidgetStub = lazy(() => import("@/components/layout/AIBuddyWidgetStub"));
 const FirstLoginTutorialPrompt = lazy(() => import("@/components/tutorial/FirstLoginTutorialPrompt"));
 const GuidedTourController = lazy(() => import("@/components/guidedTour/GuidedTourController"));
 
 const LazyFallback = () => null;
+
+// Vollflächige Seiten ohne Seefoto-Hintergrund
+const NO_BACKDROP_PAGES = new Set(['Map', 'MapPage', 'ARView', 'CatchCam']);
 
 // Wrapper component to prevent lazy-loaded components from blocking rendering
 const SuspenseWithErrorBoundary = ({ children }) => (
@@ -213,6 +215,7 @@ function LayoutContent({ children, currentPageName }) {
     }
 
     setPreviousPage(currentPageName);
+    recordRecentPage(currentPageName);
   }, [currentPageName]);
 
   useEffect(() => {
@@ -343,7 +346,7 @@ function LayoutContent({ children, currentPageName }) {
   // Auth noch nicht aufgelöst Spinner statt Gast-Redirect
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080F16' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0B1324' }}>
         <div className="w-8 h-8 border-4 border-gray-700 border-t-cyan-400 rounded-full animate-spin" />
       </div>
     );
@@ -360,7 +363,7 @@ function LayoutContent({ children, currentPageName }) {
           <HapticProvider>
             <SoundProvider>
               <LocationProvider>
-                <div className="min-h-screen text-slate-50 flex items-center justify-center p-6" style={{ background: '#080F16' }}>
+                <div className="min-h-screen text-slate-50 flex items-center justify-center p-6" style={{ background: '#0B1324' }}>
                   <SEO />
                   <Toaster />
                   <div className="max-w-md w-full text-center space-y-6">
@@ -406,7 +409,7 @@ function LayoutContent({ children, currentPageName }) {
             <SoundProvider>
               <LocationProvider>
                 <OfflineWrapper>
-            <div className="bb-app dark min-h-screen text-slate-50 relative" style={{ background: '#080F16' }}>
+            <div className="bb-app dark min-h-screen text-slate-50 relative" style={{ background: '#0B1324' }}>
               <SEO />
               
               {/* PWA Components */}
@@ -416,6 +419,13 @@ function LayoutContent({ children, currentPageName }) {
               
               {/* Unterwasser-Hintergrund (nur auf der Landingpage) */}
               {currentPageName === 'Home' && <WaterScene />}
+
+              {/* Seefoto hinter Kopfzeile und Seitentitel (Hero der Vorlage) */}
+              {!NO_BACKDROP_PAGES.has(currentPageName) && (
+                <div className="bb-backdrop" aria-hidden="true">
+                  <img src="/assets/buddy/lake-hero.png" alt="" fetchPriority="high" />
+                </div>
+              )}
 
               {/* Content Layer */}
               <div className="relative" style={{ zIndex: 1 }}>
@@ -442,20 +452,15 @@ function LayoutContent({ children, currentPageName }) {
                 )}
 
                 <SuspenseWithErrorBoundary>
-                  <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentPageName={currentPageName} user={user} loading={authLoading} />
+                  <CommandCenter isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentPageName={currentPageName} user={user} />
                 </SuspenseWithErrorBoundary>
 
-                <div className="bb-header-wrap">
-                  <Header
-                    isSidebarOpen={isSidebarOpen}
-                    setIsSidebarOpen={setIsSidebarOpen}
-                    isDemo={isDemo}
-                  />
-                  <SuspenseWithErrorBoundary>
-                    <EnhancedTicker />
-                  </SuspenseWithErrorBoundary>
-                  <SubPageHeader title={currentPageName} />
-                </div>
+                <AppTopBar
+                  isRoot={ROOT_SEGMENTS.has(currentPageName)}
+                  user={user}
+                  isDemo={isDemo}
+                  onOpenCommandCenter={() => setIsSidebarOpen(true)}
+                />
 
                 <div className="w-full min-h-screen px-0 sm:px-0">
                   <SwipeToRefresh onRefresh={() => queryClient.invalidateQueries()}>
@@ -471,10 +476,6 @@ function LayoutContent({ children, currentPageName }) {
                 <BottomTabs />
 
                 <AdInterstitialOverlay />
-
-                <SuspenseWithErrorBoundary>
-                  <AIBuddyWidgetStub />
-                </SuspenseWithErrorBoundary>
 
                 <SuspenseWithErrorBoundary>
                   <GuidedTourController />

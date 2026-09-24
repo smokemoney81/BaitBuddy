@@ -178,11 +178,11 @@ export default function AudioNotesWidget() {
   };
 
   return (
-    <Card className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+    <Card className="bb-card p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Mic className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-gray-900">Audionotizen</h3>
+          <Mic className="w-5 h-5 text-cyan-300" />
+          <h3 className="font-semibold text-slate-50">Audionotizen</h3>
           {!isOnline() && (
             <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Offline</span>
           )}
@@ -193,7 +193,7 @@ export default function AudioNotesWidget() {
         {!isRecording ? (
           <Button
             onClick={startRecording}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            className="bb-action flex-1 gap-2"
             size="sm"
           >
             <Mic className="w-4 h-4" />
@@ -213,53 +213,53 @@ export default function AudioNotesWidget() {
 
       <div className="space-y-2 max-h-48 overflow-y-auto">
         {isLoading ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-slate-400 text-center py-4">
             Notizen werden geladen...
           </p>
         ) : notes.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-slate-400 text-center py-4">
             Keine Audionotizen vorhanden
           </p>
         ) : (
           notes.map((note) => (
             <div
               key={note.id}
-              className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200 hover:border-blue-300"
+              className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/60 border border-cyan-400/20 hover:border-cyan-400/50"
             >
               <button type="button"
                 onClick={() => playNote(note)}
-                className="p-1.5 hover:bg-blue-100 rounded-lg transition"
+                className="p-1.5 hover:bg-cyan-400/10 rounded-lg transition"
               >
                 {playingId === note.id ? (
-                  <Pause className="w-4 h-4 text-blue-600" />
+                  <Pause className="w-4 h-4 text-cyan-300" />
                 ) : (
-                  <Play className="w-4 h-4 text-blue-600" />
+                  <Play className="w-4 h-4 text-cyan-300" />
                 )}
               </button>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-slate-100 truncate">
                   {note.title}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-slate-400">
                   {new Date(note.created_at).toLocaleTimeString('de-DE')}
                 </p>
               </div>
 
               <button type="button"
                 onClick={() => downloadNote(note)}
-                className="p-1 hover:bg-gray-100 rounded transition"
+                className="p-1 hover:bg-white/5 rounded transition"
                 title="Herunterladen"
               >
-                <Download className="w-4 h-4 text-gray-600" />
+                <Download className="w-4 h-4 text-slate-300" />
               </button>
 
               <button type="button"
                 onClick={() => deleteNote(note.id)}
-                className="p-1 hover:bg-red-100 rounded transition"
+                className="p-1 hover:bg-red-500/10 rounded transition"
                 title="Löschen"
               >
-                <Trash2 className="w-4 h-4 text-red-600" />
+                <Trash2 className="w-4 h-4 text-red-400" />
               </button>
             </div>
           ))
@@ -267,7 +267,7 @@ export default function AudioNotesWidget() {
       </div>
 
       {notes.length > 0 && (
-        <p className="text-xs text-gray-600 mt-3 text-center">
+        <p className="text-xs text-slate-400 mt-3 text-center">
           {notes.length} Notiz{notes.length !== 1 ? 'en' : ''}
         </p>
       )}

@@ -74,14 +74,14 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 
 ### Architektur
 - **Frontend**: verteilt über mehrere Stellen (es gibt **kein** `src/components/KiBuddy/`-Verzeichnis):
-  - `src/components/layout/AIBuddyWidget.jsx` — das schwebende Chat-Widget (Haupt-Surface)
+  - Es gibt **kein** schwebendes Chat-Widget mehr (entfernt im BaitBuddy-2.0-Layout, wie in den Vorlagen). Der Buddy ist über „Hey Buddy“ im Command Center (`src/components/layout/CommandCenter.jsx`), die Dashboard-Schnellzugriffe und das Plus-Menü der Bottom-Nav erreichbar; Fragen werden per `/KiBuddyBeta?question=…` vorbefüllt.
   - `src/pages/KiBuddyBeta.jsx` — eigenständige Voice-Buddy-Seite
   - `src/components/ai/`, `src/components/chatbot/`, `src/components/home/MiniKiBuddy*.jsx`
   - Hooks: `useChatMessages`, `useSpeechRecognition`, `useElevenLabsVoice`
-  - `src/lib/buddyGreetings.js` — Start-Begrüßungs-Generator: begrüßt per Sprechblase + TTS, variiert nach Tageszeit/Stimmung/Event-Status (Anti-Wiederholung via localStorage). Wiederholung gesteuert über **Zeitstempel-Cooldown** (`shouldGreet`/`markGreeted`, localStorage `bb_buddy_last_greeting`, Default 15 Min) statt eines Session-Flags — nötig, weil im Capacitor-WebView eine Sitzung das Wiederöffnen (Resume) überlebt. Ausgelöst im `AIBuddyWidgetStub` beim Mount **und bei `visibilitychange` (Foreground-Resume)**; das volle Widget und `KiBuddyBeta` nutzen denselben Generator. `getVariedPageBubble` rotiert die Seiten-Blase (Seitenfrage/Buddy-Frage/Funktions-Tipp).
+  - `src/lib/buddyGreetings.js` — Start-Begrüßungs-Generator: begrüßt per Sprechblase + TTS, variiert nach Tageszeit/Stimmung/Event-Status (Anti-Wiederholung via localStorage). Wiederholung gesteuert über **Zeitstempel-Cooldown** (`shouldGreet`/`markGreeted`, localStorage `bb_buddy_last_greeting`, Default 15 Min) statt eines Session-Flags — nötig, weil im Capacitor-WebView eine Sitzung das Wiederöffnen (Resume) überlebt. Seit dem Wegfall der schwebenden Buddy-Blase gibt es **keine automatische Start-Begrüßung** mehr; `KiBuddyBeta` nutzt `buildGreeting` beim Öffnen. Die Cooldown-Helfer bleiben für eine spätere Wiederverwendung erhalten. `getVariedPageBubble` rotiert die Seiten-Blase (Seitenfrage/Buddy-Frage/Funktions-Tipp).
   - `src/lib/audioUnlock.js` — `runWhenAudioReady(fn)`: Browser/WebView blockieren Audio-Wiedergabe ohne vorherige Nutzer-Geste (Autoplay-Policy). Die Start-Begrüßung wird deshalb **beim ersten Antippen** entsperrt/nachgeholt; alle Begrüßungs-TTS-Aufrufe laufen über diesen Helfer.
 - **Backend**: `backend/src/routes/ai.js` (`POST /api/ai/chat` u. a.) mit `backend/src/lib/llm.js` für die LLM-Anbindung. (Es gibt **kein** `api/routes/kibuddy.js`.)
-- **„Quasi live"-Sprachausgabe (Streaming-Pipeline)**: Widget (`AIBuddyWidget`) und `KiBuddyBeta` streamen die Antwort, damit der erste Satz spricht, **bevor** die ganze Antwort fertig ist. Drei Schichten:
+- **„Quasi live"-Sprachausgabe (Streaming-Pipeline)**: `KiBuddyBeta` streamt die Antwort, damit der erste Satz spricht, **bevor** die ganze Antwort fertig ist. Drei Schichten:
   1. **Gestreamte LLM-Antwort**: `POST /api/ai/chat/stream` (SSE) mit `invokeLLMStream` in `llm.js` (Anthropic Messages `stream:true`, SSE-Events `content_block_delta`/`text_delta`); der geteilte Prompt-Aufbau steckt in `buildChatPrompt(req)` (von `/ai/chat` und `/ai/chat/stream` genutzt). Der `<<ACTION>>`-Block wird am Stream-Ende aus dem Volltext extrahiert und im `done`-Event mitgeliefert. Client: `ai.chatStream(messages, userLocation, { onDelta, signal })` in `frontendClient.js` (SSE-Reader). **Fällt bei Stream-Fehler automatisch auf `ai.chat` zurück** (Vercel-SSE-Risiko abgesichert).
   2. **Satzweise TTS-Queue**: `createSpeechQueue`/`splitIntoSentences` in `elevenLabsTTS.js` — spricht Sätze in Reihenfolge und prefetcht den nächsten schon während der aktuelle läuft (Pipelining). `stripActionMarker` (`src/lib/streamingReply.js`) hält den Aktions-Block aus Anzeige und TTS heraus. Nutzt denselben Audio-Singleton/Generation-Token wie `speakWithElevenLabs` (neuer Turn/`cancelElevenLabs` bricht die Queue ab). `speakWithFallback` bleibt für Einzel-Ansagen (Begrüßungen, Offline-/Fehler-Fallbacks).
   3. **Schnelles ElevenLabs-Modell**: Default `eleven_flash_v2_5` (~75 ms statt Sekunden, spricht Deutsch) + kompaktes `output_format` in `multiProviderTTS.js`; per Env `ELEVENLABS_MODEL_ID`/`ELEVENLABS_OUTPUT_FORMAT` auf das Qualitätsmodell umschaltbar.
@@ -354,6 +354,27 @@ Die reine Timeout-/Backoff-/Retry-Logik liegt in `src/lib/bleConnection.js`
 (ohne GATT-Import, unit-testbar; Tests in `bleConnection.test.js`).
 
 ---
+
+## 🧭 App-Hülle (BaitBuddy 2.0, nach Referenz-Screenshots)
+
+Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
+
+- **Kein fester Header-Balken.** `src/components/layout/AppTopBar.jsx` ist Teil des
+  Hero-Bereichs: Hauptseiten (`ROOT_SEGMENTS`) zeigen Logo links + Glocke + Avatar,
+  Unterseiten runde Zurück-Taste + Logo mittig + Avatar. Der Avatar öffnet das
+  **Command Center** (`CommandCenter.jsx`, ersetzt die alte Seitenleiste; jede
+  frühere Menü-Route bleibt über die aufklappbaren Hauptbereiche erreichbar).
+- **Seefoto-Hintergrund** (`.bb-backdrop`, `public/assets/buddy/lake-hero.png`) liegt
+  im Layout hinter Kopfzeile und Seitentitel. Seiten-Wrapper dürfen ihn nicht mit
+  opakem Hintergrund verdecken — verschachtelte `.bb-app` sind deshalb transparent.
+  Vollflächige Seiten (Karte, AR, CatchCam) stehen in `NO_BACKDROP_PAGES`.
+- **Seitentitel** über `PageTitle.jsx` (letztes Wort in Cyan, optional
+  Script-Zeile); `SubPageHeader` ist nur noch ein Alias darauf.
+- **Bottom-Nav**: Plus als Cyan-Ring. Icon/Label kommen aus `navigationItems`
+  (die Tool-Registry liefert Icons nur als Namen-String).
+- „Zuletzt verwendet“ im Command Center: `recordRecentPage` in `src/lib/pageMeta.js`
+  (localStorage `bb_recent_pages`).
+- Hintergrundfarbe `#0B1324` (Issue-Vorgabe), zentral in `baitbuddy-v2.css`.
 
 ## 📐 Plattform-Kompatibilität (Android-WebView & Apple/WebKit)
 

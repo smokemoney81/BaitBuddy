@@ -7,10 +7,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import DashboardOverview from './DashboardOverview';
 
 const gear = vi.hoisted(() => ({ list: vi.fn() }));
+const spots = vi.hoisted(() => ({ list: vi.fn() }));
 
 vi.mock('@/api/frontendClient', () => ({
-  entities: { GearItem: { list: (...a) => gear.list(...a) } },
+  entities: {
+    GearItem: { list: (...a) => gear.list(...a) },
+    Spot: { list: (...a) => spots.list(...a) },
+  },
 }));
+vi.mock('@/components/dashboard/DashboardMapPreview', () => ({ default: () => null }));
 vi.mock('@/components/location/LocationManager', () => ({
   useLocation: () => ({ currentLocation: null, requestGpsLocation: vi.fn() }),
 }));
@@ -24,6 +29,7 @@ vi.mock('@/components/onboarding/OnboardingFlow', () => ({ default: () => null }
 
 function setup(props = {}) {
   gear.list.mockResolvedValue([]);
+  spots.list.mockResolvedValue([]);
   return render(
     <MemoryRouter>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -46,8 +52,10 @@ describe('DashboardOverview — nächste Tour', () => {
     setup({ nextTrip: { name: 'Zandertour Rhein', start_date: '2026-10-04T05:30:00.000Z' } });
 
     expect(await screen.findByText('Zandertour Rhein')).toBeInTheDocument();
-    // Nur die Ausrüstung wird noch einzeln geladen.
+    // Die Tour wird nicht erneut geladen — einzeln kommen nur Ausrüstung
+    // und die Spots für die Kartenvorschau.
     expect(gear.list).toHaveBeenCalledTimes(1);
+    expect(spots.list).toHaveBeenCalledTimes(1);
   });
 
   it('versteht auch die Feldnamen des Trip-Planers', async () => {
@@ -57,7 +65,7 @@ describe('DashboardOverview — nächste Tour', () => {
 
   it('sagt ohne geplante Tour, dass noch keine existiert', async () => {
     setup({ nextTrip: null });
-    expect(await screen.findByText('Noch kein Angelausflug geplant')).toBeInTheDocument();
+    expect(await screen.findByText('Noch nichts geplant')).toBeInTheDocument();
   });
 
   it('unterscheidet einen Ladefehler von "keine Tour geplant"', async () => {
@@ -65,7 +73,7 @@ describe('DashboardOverview — nächste Tour', () => {
     setup({ nextTrip: null, tripsError: true, onRetryTrips });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Deine Trips konnten nicht geladen werden.');
-    expect(screen.queryByText('Noch kein Angelausflug geplant')).not.toBeInTheDocument();
+    expect(screen.queryByText('Noch nichts geplant')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Erneut versuchen/ }));
     expect(onRetryTrips).toHaveBeenCalled();

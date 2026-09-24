@@ -4,7 +4,6 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Compass, Fish, MapPin, RefreshCcw, Wand2, Search, CloudSun, Loader2, Camera, Wrench, ChevronRight } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { catchgbtChat } from "@/functions/catchgbtChat";
 import { useHaptic } from "@/components/utils/HapticFeedback";
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import { auth } from "@/api/auth";
@@ -390,38 +389,9 @@ Prüfe bitte:
 
 Sei konkret und praxisorientiert!`;
 
-      // KI-Buddy Chatbot öffnen
-      window.dispatchEvent(new CustomEvent("toggleChatbot"));
-
-      // Kurz warten, damit sich der Chatbot öffnet
-      setTimeout(async () => {
-        try {
-          const response = await catchgbtChat({
-            messages: [{
-              role: "user",
-              content: setupDescription
-            }],
-            detailLevel: 'detailed' // Ausführliche Analyse für bessere Tipps
-          });
-
-          const aiReply = response?.data?.reply || response?.reply || "Entschuldigung, ich konnte deine Ausrüstung nicht analysieren.";
-
-          // Antwort an Chatbot senden (simuliert eine normale Chat-Nachricht)
-          window.dispatchEvent(new CustomEvent('aiGearAnalysisResponse', {
-            detail: {
-              question: "KI-Ausrüstungsanalyse",
-              answer: aiReply,
-              autoSpeak: true // Flag für automatische Sprachausgabe
-            }
-          }));
-
-          toast.success("KI-Buddy analysiert deine Ausrüstung!");
-
-        } catch (error) {
-          console.error("Fehler bei der KI-Ausrüstungsanalyse:", error);
-          toast.error("KI-Analyse fehlgeschlagen. Versuche es erneut.");
-        }
-      }, 500);
+      // Analyse im KI-Buddy-Chat öffnen: die Seite übernimmt ?question=
+      // als Eingabe, die Antwort erscheint dort im Verlauf.
+      navigate(`/KiBuddyBeta?question=${encodeURIComponent(setupDescription.trim())}`);
 
     } catch (error) {
       console.error("Fehler beim Starten der KI-Analyse:", error);

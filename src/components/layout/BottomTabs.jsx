@@ -42,7 +42,10 @@ export default function BottomTabs() {
   const renderLink = path => {
     const tool = getToolByRoute(`/${path}`);
     const accessible = tool ? isToolAccessible(tool.id) : true;
-    const { name, icon: Icon } = tool || navigationItems[path];
+    // toolRegistry liefert das Icon nur als Namen (String) — Komponente und
+    // Label kommen deshalb aus navigationItems.
+    const Icon = navigationItems[path]?.icon;
+    const name = navigationItems[path]?.name || tool?.name || path;
     const ariaLabel = ARIA_LABELS[path] || name;
     const isActive = activePage === path;
 
@@ -56,7 +59,7 @@ export default function BottomTabs() {
           className="bb-nav-item bb-nav-locked"
           title={`Freischalten über ${tool.requires || 'Premium'}`}
         >
-          <Lock size={20} aria-hidden="true" />
+          <Lock size={26} aria-hidden="true" />
           <span>{name}</span>
         </div>
       );
@@ -73,7 +76,7 @@ export default function BottomTabs() {
         className={`bb-nav-item ${isActive ? 'bb-nav-active' : ''}`}
         aria-current={isActive ? 'page' : undefined}
       >
-        <Icon size={20} aria-hidden="true" />
+        {Icon && <Icon size={26} strokeWidth={1.8} aria-hidden="true" />}
         <span>{name}</span>
       </Link>
     );
@@ -94,7 +97,7 @@ export default function BottomTabs() {
               aria-label="Schnellaktionen öffnen"
               onClick={() => setOpen(true)}
             >
-              <Plus size={28} strokeWidth={2.5} />
+              <Plus size={36} strokeWidth={2} aria-hidden="true" />
             </button>
           </div>
 
