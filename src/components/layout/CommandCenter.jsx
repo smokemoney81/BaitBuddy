@@ -22,7 +22,7 @@ const AREAS = [
   { name: 'KI-Buddy', icon: Bot, items: [['KI-Buddy Chat', 'KiBuddyBeta'], ['Hands-free Buddy', 'HandsFreeBuddy'], ['Voice-Buddy', 'VoiceChat'], ['BaitBuddy kennt dich', 'BuddyKnowsYou']] },
   { name: 'KI-Tools', icon: Wrench, items: [['Fischbestimmung & Biss', 'AI'], ['Fang-Analyse', 'Analysis'], ['Gewässeranalyse', 'WaterAnalysis'], ['Satellitenanalyse', 'SatelliteAnalysis'], ['Köderempfehlung', 'BaitMixer'], ['3D-Köderführung', 'Koeder3D'], ['AR-Gewässer', 'ARView'], ['AR Knoten AI', 'ARKnotenAssistent'], ['Ausrüstung erkennen', 'GearRecognition'], ['Fischrezepte', 'FishRecipes']] },
   { name: 'Karte & Gewässer', icon: MapIcon, items: [['Karte, Gewässer & Favoriten', 'Map'], ['Tiefenkarten', 'BathymetricCrowdsourcing'], ['Offline-Paket', 'OfflineFishingPack']] },
-  { name: 'Community', icon: Users, items: [['Feed, Gruppen & Freunde', 'Community'], ['Ranglisten', 'Rank']] },
+  { name: 'Community', icon: Users, items: [['Feed, Gruppen & Freunde', 'Community'], ['Ranglisten', 'Rank'], ['Level & Rewards', 'LevelRewards']] },
   { name: 'Trips & Planung', icon: CalendarDays, items: [['Ausflüge & Touren', 'TripPlanner'], ['Neuer Ausflug', 'TripPlanner?new=1'], ['Anglermodus', 'AnglerMode'], ['Live-Trip', 'LiveTrip']] },
   { name: 'Events', icon: Trophy, items: [['Events & Wettbewerbe', 'Events']] },
   { name: 'Wetter & Prognosen', icon: CloudSun, items: [['Wetter, Bissprognose & Solunar', 'Weather']] },

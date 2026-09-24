@@ -44,6 +44,7 @@ export const PAGE_META = {
   Privatsphaere: { title: 'Privatsphäre', icon: ShieldCheck },
   HandsFreeBuddy: { title: 'Hands-free Buddy', icon: Mic },
   GastdatenUebernehmen: { title: 'Gastdaten übernehmen', icon: Download },
+  LevelRewards: { title: 'Level & Rewards', icon: Trophy },
 };
 
 const RECENT_KEY = 'bb_recent_pages';

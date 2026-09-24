@@ -912,6 +912,11 @@ export const fishing = {
   hotspots:    ()          => api.get('/api/fishing/hotspots'),
 };
 
+// Level & Rewards: XP, Level und Abzeichen, serverseitig aus echten Daten berechnet.
+export const progress = {
+  me: () => api.get('/api/progress/me'),
+};
+
 export const events = {
   // Event Management
   list:              ()                => api.get('/api/events'),
