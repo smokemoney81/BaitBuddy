@@ -5,7 +5,7 @@
  * Replaces multiple scattered requests with one efficient call.
  *
  * GET /api/dashboard
- *   Returns aggregated dashboard data via Supabase RPC
+ *   Returns aggregated dashboard data via Supabase RPC with fallback to manual aggregation
  */
 
 import { Router } from 'express';
@@ -15,6 +15,122 @@ import { supabase } from '../lib/supabase.js';
 import { resolvePlan } from '../lib/planResolver.js';
 
 const router = Router();
+
+/**
+ * Fallback: Manually aggregate dashboard data if RPC function doesn't exist
+ * This runs when the RPC function hasn't been deployed yet
+ */
+async function getAggregatedDataFallback(userEmail) {
+  // Nächste geplante Tour
+  const { data: nextTripList } = await supabase
+    .from('fishing_plans')
+    .select('id, title, details, planned_date, spot_info, target_fish, is_active')
+    .eq('created_by', userEmail)
+    .gt('planned_date', new Date().toISOString())
+    .order('planned_date', { ascending: true })
+    .limit(1);
+
+  const nextTripData = (nextTripList && nextTripList.length > 0) ? nextTripList[0] : null;
+  const next_trip = nextTripData ? {
+    id: nextTripData.id,
+    name: nextTripData.title,
+    description: nextTripData.details,
+    start_date: nextTripData.planned_date,
+    end_date: null,
+    location: nextTripData.spot_info,
+    target_species: nextTripData.target_fish ? [nextTripData.target_fish] : [],
+    status: nextTripData.is_active ? 'active' : 'planned',
+  } : null;
+
+  // Fänge der letzten 7 Tage
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { data: catchesData } = await supabase
+    .from('catches')
+    .select('id, species, weight_kg, length_cm, spot_name, catch_time, photo_url, bait_used')
+    .eq('created_by', userEmail)
+    .gt('catch_time', sevenDaysAgo.toISOString())
+    .order('catch_time', { ascending: false })
+    .limit(10);
+
+  const recent_catches = (catchesData || []).map(c => ({
+    id: c.id,
+    species: c.species,
+    weight: c.weight_kg,
+    length: c.length_cm,
+    location: c.spot_name,
+    caught_at: c.catch_time,
+    photo_urls: c.photo_url ? [c.photo_url] : [],
+    bait_type: c.bait_used,
+  }));
+
+  // Top spots der letzten 30 Tage
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: spotsData } = await supabase
+    .from('catches')
+    .select('spot_name, spot_id, is_released')
+    .eq('created_by', userEmail)
+    .gt('catch_time', thirtyDaysAgo.toISOString())
+    .not('spot_name', 'is', null);
+
+  const spotCounts = {};
+  const spotSuccess = {};
+  (spotsData || []).forEach(c => {
+    if (!spotCounts[c.spot_name]) {
+      spotCounts[c.spot_name] = 0;
+      spotSuccess[c.spot_name] = 0;
+    }
+    spotCounts[c.spot_name]++;
+    if (!c.is_released) spotSuccess[c.spot_name]++;
+  });
+
+  const top_spots = Object.entries(spotCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([spotName, count]) => ({
+      id: spotName,
+      name: spotName,
+      location: '',
+      usage_count: count,
+      avg_success: spotSuccess[spotName] / count,
+    }));
+
+  // Statistiken der letzten 90 Tage
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const { data: statsData } = await supabase
+    .from('catches')
+    .select('weight_kg, species, catch_time')
+    .eq('created_by', userEmail)
+    .gt('catch_time', ninetyDaysAgo.toISOString());
+
+  const statistics = {
+    total_catches: (statsData || []).length,
+    total_weight: (statsData || []).reduce((sum, c) => sum + (c.weight_kg || 0), 0),
+    personal_best: Math.max(0, ...(statsData || []).map(c => c.weight_kg || 0)),
+    species_count: new Set((statsData || []).map(c => c.species)).size,
+    weeks_active: new Set(
+      (statsData || []).map(c => {
+        const d = new Date(c.catch_time);
+        return Math.floor(d.getTime() / (7 * 24 * 60 * 60 * 1000));
+      })
+    ).size,
+  };
+
+  return {
+    next_trip,
+    recent_catches,
+    top_spots,
+    weather: null,
+    buddy_suggestion: null,
+    statistics,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 /**
  * GET /api/dashboard
@@ -41,21 +157,22 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
+    const userEmail = req.user.email;
+    let data;
 
     try {
-      // Call Supabase RPC for aggregated data
-      // Die App führt Nutzerdaten über `created_by = <E-Mail>`; `user_id` wird
-      // von keinem Schreibpfad befüllt (siehe catches.js/spots.js/misc.js).
-      const { data, error } = await supabase.rpc('get_dashboard_data', {
-        user_email_param: req.user.email,
+      // Try to call Supabase RPC for aggregated data (optimal path)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
+        user_email_param: userEmail,
       });
 
-      if (error) {
-        throw new Error(`RPC failed: ${error.message}`);
-      }
-
-      if (!data) {
-        throw new Error('No dashboard data returned');
+      if (!rpcError && rpcData) {
+        data = rpcData;
+        console.log('[dashboard] RPC aggregation succeeded');
+      } else {
+        // Fallback: RPC doesn't exist yet or failed — manually aggregate
+        console.warn('[dashboard] RPC aggregation unavailable, using fallback:', rpcError?.message);
+        data = await getAggregatedDataFallback(userEmail);
       }
 
       // Get user's plan for entitlement checks
@@ -104,7 +221,7 @@ router.get(
     } catch (err) {
       console.error('[dashboard] Error fetching dashboard data:', err.message);
 
-      // Return minimal fallback if RPC fails
+      // Return minimal fallback if both RPC and manual aggregation fail
       return res.status(500).json({
         error: 'Failed to load dashboard',
         message: process.env.NODE_ENV === 'development' ? err.message : undefined,

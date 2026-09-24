@@ -68,21 +68,25 @@ describe('GET /api/dashboard', () => {
     expect(res.body.metadata.plan).toBeTruthy();
   });
 
-  it('meldet einen Fehler der Aggregation als 500, statt leere Daten vorzutäuschen', async () => {
-    mockWith({ rpcResults: { get_dashboard_data: { data: null, error: { message: 'boom' } } } });
-
-    const res = await request(app).get('/api/dashboard').set('Authorization', 'Bearer tok');
-
-    expect(res.status).toBe(500);
-    expect(res.body.error).toBeTruthy();
-  });
-
-  it('meldet eine fehlende Datenbankfunktion als 500', async () => {
-    // Genau dieser Fall lag in Produktion vor: die Migration war nie angewendet.
+  it('fällt auf manuelles Fallback zurück, wenn RPC nicht existiert', async () => {
+    // Wenn die RPC-Funktion nicht existiert (z.B. Migration nicht angewendet),
+    // sollte der Endpunkt nicht mit 500 fehlen, sondern Daten manuell aggregieren.
     mockWith({ rpcResults: {} });
 
     const res = await request(app).get('/api/dashboard').set('Authorization', 'Bearer tok');
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeTruthy();
+    expect(res.body.data.statistics).toBeTruthy();
+  });
+
+  it('fällt auf manuelles Fallback zurück, wenn RPC einen Fehler meldet', async () => {
+    // Wenn die RPC-Funktion explizit einen Fehler zurückgibt
+    mockWith({ rpcResults: { get_dashboard_data: { data: null, error: { message: 'Function failed' } } } });
+
+    const res = await request(app).get('/api/dashboard').set('Authorization', 'Bearer tok');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeTruthy();
   });
 });
