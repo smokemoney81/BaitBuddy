@@ -92,7 +92,10 @@ export default function LevelRewards() {
     );
   }
 
-  if (query.isError || !query.data) {
+  // Nur eine vollständige Antwort anzeigen; alles andere als Fehler behandeln,
+  // statt an fehlenden Feldern abzustürzen.
+  const valid = query.data && Number.isFinite(query.data.xp) && Array.isArray(query.data.badges);
+  if (query.isError || !valid) {
     return (
       <div className="bb-page">
         {title}
@@ -105,7 +108,7 @@ export default function LevelRewards() {
     );
   }
 
-  const data = query.data;
+  const data = { ...query.data, event_rewards: Array.isArray(query.data.event_rewards) ? query.data.event_rewards : [] };
   const span = Math.max(1, data.next_level_xp - data.level_start_xp);
   const within = Math.max(0, data.xp - data.level_start_xp);
   const percent = Math.min(100, Math.round((within / span) * 100));

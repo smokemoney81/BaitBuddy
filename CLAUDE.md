@@ -89,7 +89,7 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 - **Datenbank**: Supabase-Tabellen (`catches`, `spots`, `rule_entries` …) liefern den Kontext; Chat-Historie wird clientseitig gehalten.
 - **LLM**: **Anthropic Claude über Anthropic Cloud API** — natives `fetch` gegen die Messages API (`https://api.anthropic.com/v1/messages`) in `backend/src/lib/llm.js`. EIN Modell für Text UND Vision, Default `claude-haiku-4-5` (schnellstes Modell, hält das < 2 Sek.-Latenz-Ziel), per Env `ANTHROPIC_MODEL` umschaltbar (z. B. `claude-opus-4-8`). Der Key wird über `getAnthropicKey()` tolerant gelesen (`ANTHROPIC_API_KEY` bzw. `sk-ant-…`-Varianten). Der Aufruf erfolgt serverseitig, nie direkt vom Frontend. **Anthropic Cloud API ist der einzige LLM-Provider; andere Anbieter sind nicht gestattet.**
   - ⚠️ **Regel: Nur Anthropic Cloud API als LLM-Quelle** — Alle LLM-Anfragen müssen über Backend-Endpoints mit Anthropic gehen (`POST /api/ai/chat`, `POST /api/ai/realtime-session`, `POST /api/ai/vision` u.ä.). Frontend darf keine LLM-Libraries direkt verwenden. Das verhindert API-Key-Exposure, reduziert Bundle-Size und zentralisiert Kontextverwaltung serverseitig.
-- **TTS-Stimmen**: `POST /api/ai/tts` (ElevenLabs) kennt zwei Stimmen: männlich „Daniel" (Standard, alle Pläne) und weiblich „Matilda" (**nur Ultimate**, Plan-ID `elite`/Friends-Level). Das Plan-Gate sitzt **serverseitig** (`backend/src/lib/planResolver.js`, geteilt mit `premium.js`) — ohne Ultimate fällt der Server still auf die Standardstimme zurück. Die Auswahl liegt in den Audio-Einstellungen (`VoiceSettings.jsx`), gespeichert via `src/lib/ttsVoice.js` (localStorage `buddy-tts-voice`); `elevenLabsTTS.js` sendet die Wahl bei jedem TTS-Aufruf mit. Env-Overrides: `ELEVENLABS_VOICE_ID` (männlich), `ELEVENLABS_VOICE_ID_FEMALE` (weiblich).
+- **TTS-Stimmen**: `POST /api/ai/tts` (ElevenLabs) kennt zwei Stimmen: männlich „Daniel" (Standard, alle Pläne) und weiblich „Matilda" (**nur Ultimate**, Plan-ID `elite`/Friends-Level). Das Plan-Gate sitzt **serverseitig** (`backend/src/lib/planResolver.js`, geteilt mit `premium.js`; `/ai/tts` ruft `resolveServerToolAccess` mit `requiredPlanRank: PLAN_RANK.elite` — Basic/Pro zählen dort nicht) — ohne Ultimate fällt der Server still auf die Standardstimme zurück. Die Auswahl liegt in den Audio-Einstellungen (`VoiceSettings.jsx`), gespeichert via `src/lib/ttsVoice.js` (localStorage `buddy-tts-voice`); `elevenLabsTTS.js` sendet die Wahl bei jedem TTS-Aufruf mit. Env-Overrides: `ELEVENLABS_VOICE_ID` (männlich), `ELEVENLABS_VOICE_ID_FEMALE` (weiblich).
   - ⚠️ **Regel: Nur natürliche Stimmen, nie Browser-TTS** — Die App spricht ausschließlich über die zentrale Utility `src/components/utils/elevenLabsTTS.js` (`speakWithFallback` = spricht und löst nach Wiedergabe-Ende auf; „Fallback" bedeutet **Stille** bei Fehlern, nicht Roboterstimme). Die frühere Browser-TTS (`speechSynthesis`, `browserTTS.jsx`) wurde komplett entfernt und darf **nicht** wieder eingeführt werden — schlägt ElevenLabs fehl (offline, kein API-Key), bleibt die Ausgabe still und der Text steht im Chat. Überlappende TTS-Aufrufe werden per Generation-Token in `elevenLabsTTS.js` verworfen (keine Doppelstimmen).
     **Welche natürliche Stimme spricht, entscheidet die Server-Kette**, nicht der
     Client: `buildProviderChain()` in `backend/src/lib/multiProviderTTS.js` reiht
@@ -375,6 +375,50 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
 - „Zuletzt verwendet“ im Command Center: `recordRecentPage` in `src/lib/pageMeta.js`
   (localStorage `bb_recent_pages`).
 - Hintergrundfarbe `#0B1324` (Issue-Vorgabe), zentral in `baitbuddy-v2.css`.
+
+## 🧩 Screens mit eigener Logik (BaitBuddy 2.0, Teil 2)
+
+- **Hands-free Buddy** (`src/pages/HandsFreeBuddy.jsx`): nur mit aktivem Trip.
+  Dauerhafte Web-Speech-Erkennung wartet auf „Hey Buddy“ (`src/lib/wakeWord.js`,
+  tolerant gegen Hörfehler), stellt die Frage über `ai.chatStream` und spricht
+  über `createSpeechQueue`. Während der Buddy spricht, ist die Erkennung aus.
+  Ende nach 60 s ohne Sprache, beim Wechsel in den Hintergrund oder wenn der
+  Schalter in `bb_privacy_prefs` aus ist. Datenaktionen (Fang, Spot) laufen
+  direkt, `navigate` wird nur angeboten. **Nicht behaupten, die Erkennung sei
+  lokal** — Web Speech läuft unter Android über den Google-Dienst.
+  „Trip beenden“ übergibt an `/AnglerMode?end=1` (Zusammenfassung bleibt dort).
+  `KiBuddyBeta` führt `<<ACTION>>`-Blöcke per `executeBuddyAction` aus.
+- **Privatsphäre** (`src/pages/Privatsphaere.jsx`): echte Berechtigungszustände
+  über `src/lib/devicePermissions.js`; „Zwischenspeicher löschen“
+  (`clearLocalCaches` in `privacyPrefs.js`) löscht nie Anmeldung, Einstellungen
+  oder noch nicht synchronisierte Daten.
+- **Gastdaten übernehmen** (`src/pages/GastdatenUebernehmen.jsx`): Die Übernahme
+  läuft weiter automatisch in `AuthContext`; `migrateGuestData` speichert das
+  Ergebnis (`bb_guest_migration_result` + Event `guest-migration-finished`).
+  Login/OAuth-Callback führen über `postLoginPath()` hierher, solange Gastdaten
+  auf dem Gerät liegen.
+- **Level & Rewards** (`GET /api/progress/me`, `backend/src/lib/progression.js`):
+  XP, Level und Abzeichen werden bei jedem Abruf aus den echten Daten berechnet —
+  **kein gespeicherter XP-Zähler**. Pro Tag zählen höchstens 20 Fänge.
+- **Wettbewerb** (`src/pages/EventDetails.jsx`, `/events/:id`): Einreichungen
+  laufen durch `backend/src/lib/submissionPlausibility.js` (harte Verstöße → 422,
+  Auffälligkeiten → `review_status='pending'`). **Nur `confirmed`/`verified`
+  zählt** — in `recalcParticipantTotals` und in `GET /events/:id/standings`.
+  Einsprüche in `event_disputes` (nur Backend). Regeln (Zeitraum, Wertung,
+  Zielarten, Freigabepflicht) sind ab Start per `PATCH` gesperrt.
+  ⚠️ Teilnehmer-/Ranglisten-Endpunkte sind ohne Login abrufbar und geben deshalb
+  **nie E-Mails** aus, sondern Anzeigenamen (`displayNames`) plus `is_me`.
+- **Vereinsprofile** (`/api/clubs`, `src/pages/Vereinsprofil.jsx`): Das
+  Verzeichnis (~700 Vereine) liegt nur im Frontend (`src/lib/clubDirectory.js`,
+  lazy); das Backend-Image enthält `src/data` nicht. `fishing_clubs` ist
+  öffentlich lesbar und enthält deshalb nur Vereinsangaben — Verwalter
+  (`club_admins`) und Folgende (`club_followers`) liegen in Tabellen ohne
+  Lese-Policy. Wer zuerst übernimmt, verwaltet; „Verifiziert“ setzt nur ein
+  App-Admin (`POST /api/clubs/:id/verify`). Vereinsveranstaltungen (`events.club_id`)
+  legt nur ein Vereinsverwalter an.
+- **Backend-Tests** laufen über die Root-Konfiguration:
+  `npx vitest run --project backend` (aus `backend/` heraus fehlt das Setup mit
+  den Test-Env-Variablen, dann schlagen `llm`/`admin`-Tests scheinbar fehl).
 
 ## 📐 Plattform-Kompatibilität (Android-WebView & Apple/WebKit)
 

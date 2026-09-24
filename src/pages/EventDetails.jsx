@@ -152,8 +152,12 @@ export default function EventDetails() {
       const initialMetric = METRIC_FROM_SCORING[eventData?.scoring_method] || 'total_length';
       setMetric(prev => prev || initialMetric);
       if (user) {
-        setMine(await events.mySubmissions(eventId).catch(() => []));
-        if (eventData?.created_by === user.email) setReview(await events.reviewQueue(eventId).catch(() => null));
+        const own = await events.mySubmissions(eventId).catch(() => []);
+        setMine(Array.isArray(own) ? own : []);
+        if (eventData?.created_by === user.email) {
+          const queue = await events.reviewQueue(eventId).catch(() => null);
+          setReview(queue && Array.isArray(queue.pending) && Array.isArray(queue.disputes) ? queue : null);
+        }
       }
     } catch {
       toast.error('Der Wettbewerb konnte nicht geladen werden.');

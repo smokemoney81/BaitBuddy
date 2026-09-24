@@ -173,7 +173,7 @@ function ClubProfile({ id, reference }) {
       clubsApi.get(key).catch(() => null),
       reference ? loadClubDirectory().catch(() => []) : Promise.resolve([]),
     ]);
-    setClub(profile);
+    setClub(profile && typeof profile === 'object' && profile.id ? profile : null);
     const ref = reference || profile?.external_ref;
     if (ref) {
       const dir = directory.length ? directory : await loadClubDirectory().catch(() => []);
@@ -237,7 +237,7 @@ function ClubProfile({ id, reference }) {
     name: data.name || '', motto: data.motto || '', description: data.description || '', home_water: data.home_water || '',
     founded_year: data.founded_year ?? '', member_count: data.member_count ?? '', phone: data.phone || '', email: data.email || '',
     website: data.website || '', logo_url: data.logo_url || '', street: data.street || '', postal_code: data.postal_code || '', city: data.city || '',
-    rulesText: (data.rules || []).join('\n'), watersText: watersToText(data.waters),
+    rulesText: (Array.isArray(data.rules) ? data.rules : []).join('\n'), watersText: watersToText(Array.isArray(data.waters) ? data.waters : []),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [club, directoryEntry]);
 
@@ -255,9 +255,9 @@ function ClubProfile({ id, reference }) {
     );
   }
 
-  const waters = data.waters || [];
-  const rules = data.rules || [];
-  const events = club?.events || [];
+  const waters = Array.isArray(data.waters) ? data.waters : [];
+  const rules = Array.isArray(data.rules) ? data.rules : [];
+  const events = Array.isArray(club?.events) ? club.events : [];
   const address = [data.street, [data.postal_code, data.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
   const mapsHref = data.latitude != null ? `https://maps.google.com/?q=${data.latitude},${data.longitude}` : address ? `https://maps.google.com/?q=${encodeURIComponent(`${name}, ${address}`)}` : null;
   const canManage = club?.is_admin || (isAuthenticated && !club?.claimed);
