@@ -9,6 +9,7 @@ import { maybeShowEventPopup, EVENT_POPUP_DWELL_MS } from '@/lib/loginEventPopup
 import { Browser } from '@capacitor/browser';
 import { Eye, EyeOff } from 'lucide-react';
 import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
+import { postLoginPath } from '@/lib/guestStore';
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
 // Aus src/pages/Home.jsx extrahiert: acht zusammenhaengende State-Felder und
@@ -19,7 +20,8 @@ import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
 const INPUT_CLASS =
   'w-full bg-gray-800/90 border border-gray-600 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-400 outline-none focus:border-cyan-400 focus:bg-gray-800 focus:ring-2 focus:ring-cyan-400/30 transition-all';
 
-// Nach erfolgreichem Login/Registrierung ins Dashboard. Ein voller
+// Nach erfolgreichem Login/Registrierung ins Dashboard — oder zur
+// Gastdaten-Übernahme, falls noch lokale Gastdaten auf dem Gerät liegen. Ein voller
 // Seitenwechsel (statt React-Router-Navigation) ist hier gewollt: er baut den
 // App-Zustand mit der frischen Sitzung neu auf.
 async function goToDashboard() {
@@ -27,7 +29,7 @@ async function goToDashboard() {
   if (popupShown) {
     await new Promise((resolve) => setTimeout(resolve, EVENT_POPUP_DWELL_MS));
   }
-  window.location.href = createPageUrl('Dashboard');
+  window.location.href = postLoginPath();
 }
 
 // Oeffnet die OAuth-URL im externen System-Browser. Bevorzugt das
@@ -55,7 +57,14 @@ async function openOAuthUrl(url) {
 }
 
 export default function LandingAuthPanel() {
-  const [loginMode, setLoginMode] = useState('login');
+  // ?auth=register (z. B. aus "Gastdaten übernehmen") öffnet direkt die Registrierung.
+  const [loginMode, setLoginMode] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('auth') === 'register' ? 'register' : 'login';
+    } catch {
+      return 'login';
+    }
+  });
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginName, setLoginName] = useState('');

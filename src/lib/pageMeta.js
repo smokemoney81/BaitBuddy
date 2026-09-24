@@ -43,6 +43,7 @@ export const PAGE_META = {
   OfflineFishingPack: { title: 'Offline-Paket', icon: Download },
   Privatsphaere: { title: 'Privatsphäre', icon: ShieldCheck },
   HandsFreeBuddy: { title: 'Hands-free Buddy', icon: Mic },
+  GastdatenUebernehmen: { title: 'Gastdaten übernehmen', icon: Download },
 };
 
 const RECENT_KEY = 'bb_recent_pages';

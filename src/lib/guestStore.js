@@ -8,6 +8,8 @@
 
 const PREFIX = 'bb_guest_entity_';
 const MIGRATION_LOCK_KEY = 'bb_guest_migration_running';
+const MIGRATION_RESULT_KEY = 'bb_guest_migration_result';
+export const GUEST_MIGRATION_EVENT = 'guest-migration-finished';
 
 // Entities, die ein Gast lokal anlegen darf. Alles andere bleibt am Backend —
 // Community, Käufe oder Events ergeben ohne Konto keinen Sinn.
@@ -115,6 +117,51 @@ export function hasGuestData() {
   return GUEST_ENTITIES.some((entityName) => readAll(entityName).length > 0);
 }
 
+// Anzahl lokaler Gast-Datensätze je Entity, z. B. { Catch: 3, Spot: 1, total: 4 }.
+export function guestDataSummary() {
+  const summary = { total: 0 };
+  for (const entityName of GUEST_ENTITIES) {
+    const count = readAll(entityName).length;
+    summary[entityName] = count;
+    summary.total += count;
+  }
+  return summary;
+}
+
+// Wohin nach Login/Registrierung: Liegen noch Gastdaten auf dem Gerät, zeigt
+// die Übernahme-Seite, was ins Konto wandert (und ob es geklappt hat).
+export function postLoginPath() {
+  return hasGuestData() ? '/GastdatenUebernehmen' : '/Dashboard';
+}
+
+export function isGuestMigrationRunning() {
+  try {
+    return typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem(MIGRATION_LOCK_KEY);
+  } catch {
+    return false;
+  }
+}
+
+export function readGuestMigrationResult() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MIGRATION_RESULT_KEY) || 'null');
+    return raw && typeof raw === 'object' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeGuestMigrationResult(result) {
+  try {
+    localStorage.setItem(MIGRATION_RESULT_KEY, JSON.stringify(result));
+  } catch {
+    // Ohne Storage fehlt nur die Rückmeldung, die Daten sind übertragen.
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(GUEST_MIGRATION_EVENT, { detail: result }));
+  }
+}
+
 // Die lokal vergebene `id` und die Zeitstempel gehören zum Gast-Speicher, nicht
 // zum Datensatz — das Backend vergibt beim Anlegen eigene.
 function stripLocalFields(record) {
@@ -131,14 +178,14 @@ function stripLocalFields(record) {
  * versucht. Ein Alles-oder-nichts-Löschen würde Nutzerdaten verlieren.
  *
  * @param {Record<string, { create: (data: any) => Promise<any> }>} entityClients
- * @returns {Promise<{ migrated: number, failed: number }>}
+ * @returns {Promise<{ migrated: number, failed: number, byEntity: Record<string, number> }>}
  */
 export async function migrateGuestData(entityClients) {
   // Ein zweiter Durchlauf (z. B. weil der Auth-Listener zweimal feuert) würde
   // dieselben Datensätze ein zweites Mal anlegen.
   if (typeof sessionStorage !== 'undefined') {
     try {
-      if (sessionStorage.getItem(MIGRATION_LOCK_KEY)) return { migrated: 0, failed: 0 };
+      if (sessionStorage.getItem(MIGRATION_LOCK_KEY)) return { migrated: 0, failed: 0, byEntity: {} };
       sessionStorage.setItem(MIGRATION_LOCK_KEY, '1');
     } catch {
       // Ohne sessionStorage läuft die Migration ohne Sperre — der Aufrufer in
@@ -148,6 +195,7 @@ export async function migrateGuestData(entityClients) {
 
   let migrated = 0;
   let failed = 0;
+  const byEntity = {};
   try {
     for (const entityName of GUEST_ENTITIES) {
       const records = readAll(entityName);
@@ -164,6 +212,7 @@ export async function migrateGuestData(entityClients) {
         try {
           await client.create(stripLocalFields(record));
           migrated += 1;
+          byEntity[entityName] = (byEntity[entityName] || 0) + 1;
         } catch {
           remaining.push(record);
           failed += 1;
@@ -179,5 +228,7 @@ export async function migrateGuestData(entityClients) {
     }
   }
 
-  return { migrated, failed };
+  const result = { migrated, failed, byEntity };
+  if (migrated > 0 || failed > 0) writeGuestMigrationResult({ ...result, at: new Date().toISOString() });
+  return result;
 }

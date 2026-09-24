@@ -113,6 +113,7 @@ const SatelliteAnalysis = lazyPage(() => import('./pages/SatelliteAnalysis'));
 const Weather = lazyPage(() => import('./pages/Weather'));
 const Privatsphaere = lazyPage(() => import('./pages/Privatsphaere'));
 const HandsFreeBuddy = lazyPage(() => import('./pages/HandsFreeBuddy'));
+const GastdatenUebernehmen = lazyPage(() => import('./pages/GastdatenUebernehmen'));
 import __Layout from './Layout.jsx';
 
 
@@ -173,6 +174,7 @@ export const PAGES = {
     "SatelliteAnalysis": SatelliteAnalysis,
     "Privatsphaere": Privatsphaere,
     "HandsFreeBuddy": HandsFreeBuddy,
+    "GastdatenUebernehmen": GastdatenUebernehmen,
 }
 
 export const pagesConfig = {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { api } from '@/api/frontendClient';
+import { postLoginPath } from '@/lib/guestStore';
 
 const RETRY_DELAY_MS = 500;
 const MAX_RETRIES = 6; // 3 Sekunden insgesamt
@@ -55,12 +56,11 @@ export default function AuthCallback() {
         const exchangedSession = await tryExchangeCode();
         if (exchangedSession?.access_token) {
           console.log('[AuthCallback] Using exchanged session');
-          console.log('[AuthCallback] Access token:', exchangedSession.access_token.slice(0, 20) + '...');
           api.setToken(exchangedSession.access_token);
           if (exchangedSession.refresh_token) api.setRefreshToken(exchangedSession.refresh_token);
           console.log('[AuthCallback] Tokens set in localStorage, redirecting...');
           if (!unsubscribed) {
-            window.location.replace('/Dashboard');
+            window.location.replace(postLoginPath());
           }
           return;
         }
@@ -77,12 +77,11 @@ export default function AuthCallback() {
       if (data.session?.access_token) {
         // Session vorhanden → Token speichern und zum Dashboard gehen
         console.log('[AuthCallback] Session found! Setting tokens and redirecting to Dashboard');
-        console.log('[AuthCallback] Access token:', data.session.access_token.slice(0, 20) + '...');
         api.setToken(data.session.access_token);
         if (data.session.refresh_token) api.setRefreshToken(data.session.refresh_token);
         console.log('[AuthCallback] Tokens set in localStorage, redirecting...');
         if (!unsubscribed) {
-          window.location.replace('/Dashboard');
+          window.location.replace(postLoginPath());
         }
         return;
       }
@@ -107,7 +106,7 @@ export default function AuthCallback() {
             if (session.refresh_token) api.setRefreshToken(session.refresh_token);
             subscription.unsubscribe();
             unsubscribed = true;
-            window.location.replace('/Dashboard');
+            window.location.replace(postLoginPath());
           }
         }
       );
