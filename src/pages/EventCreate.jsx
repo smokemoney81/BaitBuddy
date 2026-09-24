@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
 import { toast } from "sonner";
@@ -7,6 +7,9 @@ import PageTitle from "@/components/layout/PageTitle";
 
 export default function EventCreate() {
   const navigate = useNavigate();
+  // ?club=<id>: Veranstaltung für einen Verein (nur Vereinsverwalter, prüft der Server).
+  const [searchParams] = useSearchParams();
+  const clubId = searchParams.get("club");
   const [currentUser, setCurrentUser] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -78,6 +81,7 @@ export default function EventCreate() {
         target_species: formData.target_species.trim() || null,
         prize_description: formData.prize_description.trim() || null,
         requires_approval: formData.requires_approval,
+        ...(clubId ? { club_id: clubId } : {}),
       });
 
       if (response && response.id) {
@@ -113,7 +117,7 @@ export default function EventCreate() {
     <div className="min-h-screen px-4 py-4 max-w-3xl mx-auto pb-32">
       <div className="space-y-8">
         {/* Header */}
-        <PageTitle title="Neues Event erstellen" subtitle="Starte einen Wettbewerb und lade andere Angler ein." />
+        <PageTitle title="Neues Event erstellen" subtitle={clubId ? "Vereinsveranstaltung – erscheint im Vereinsprofil." : "Starte einen Wettbewerb und lade andere Angler ein."} />
 
         {/* Template Selection */}
         {!selectedTemplate && (

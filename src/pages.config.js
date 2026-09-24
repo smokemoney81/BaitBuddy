@@ -115,6 +115,7 @@ const Privatsphaere = lazyPage(() => import('./pages/Privatsphaere'));
 const HandsFreeBuddy = lazyPage(() => import('./pages/HandsFreeBuddy'));
 const GastdatenUebernehmen = lazyPage(() => import('./pages/GastdatenUebernehmen'));
 const LevelRewards = lazyPage(() => import('./pages/LevelRewards'));
+const Vereinsprofil = lazyPage(() => import('./pages/Vereinsprofil'));
 import __Layout from './Layout.jsx';
 
 
@@ -177,6 +178,7 @@ export const PAGES = {
     "HandsFreeBuddy": HandsFreeBuddy,
     "GastdatenUebernehmen": GastdatenUebernehmen,
     "LevelRewards": LevelRewards,
+    "Vereinsprofil": Vereinsprofil,
 }
 
 export const pagesConfig = {

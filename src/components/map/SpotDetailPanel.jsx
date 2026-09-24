@@ -268,6 +268,11 @@ export default function SpotDetailPanel({ spot, onClose, onUpdate }) {
           <RatingForm spot={spot} onSuccess={() => setReviewsKey(prev => prev + 1)} />
         )}
 
+        {spot.category === 'club' && spot.id != null && (
+          <Link to={`/Vereinsprofil?ref=${encodeURIComponent(spot.id)}`} className="bb-secondary justify-center">
+            <Building2 size={18} aria-hidden="true" /> Vereinsprofil ansehen
+          </Link>
+        )}
         <a href={navUrl} target="_blank" rel="noopener noreferrer" className="bb-action bb-action-block">
           <Navigation size={20} aria-hidden="true" className="bb-action-icon" />
           <span>Navigation starten</span>

@@ -912,6 +912,17 @@ export const fishing = {
   hotspots:    ()          => api.get('/api/fishing/hotspots'),
 };
 
+// Vereinsprofile (gepflegte Profile zu Verzeichnis-Vereinen)
+export const clubs = {
+  search:    (q)            => api.get(`/api/clubs${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  following: ()             => api.get('/api/clubs/following/me'),
+  get:       (key)          => api.get(`/api/clubs/${encodeURIComponent(key)}`),
+  create:    (data)         => api.post('/api/clubs', data),
+  update:    (id, data)     => api.patch(`/api/clubs/${id}`, data),
+  follow:    (key, data)    => api.post(`/api/clubs/${encodeURIComponent(key)}/follow`, data || {}),
+  unfollow:  (id)           => api.del(`/api/clubs/${id}/follow`),
+};
+
 // Level & Rewards: XP, Level und Abzeichen, serverseitig aus echten Daten berechnet.
 export const progress = {
   me: () => api.get('/api/progress/me'),

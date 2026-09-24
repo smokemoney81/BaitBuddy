@@ -14,6 +14,7 @@ import {
   ACTIVITY_POINTS
 } from '../lib/pointsCalculator.js';
 import { checkSubmission } from '../lib/submissionPlausibility.js';
+import { isClubAdmin } from './clubs.js';
 
 const router = Router();
 
@@ -198,10 +199,15 @@ router.get('/events/:id', optionalAuth, async (req, res) => {
 
 router.post('/events', requireAuth, async (req, res) => {
   try {
-    const { name, description, start_date, end_date, template_id, scoring_method, target_species, prize_description, visibility, requires_approval } = req.body;
+    const { name, description, start_date, end_date, template_id, scoring_method, target_species, prize_description, visibility, requires_approval, club_id } = req.body;
 
     if (!name || !start_date || !end_date) {
       return res.status(400).json({ error: 'Name, Startdatum und Enddatum erforderlich' });
+    }
+
+    // Vereinsveranstaltungen legt nur ein Verwalter des Vereins an.
+    if (club_id && !(await isClubAdmin(club_id, req.user.id))) {
+      return res.status(403).json({ error: 'Nur Vereinsverwalter können Vereinsveranstaltungen anlegen' });
     }
 
     // Sichtbarkeit: 'friends'-Events (nur für Freunde/Referrals sichtbar) sind
@@ -228,6 +234,7 @@ router.post('/events', requireAuth, async (req, res) => {
         prize_description: prize_description || null,
         visibility: eventVisibility,
         requires_approval: requires_approval === true,
+        ...(club_id ? { club_id } : {}),
         status: 'active',
         is_active: true
       })

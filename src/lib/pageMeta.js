@@ -45,6 +45,7 @@ export const PAGE_META = {
   HandsFreeBuddy: { title: 'Hands-free Buddy', icon: Mic },
   GastdatenUebernehmen: { title: 'Gastdaten übernehmen', icon: Download },
   LevelRewards: { title: 'Level & Rewards', icon: Trophy },
+  Vereinsprofil: { title: 'Angelvereine', icon: Users },
 };
 
 const RECENT_KEY = 'bb_recent_pages';
