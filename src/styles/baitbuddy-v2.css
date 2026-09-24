@@ -233,10 +233,9 @@
   text-shadow: 0 1px 10px rgba(0,0,0,.5);
 }
 .bb-page-title-script {
-  position: absolute;
-  right: 4px;
-  top: -8px;
-  max-width: 44%;
+  margin: 10px 8px 0 auto;
+  width: fit-content;
+  max-width: 70%;
   text-align: right;
 }
 
@@ -1422,3 +1421,31 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Locked feature (PlanGuard) ── */
+.bb-lock-card {
+  margin: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 20px 22px;
+  text-align: center;
+}
+.bb-lock-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--bb-cyan);
+  border: 2px solid rgba(0,229,255,.6);
+  background: radial-gradient(circle at 50% 40%, rgba(0,229,255,.16), rgba(10,26,44,.8) 70%);
+  box-shadow: 0 0 22px rgba(0,229,255,.3);
+}
+.bb-lock-title { font-size: 20px; font-weight: 700; color: #f4f8fb; line-height: 1.3; }
+.bb-lock-plan { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--bb-gold); }
+.bb-lock-card .bb-action { margin-top: 8px; }
+
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }

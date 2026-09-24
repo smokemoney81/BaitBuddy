@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Wrench, Plus, Trash2, Calendar, AlertTriangle, CheckCircle, Loader2, Lightbulb } from "lucide-react";
+import { Wrench, Plus, Trash2, Calendar, AlertTriangle, CheckCircle, Loader2, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { gearMaintenance, ai, entities } from "@/api/frontendClient";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import PageTitle from "@/components/layout/PageTitle";
 
 const URGENCY_STYLE = {
   "Sofort":       "bg-red-900/40 text-red-300 border-red-700",
@@ -41,7 +41,6 @@ function isOverdue(next_due_at) {
 
 export default function GearMaintenance() {
   useFeatureTracking("gear_maintenance");
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [showLog, setShowLog]     = useState(false);
@@ -124,20 +123,12 @@ export default function GearMaintenance() {
   const overdue = logs.filter(l => isOverdue(l.next_due_at));
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bb-bg)' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur px-4 py-3" style={{ background: 'var(--bb-surface)', borderBottom: '1px solid var(--bb-border)' }}>
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-lg" style={{ color: 'var(--bb-muted)' }}>
-              <ArrowLeft size={20} />
-            </button>
-            <Wrench size={20} style={{ color: '#f59e0b' }} />
-            <h1 className="text-lg font-bold" style={{ color: 'var(--bb-text)' }}>Ausrüstungswartung</h1>
-          </div>
+    <div className="min-h-screen pb-32">
+      <div className="px-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          <PageTitle className="flex-1 min-w-0" title="Ausrüstungs-Wartung" subtitle="Schnurwechsel, Rollenpflege und Intervalle im Blick." />
           <button
-            className="bb-action h-8 text-sm"
-            style={{ background: '#b45309' }}
+            className="bb-action text-sm shrink-0"
             onClick={() => setShowLog(true)}
           >
             <Plus size={14} className="mr-1" />

@@ -1,10 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Camera, Upload, ArrowLeft, Loader2, X, AlertCircle, Plus, Wrench } from "lucide-react";
+import { Camera, Upload, Loader2, X, AlertCircle, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ai, entities } from "@/api/frontendClient";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 const CONDITION_COLOR = {
   "Neu":                "bg-green-900/40 text-green-300 border-green-700",
@@ -75,7 +75,6 @@ export default function GearRecognition() {
 
 function GearRecognitionInner() {
   useFeatureTracking("gear_recognition");
-  const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -188,16 +187,9 @@ function GearRecognitionInner() {
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bb-bg)' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur px-4 py-3" style={{ background: 'var(--bb-surface)', borderBottom: '1px solid var(--bb-border)' }}>
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg" style={{ color: 'var(--bb-muted)' }}>
-            <ArrowLeft size={20} />
-          </button>
-          <Wrench size={20} style={{ color: 'var(--bb-cyan)' }} />
-          <h1 className="text-lg font-bold" style={{ color: 'var(--bb-text)' }}>Ausrüstungserkennung</h1>
-        </div>
+    <div className="min-h-screen pb-32">
+      <div className="max-w-2xl mx-auto px-4">
+        <PageTitle title="Ausrüstung erkennen" subtitle="Foto machen – die KI erkennt Rute, Rolle und Köder." />
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4">

@@ -9,6 +9,7 @@ import PremiumGuard from "@/components/premium/PremiumGuard";
 import { auth } from "@/api/auth";
 import { MobileSelect } from "@/components/ui/mobile-select";
 import { TackleManager } from "@/components/gear/TackleManager";
+import PageTitle from "@/components/layout/PageTitle";
 
 // Leaflet CSS nachladen
 if (typeof document !== "undefined") {
@@ -430,8 +431,9 @@ Sei konkret und praxisorientiert!`;
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-6 pb-32">
+    <div className="min-h-screen text-white px-4 pb-32">
       <Toaster richColors position="top-right" />
+      <PageTitle className="mx-auto max-w-6xl mb-4" title="Deine Ausrüstung" subtitle="Setup, Bedingungen und KI-Empfehlung für deinen nächsten Ausflug." />
       <div className="mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         {/* --- Block 1: Ausrüstung --- */}
@@ -650,7 +652,7 @@ export default function Gear() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
         <div className="text-cyan-400 ml-2">Laden...</div>
       </div>

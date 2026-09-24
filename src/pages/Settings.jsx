@@ -10,8 +10,7 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen w-full bb-app">
-      <TutorialButton onClick={() => setTutorialOpen(true)} />
-      <SettingsPageTabbed />
+      <SettingsPageTabbed headerAction={<TutorialButton onClick={() => setTutorialOpen(true)} />} />
       <TutorialModal isOpen={tutorialOpen} onClose={() => setTutorialOpen(false)} />
     </div>
   );

@@ -1,23 +1,14 @@
 import React from "react";
 import { MonitorPlay, Youtube, Info, Sparkles, Volume2 } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function Tutorials() {
   return (
     <div className="bb-page">
       <div className="max-w-4xl mx-auto space-y-6">
 
-        <div className="flex items-center gap-3 mb-6">
-          <MonitorPlay size={32} style={{ color: 'var(--bb-cyan)' }} />
-          <div>
-            <h1 className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-              BaitBuddy Tutorials
-            </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)' }}>
-              Lerne alles über BaitBuddy mit interaktiven Anleitungen
-            </p>
-          </div>
-        </div>
+        <PageTitle title="BaitBuddy Tutorials" subtitle="Lerne alles über BaitBuddy mit interaktiven Anleitungen." />
 
         <Carousel className="w-full max-w-xs mx-auto md:max-w-md lg:max-w-2xl">
           <CarouselContent>

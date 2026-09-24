@@ -227,6 +227,7 @@ const DEVICE_CATEGORIES = {
 };
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function DeviceIntegration() {
   return (
@@ -265,12 +266,8 @@ function DeviceIntegrationInner() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center"
       >
-        <h1 className="text-3xl font-bold text-white mb-2">Smart Geräte-Integration</h1>
-        <p style={{ color: 'var(--bb-muted)' }}>
-          Verbinde professionelle Angel-Hardware mit BaitBuddy
-        </p>
+        <PageTitle title="Smart Geräte-Integration" subtitle="Verbinde professionelle Angel-Hardware mit BaitBuddy." />
       </motion.div>
 
       {/* Connected Devices Overview */}

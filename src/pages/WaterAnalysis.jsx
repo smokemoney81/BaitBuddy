@@ -10,6 +10,7 @@ import WaterAnalysisTutorial from "@/components/water/WaterAnalysisTutorial";
 import { Loader2, Thermometer, TrendingUp, Brain, Droplets } from "lucide-react";
 import { useRef } from "react";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function WaterAnalysisPage() {
   useFeatureTracking("water_analysis");
@@ -68,11 +69,7 @@ export default function WaterAnalysisPage() {
         <div className="space-y-8 pb-12">
           {/* Header */}
           <header className="flex items-center justify-between gap-4">
-            <div>
-              <p className="bb-eyebrow mb-2">Analyse</p>
-              <h1 className="bb-title">Satellitenanalyse 2.0</h1>
-              <p className="bb-muted mt-1">Wetter, Wasser, Temperaturschichten und KI-Insights für deinen Angelspot.</p>
-            </div>
+            <PageTitle className="flex-1 min-w-0" title="Gewässer Analyse" subtitle="Wetter, Wasser, Temperaturschichten und KI-Insights für deinen Angelspot." />
             <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-xl">
               <div className="w-2 h-2 rounded-full bg-blue-400"></div>
               <span className="text-sm text-blue-300">Open-Meteo</span>

@@ -30,6 +30,7 @@ import RecipeBuilder from "@/components/baitmixer/RecipeBuilder";
 import QuickStartGrid from "@/components/baitmixer/QuickStartGrid";
 import { calculateSuccessRate } from "@/utils/baitPrognosis.utils";
 import TabBar from "@/components/layout/TabBar";
+import PageTitle from "@/components/layout/PageTitle";
 
 const baitTabs = [
   { id: "quickstart", label: "Schnellstart" },
@@ -374,15 +375,7 @@ Exportiert: ${exportData.exportDate}
       <div className="bb-page">
         {/* Header */}
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles size={28} style={{ color: 'var(--bb-cyan)' }} />
-            <h1 className="text-2xl font-bold text-white">
-              KI-Köder-Mischer Pro
-            </h1>
-          </div>
-          <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
-            Erstelle optimierte Boilies & Anfütterung mit KI-Prognose
-          </p>
+          <PageTitle title="KI-Köder-Mischer Pro" subtitle="Erstelle optimierte Boilies & Anfütterung mit KI-Prognose." />
           <p className="text-xs mt-1" style={{ color: '#34d399' }}>
             48 vordefinierte Premium-Rezepte
           </p>

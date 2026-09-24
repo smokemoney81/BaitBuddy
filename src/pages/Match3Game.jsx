@@ -7,6 +7,7 @@ import { Crown } from "lucide-react";
 
 // ---------- Match-3 Game Component ----------
 import { useMemo } from "react";
+import PageTitle from "@/components/layout/PageTitle";
 
 // Konstante Spielwerte
 const SIZE = 8;
@@ -484,8 +485,9 @@ export default function Match3Game() {
   // so it's no longer needed in this parent component.
 
   return (
-    <div className="min-h-screen bg-gray-950 text-slate-50">
-      <div className="pt-24 pb-6">
+    <div className="min-h-screen text-slate-50">
+      <div className="px-4 pb-32">
+        <PageTitle className="mb-4" title="Match-3 Quest" subtitle="Kombiniere Köder und sammle Punkte." />
         <PremiumGuard user={user} feature="Match-3 Quest Spiel">
           {/* onGameEnd prop is removed as Match3QuestGame now handles game end logic internally */}
           <Match3QuestGame />

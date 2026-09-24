@@ -3,11 +3,13 @@ import { auth } from "@/api/auth";
 import LicensesSection from "@/components/licenses/LicensesSection";
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
+import PageTitle from "@/components/layout/PageTitle";
 
 function LicensesContent() {
   useFeatureTracking("lizenzen");
   return (
-    <div className="min-h-screen bg-gray-950 p-6 pb-32">
+    <div className="min-h-screen px-4 pb-32">
+      <PageTitle className="mb-4" title="Deine Lizenzen" subtitle="Angelschein, Gewässerkarten und Erlaubnisse an einem Ort." />
       <LicensesSection />
     </div>
   );
@@ -31,7 +33,7 @@ export default function Licenses() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-cyan-400">Laden...</div>
       </div>
     );

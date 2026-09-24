@@ -5,6 +5,7 @@ import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
 import { ChevronRight, Zap, Award } from "lucide-react";
 import EventLauncher from "@/components/events/EventLauncher";
+import PageTitle from "@/components/layout/PageTitle";
 
 function getCountdown(endDate) {
   const now = new Date();
@@ -266,15 +267,7 @@ export default function Events() {
 
   return (
     <div className="bb-page">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center mb-4"
-      >
-        <h1 className="text-3xl font-bold text-white mb-2">Veranstaltungen</h1>
-        <p style={{ color: 'var(--bb-muted)' }}>Nimm an Wettbewerben teil und sammle Punkte</p>
-      </motion.div>
+      <PageTitle title="BaitBuddy Events" subtitle="Gemeinsam mehr erleben. Nimm an Wettbewerben teil und sammle Punkte." />
 
       {/* Points System */}
       <PointsBreakdown

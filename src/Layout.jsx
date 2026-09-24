@@ -44,7 +44,7 @@ const GuidedTourController = lazy(() => import("@/components/guidedTour/GuidedTo
 const LazyFallback = () => null;
 
 // Vollflächige Seiten ohne Seefoto-Hintergrund
-const NO_BACKDROP_PAGES = new Set(['Map', 'MapPage', 'ARView', 'CatchCam']);
+const NO_BACKDROP_PAGES = new Set(['Map', 'MapPage', 'ARView', 'ARKnotenAssistent', 'CatchCam']);
 
 // Wrapper component to prevent lazy-loaded components from blocking rendering
 const SuspenseWithErrorBoundary = ({ children }) => (

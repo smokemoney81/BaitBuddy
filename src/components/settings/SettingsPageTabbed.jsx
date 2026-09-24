@@ -15,8 +15,9 @@ import BuddySettings from './BuddySettings';
 import NavigationSettings from './NavigationSettings';
 import FishingPreferencesSettings from './FishingPreferencesSettings';
 import OnboardingSettings from './OnboardingSettings';
+import PageTitle from '@/components/layout/PageTitle';
 
-export default function SettingsPageTabbed() {
+export default function SettingsPageTabbed({ headerAction = null } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'general';
   const setActiveTab = tab => setSearchParams({ tab }, { replace: true });
@@ -74,22 +75,15 @@ export default function SettingsPageTabbed() {
   };
 
   return (
-    <div className="min-h-screen w-full px-4 sm:px-6 lg:px-8 py-6 pb-32">
+    <div className="min-h-screen w-full px-4 sm:px-6 lg:px-8 pb-32">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-cyan-400 mb-2">
-            Einstellungen
-          </h1>
-          <p className="text-gray-400 text-sm sm:text-base">
-            Personalisiere BaitBuddy nach deinen Vorlieben
-          </p>
-        </div>
+        <PageTitle className="mb-6" title="Deine Einstellungen" subtitle="Personalisiere BaitBuddy nach deinen Vorlieben." rightAction={headerAction} />
 
         {/* Tab Navigation */}
         <div className="mb-8">
-          <div className="glass-morphism border-gray-800 rounded-2xl p-2 sm:p-4">
-            <div className="flex overflow-x-auto gap-2 sm:gap-3 scrollbar-hide">
+          <div>
+            <div className="bb-tab-bar" role="tablist" aria-label="Einstellungsbereiche">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -97,16 +91,13 @@ export default function SettingsPageTabbed() {
                 return (
                   <button type="button"
                     key={tab.id}
+                    role="tab"
+                    aria-selected={isActive}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg whitespace-nowrap transition-all duration-200 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg shadow-cyan-500/50 font-semibold'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-                    }`}
+                    className={`bb-tab-pill inline-flex items-center gap-2 min-h-[44px] ${isActive ? 'bb-tab-active' : ''}`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? '' : ''}`} />
-                    <span className="hidden sm:inline text-sm font-medium">{tab.label}</span>
-                    <span className="sm:hidden text-sm font-medium">{tab.label}</span>
+                    <Icon size={16} aria-hidden="true" />
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}

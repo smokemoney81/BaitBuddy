@@ -9,6 +9,7 @@ import MyDepthDataList from "@/components/depth/MyDepthDataList";
 import { toast } from "sonner";
 import TabBar from "@/components/layout/TabBar";
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 const bathyTabs = [
   { key: "maps", label: "Community-Karten" },
@@ -76,10 +77,7 @@ function BathymetricCrowdsourcingInner() {
 
   return (
     <div className="bb-page">
-      <h1 className="text-2xl font-bold text-white">Bathymetrisches Crowdsourcing</h1>
-      <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
-        Teile deine Echolot-Daten und profitiere von praezisen Community-Tiefenkarten
-      </p>
+      <PageTitle title="Tiefenkarten & Crowdsourcing" subtitle="Teile deine Echolot-Daten und profitiere von präzisen Community-Tiefenkarten." />
 
       <TabBar tabs={bathyTabs} activeTab={activeTab} onTabChange={setActiveTab} />
 

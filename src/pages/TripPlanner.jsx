@@ -15,6 +15,7 @@ import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import TripLiveTicker from "@/components/LiveTrip/TripLiveTicker";
 import TripPlannerWizard from "@/components/trip/TripPlannerWizard";
 import { notifyAction, actionMessages } from "@/lib/actionNotifications";
+import PageTitle from "@/components/layout/PageTitle";
 
 // spot_info normalisieren (Objekt = neu, String = alte Datensätze).
 function readSpot(spotInfo) {
@@ -210,13 +211,8 @@ function TripPlannerContent() {
     <div className="bb-page">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-              Meine Trips
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>Plane deine Touren mit allen Details — und sammle durch Nutzung Event-Punkte.</p>
-          </div>
-          <button onClick={openNewTrip} className="bb-action" style={{ background: '#059669' }}>
+          <PageTitle className="flex-1 min-w-0" title="Trips & Planung" subtitle="Plane deine Touren mit allen Details – und sammle durch Nutzung Event-Punkte." />
+          <button onClick={openNewTrip} className="bb-action">
             <Plus size={16} className="mr-2" /> Neuer Trip
           </button>
         </div>

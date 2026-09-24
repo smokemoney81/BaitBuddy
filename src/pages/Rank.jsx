@@ -5,6 +5,7 @@ import RankSection from "@/components/rank/RankSection";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function Rank() {
   return (
@@ -25,8 +26,9 @@ function RankInner() {
 
   return (
     <SwipeToRefresh onRefresh={handleRefresh}>
-      <div className="min-h-screen bg-gray-950 p-6 pb-safe">
+      <div className="min-h-screen px-4 pb-32">
         <div className="max-w-6xl mx-auto">
+          <PageTitle className="mb-4" title="Community Ranglisten" subtitle="Wer fängt am meisten? Vergleiche dich mit anderen Anglern." />
           <RankSection />
         </div>
       </div>

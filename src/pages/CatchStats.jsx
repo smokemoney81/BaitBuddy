@@ -7,6 +7,7 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 import { Fish, Weight, Trophy, Hash } from "lucide-react";
+import PageTitle from "@/components/layout/PageTitle";
 
 const COLORS = [
   "#22d3ee", "#10b981", "#f59e0b", "#a78bfa", "#f87171",
@@ -120,9 +121,7 @@ function CatchStatsContent() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6 pb-safe-fixed">
-      <h1 className="text-2xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-        Fang-Statistiken
-      </h1>
+      <PageTitle title="Deine Fang-Statistiken" subtitle="Fänge, Arten und Rekorde auf einen Blick." />
 
       {/* Kennzahlen */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

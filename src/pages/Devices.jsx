@@ -21,6 +21,7 @@ import BiteDetectorSection from "@/components/ai/BiteDetectorSection";
 import DeviceHub from "@/components/devices/DeviceHub";
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function DevicesPage() {
   useFeatureTracking("geraete");
@@ -183,12 +184,7 @@ export default function DevicesPage() {
     <div className="bb-page">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Geräte</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)' }}>
-            Verbinde und steuere deine Angelgeräte
-          </p>
-        </div>
+        <PageTitle className="flex-1 min-w-0" title="Deine Geräte" subtitle="Verbinde und steuere deine Angelgeräte." />
         <button
           className="bb-action flex items-center gap-2"
           onClick={() => handleDeviceClick(devices.find(d => d.id === 'device_hub'))}

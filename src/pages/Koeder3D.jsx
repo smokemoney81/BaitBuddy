@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Rotate3d } from 'lucide-react';
 import { LURES, getLureById, getStyleById } from '@/data/lureGuide.data';
 import LureScene from '@/components/lures3d/LureScene';
 import LureControls from '@/components/lures3d/LureControls';
 import LureInfoPanel from '@/components/lures3d/LureInfoPanel';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
 import { PHASE } from '@/components/lures3d/lureAnimator';
+import PageTitle from "@/components/layout/PageTitle";
 
 // Status-Text zur aktuellen Animationsphase — erklärt beim Zuschauen,
 // was der Köder gerade macht und wann der Biss zu erwarten ist.
@@ -60,16 +60,9 @@ export default function Koeder3D() {
   const statusText = phaseLabel(phaseInfo, style?.params);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 pb-24">
+    <div className="mx-auto max-w-3xl space-y-4 px-4 pb-32">
       <header>
-        <h1 className="flex items-center gap-2 text-xl font-bold text-white">
-          <Rotate3d className="h-6 w-6 text-cyan-400" aria-hidden="true" />
-          3D-Köderführung
-        </h1>
-        <p className="text-sm text-gray-400">
-          Laufverhalten live erleben: Köder wählen, Führungsstil starten und die
-          Bewegung unter Wasser aus jedem Winkel ansehen.
-        </p>
+        <PageTitle title="3D-Köder Führung" subtitle="Laufverhalten live erleben: Köder wählen, Führungsstil starten und die Bewegung unter Wasser aus jedem Winkel ansehen." />
       </header>
 
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-gray-800 bg-gray-950 md:aspect-auto md:h-[60vh]">

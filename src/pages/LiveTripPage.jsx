@@ -9,6 +9,7 @@ import PredictionWidget from '../components/LiveTrip/PredictionWidget';
 import NotificationSettings from '../components/LiveTrip/NotificationSettings';
 import TripHistory from '../components/LiveTrip/TripHistory';
 import SafetyMode from '../components/weather/SafetyMode';
+import PageTitle from "@/components/layout/PageTitle";
 
 /**
  * LiveTripPage - Live-Angeltour mit GPS-Tracking
@@ -271,23 +272,16 @@ function LiveTripPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-gray-900/95 border-b border-cyan-700 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-cyan-400">Live-Tour</h1>
-            <p className="text-xs text-gray-400 mt-1">
-              GPS-Tracking, Fang-Logging & Echtzeit-Statistiken
-            </p>
-          </div>
+    <div className="min-h-screen">
+      <div className="px-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <PageTitle className="flex-1 min-w-0" title="Live-Tour" subtitle="GPS-Tracking, Fang-Logging & Echtzeit-Statistiken." />
           <button type="button"
             onClick={() => setShowNotificationSettings(true)}
-            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition border border-gray-700 flex items-center gap-2"
-            title="Benachrichtigungseinstellungen"
+            className="bb-round-btn"
+            aria-label="Benachrichtigungseinstellungen"
           >
-            <Bell className="w-5 h-5 text-yellow-400" />
-            <span className="text-xs text-gray-300">Benachrichtigungen</span>
+            <Bell size={22} aria-hidden="true" />
           </button>
         </div>
       </div>

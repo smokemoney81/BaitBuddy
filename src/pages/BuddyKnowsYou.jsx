@@ -14,6 +14,7 @@ import {
   GOAL_OPTIONS,
 } from '@/lib/buddyPreferences';
 import { FEDERAL_STATES } from '@/components/rules/rule-utils';
+import PageTitle from "@/components/layout/PageTitle";
 
 // Transparenzbereich (§6): zeigt, was der Buddy über dieses Konto weiß, und
 // lässt jede Angabe korrigieren oder löschen. Die abgeleiteten Muster tragen
@@ -143,14 +144,11 @@ export default function BuddyKnowsYou() {
 
   return (
     <div className="bb-app max-w-3xl mx-auto px-4 py-6 space-y-5">
-      <header>
-        <p className="bb-eyebrow mb-2">Transparenz</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Das weiß BaitBuddy über dich</h1>
-        <p className="bb-muted mt-2">
-          Alles hier fließt in die Antworten deines Buddys ein. Jede Angabe kannst du
-          korrigieren oder löschen — er übernimmt die Änderung sofort.
-        </p>
-      </header>
+      <PageTitle
+        title="BaitBuddy kennt dich"
+        subtitle="Auf Basis deiner Angaben lerne ich dazu und helfe dir, erfolgreicher zu angeln. Jede Angabe kannst du korrigieren oder löschen – du hast jederzeit die Kontrolle."
+        script="Deine Erfahrung. Meine Intelligenz."
+      />
 
       {!canSave && (
         <p className="bb-card bb-muted">Melde dich an, um dein Profil zu sehen und zu ändern.</p>

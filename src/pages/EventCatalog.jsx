@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
 import TabBar from '@/components/layout/TabBar';
+import PageTitle from "@/components/layout/PageTitle";
 
 const filterTabs = [
   { id: 'all', label: 'Alle' },
@@ -144,10 +145,7 @@ export default function EventCatalog() {
     return (
       <div className="bb-page">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Trophy size={28} style={{ color: '#fbbf24' }} />
-            Neues Event erstellen
-          </h1>
+          <PageTitle className="flex-1 min-w-0" title="Neues Event erstellen" />
           <button
             onClick={() => setShowCreateForm(false)}
             className="p-2 rounded-lg"
@@ -235,16 +233,8 @@ export default function EventCatalog() {
   return (
     <div className="bb-page">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Trophy size={28} style={{ color: '#fbbf24' }} />
-            Events & Wettbewerbe
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)' }}>
-            Tritt bestehenden Events bei oder starte deinen eigenen Wettbewerb
-          </p>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageTitle className="flex-1 min-w-[220px]" title="Events & Wettbewerbe" subtitle="Tritt bestehenden Events bei oder starte deinen eigenen Wettbewerb." />
         <button
           onClick={() => setShowCreateForm(true)}
           className="bb-action flex items-center gap-2"
