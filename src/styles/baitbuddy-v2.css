@@ -2120,3 +2120,88 @@
 @media (max-width: 360px) { .bb-bite-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .bb-bite input[type=range] { accent-color: var(--bb-cyan); }
 .bb-bite-tile strong { font-size: 13px; overflow-wrap: anywhere; }
+
+/* ── Gewässer-Infos (gemeinsame Bausteine) ── */
+.bb-water-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bb-water-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #eef5fa;
+  background: rgba(8, 20, 34, .7);
+  border: 1px solid rgba(0,229,255,.35);
+}
+.bb-water-chips span > svg { color: var(--bb-cyan); }
+.bb-water-weather {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  color: inherit;
+  text-decoration: none;
+  background: rgba(8, 20, 34, .7);
+  border: 1px solid var(--bb-border);
+}
+.bb-water-weather > span { flex: 1; min-width: 0; }
+.bb-water-weather strong { display: block; font-size: 20px; color: #f7fbfe; }
+.bb-water-weather small { display: block; font-size: 12px; color: #b9cbdb; }
+.bb-water-block { padding: 12px; border-radius: 16px; background: rgba(8, 20, 34, .55); border: 1px solid var(--bb-border); }
+.bb-water-block-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #f4f8fb; margin-bottom: 10px; }
+.bb-water-block-title > svg { color: var(--bb-cyan); }
+.bb-water-fish { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.bb-water-fish-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #eef5fa;
+  background: rgba(20, 36, 54, .8);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.bb-water-fish-item img { width: 60px; height: 28px; object-fit: contain; }
+.bb-water-fish-item > svg { color: var(--bb-cyan); }
+.bb-water-notes { display: grid; gap: 8px; }
+.bb-water-notes li { display: flex; gap: 8px; font-size: 14px; line-height: 1.4; color: #dce8f2; }
+.bb-water-notes li > svg { color: var(--bb-green); flex-shrink: 0; margin-top: 1px; }
+
+/* ── Gewässer-Infos (Spot-Detail) ── */
+.bb-spot-sheet {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 100%;
+  max-width: 460px;
+  z-index: 2000;
+  overflow-y: auto;
+  background: var(--bb-bg);
+  border-left: 1px solid rgba(0,229,255,.25);
+  box-shadow: -12px 0 40px rgba(0,0,0,.6);
+}
+.bb-spot-hero { position: relative; height: 270px; overflow: hidden; }
+.bb-spot-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 40%; }
+.bb-spot-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,19,36,.2) 0%, rgba(11,19,36,.35) 50%, #0B1324 100%); }
+.bb-spot-hero-bar {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 12px) 14px 0;
+}
+.bb-spot-hero-title { text-align: center; font-size: 20px; font-weight: 700; color: #f7fbfe; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.bb-round-btn.is-fav { color: #ff5a8a; border-color: rgba(255,90,138,.7); }
+.bb-spot-hero-text { position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 1; }
+.bb-spot-hero-text h2 { font-size: 30px; font-weight: 800; line-height: 1.1; color: #f7fbfe; text-shadow: 0 2px 14px rgba(0,0,0,.6); }
+.bb-spot-body { display: grid; gap: 12px; padding: 12px 14px calc(env(safe-area-inset-bottom) + 24px); }
+.bb-spot-depth { font-size: 28px; font-weight: 800; color: #f7fbfe; }
+.bb-spot-stat { display: grid; gap: 2px; padding: 10px; border-radius: 12px; background: rgba(20, 36, 54, .8); color: var(--bb-cyan); }
+.bb-spot-stat strong { font-size: 20px; color: #f7fbfe; }
+.bb-spot-stat small { font-size: 12px; color: #9fb3c6; }
