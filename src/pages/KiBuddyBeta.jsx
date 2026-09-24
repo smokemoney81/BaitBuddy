@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Settings2, AudioLines, Mic, BrainCircuit, Volume2, VolumeX, User as UserIcon, MapPin, Fish, PlusCircle, ChevronRight, Send, Square } from 'lucide-react';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { useState, useRef, useEffect } from "react";
@@ -11,6 +11,7 @@ import { createSpeechQueue } from "@/components/utils/elevenLabsTTS";
 import { stripActionMarker } from "@/lib/streamingReply";
 import { findOfflineBuddyAnswer, getOfflineBuddyFallback } from "@/lib/offlineBuddyQuestions";
 import { buildGreeting } from "@/lib/buddyGreetings";
+import { executeBuddyAction } from "@/utils/buddyActions";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
@@ -28,6 +29,7 @@ export default function KiBuddyBeta() {
 function KiBuddyBetaInner() {
   const { buddy, activeBuddy } = useBuddyPreferences();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   useFeatureTracking("ai_buddy");
   const { trackAIChat } = useEventActivityTracking();
   // Begrüßung variiert bei jedem Öffnen (Tageszeit, Stimmung, gelegentlich ein
@@ -268,6 +270,13 @@ function KiBuddyBetaInner() {
       const ans = result?.reply || result?.message || stripActionMarker(raw) || "Keine Antwort erhalten.";
       retryRef.current = 0;
       finalizeAssistant(ans);
+      // Aktionen aus der Antwort ausführen ("Karpfen ins Fangbuch", "Spot
+      // speichern", Seitenwechsel) — sonst bliebe das Angebot des Buddys leer.
+      if (result?.action) {
+        executeBuddyAction(result.action, { navigate })
+          .then(outcome => { if (outcome?.message) appendMessages({ role: "system", text: outcome.message }); })
+          .catch(() => appendMessages({ role: "system", text: "Die Aktion konnte nicht ausgeführt werden." }));
+      }
       if (activeEventId) {
         trackAIChat(activeEventId);
       }

@@ -112,6 +112,7 @@ const RuleAssistant = lazyPage(() => import('./pages/RuleAssistant'));
 const SatelliteAnalysis = lazyPage(() => import('./pages/SatelliteAnalysis'));
 const Weather = lazyPage(() => import('./pages/Weather'));
 const Privatsphaere = lazyPage(() => import('./pages/Privatsphaere'));
+const HandsFreeBuddy = lazyPage(() => import('./pages/HandsFreeBuddy'));
 import __Layout from './Layout.jsx';
 
 
@@ -171,6 +172,7 @@ export const PAGES = {
     "RuleAssistant": RuleAssistant,
     "SatelliteAnalysis": SatelliteAnalysis,
     "Privatsphaere": Privatsphaere,
+    "HandsFreeBuddy": HandsFreeBuddy,
 }
 
 export const pagesConfig = {

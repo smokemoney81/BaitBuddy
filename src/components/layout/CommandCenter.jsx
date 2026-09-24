@@ -19,7 +19,7 @@ import { AvatarCircle } from '@/components/layout/AppTopBar';
 // Hauptbereiche der Vorlage. Bereiche mit mehreren Zielen klappen auf,
 // damit jede bisherige Funktion aus dem alten Menü erreichbar bleibt.
 const AREAS = [
-  { name: 'KI-Buddy', icon: Bot, items: [['KI-Buddy Chat', 'KiBuddyBeta'], ['Voice-Buddy', 'VoiceChat'], ['BaitBuddy kennt dich', 'BuddyKnowsYou']] },
+  { name: 'KI-Buddy', icon: Bot, items: [['KI-Buddy Chat', 'KiBuddyBeta'], ['Hands-free Buddy', 'HandsFreeBuddy'], ['Voice-Buddy', 'VoiceChat'], ['BaitBuddy kennt dich', 'BuddyKnowsYou']] },
   { name: 'KI-Tools', icon: Wrench, items: [['Fischbestimmung & Biss', 'AI'], ['Fang-Analyse', 'Analysis'], ['Gewässeranalyse', 'WaterAnalysis'], ['Satellitenanalyse', 'SatelliteAnalysis'], ['Köderempfehlung', 'BaitMixer'], ['3D-Köderführung', 'Koeder3D'], ['AR-Gewässer', 'ARView'], ['AR Knoten AI', 'ARKnotenAssistent'], ['Ausrüstung erkennen', 'GearRecognition'], ['Fischrezepte', 'FishRecipes']] },
   { name: 'Karte & Gewässer', icon: MapIcon, items: [['Karte, Gewässer & Favoriten', 'Map'], ['Tiefenkarten', 'BathymetricCrowdsourcing'], ['Offline-Paket', 'OfflineFishingPack']] },
   { name: 'Community', icon: Users, items: [['Feed, Gruppen & Freunde', 'Community'], ['Ranglisten', 'Rank']] },

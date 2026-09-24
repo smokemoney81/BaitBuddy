@@ -32,3 +32,22 @@ export function timeOfDayTheme(date = new Date()) {
   }
   return { key: 'night', label: 'Nacht', gradient: 'linear-gradient(180deg, #0c1830 0%, #0a1222 60%, #070d18 100%)' };
 }
+
+// Trip-Startzeit je Plan (localStorage), geteilt von Anglermodus und
+// Hands-free Buddy. Der Server kennt nur is_active, keinen Startzeitpunkt.
+const tripStartKey = (id) => `bb_angler_start_${id}`;
+
+export function readTripStart(planId) {
+  try {
+    const v = Number(localStorage.getItem(tripStartKey(planId)));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch { return null; }
+}
+
+export function writeTripStart(planId, ms) {
+  try { localStorage.setItem(tripStartKey(planId), String(ms)); } catch { /* ignore */ }
+}
+
+export function clearTripStart(planId) {
+  try { localStorage.removeItem(tripStartKey(planId)); } catch { /* ignore */ }
+}

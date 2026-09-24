@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Fish, MapPin, Camera, BookOpen, Compass, Loader2, Flag, CloudSun, Wind, CalendarDays,
@@ -13,26 +13,12 @@ import { fishImageFor } from '@/lib/fishImages';
 import { FishingPlan } from '@/entities/FishingPlan';
 import { Catch } from '@/entities/Catch';
 import { selectNextTrip, readPlanSpot } from '@/lib/tripJourney';
-import { formatElapsed, elapsedSeconds, timeOfDayTheme } from '@/lib/anglerMode';
+import { formatElapsed, elapsedSeconds, timeOfDayTheme, readTripStart as readStart, writeTripStart as writeStart, clearTripStart as clearStart } from '@/lib/anglerMode';
 import { computeInsights } from '@/lib/fishingInsights';
-
-const startKey = (id) => `bb_angler_start_${id}`;
-
-function readStart(planId) {
-  try {
-    const v = Number(localStorage.getItem(startKey(planId)));
-    return Number.isFinite(v) && v > 0 ? v : null;
-  } catch { return null; }
-}
-function writeStart(planId, ms) {
-  try { localStorage.setItem(startKey(planId), String(ms)); } catch { /* ignore */ }
-}
-function clearStart(planId) {
-  try { localStorage.removeItem(startKey(planId)); } catch { /* ignore */ }
-}
 
 export default function AnglerMode() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -138,6 +124,15 @@ export default function AnglerMode() {
     setEnding(false);
   }, [plan, startMs]);
 
+  // "Trip beenden" aus dem Hands-free Buddy landet mit ?end=1 hier, damit der
+  // Abschluss (Dauer, Fänge, Auswertung) an einer Stelle bleibt.
+  const endRequested = searchParams.get('end') === '1';
+  useEffect(() => {
+    if (!endRequested || !plan || !startMs || ending || summary) return;
+    setSearchParams({}, { replace: true });
+    endTrip();
+  }, [endRequested, plan, startMs, ending, summary, endTrip, setSearchParams]);
+
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -238,7 +233,7 @@ export default function AnglerMode() {
       </div>
 
       <div className="bb-angler-actions">
-        <Link to="/KiBuddyBeta" className="bb-angler-action"><MessageCircle size={26} aria-hidden="true" /><span><strong>Hey Buddy</strong><small>Frag mich alles</small></span></Link>
+        <Link to="/HandsFreeBuddy" className="bb-angler-action"><MessageCircle size={26} aria-hidden="true" /><span><strong>Hey Buddy</strong><small>Hands-free fragen</small></span></Link>
         <Link to="/VoiceChat" className="bb-angler-action"><Mic size={26} aria-hidden="true" /><span><strong>Voice</strong><small>Sprachmodus</small></span></Link>
         <Link to="/AI" className="bb-angler-action is-green"><Radio size={26} aria-hidden="true" /><span><strong>Biss&shy;erkennung</strong><small>Kamera starten</small></span></Link>
       </div>

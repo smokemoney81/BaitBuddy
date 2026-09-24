@@ -42,6 +42,7 @@ export const PAGE_META = {
   NotificationCenter: { title: 'Benachrichtigungen', icon: Bell },
   OfflineFishingPack: { title: 'Offline-Paket', icon: Download },
   Privatsphaere: { title: 'Privatsphäre', icon: ShieldCheck },
+  HandsFreeBuddy: { title: 'Hands-free Buddy', icon: Mic },
 };
 
 const RECENT_KEY = 'bb_recent_pages';
