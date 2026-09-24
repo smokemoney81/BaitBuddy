@@ -1449,3 +1449,154 @@
 
 .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Tarif & KI-Zugriff ── */
+.bb-plan-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.bb-plan-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 6px 10px;
+  border-radius: 18px;
+  text-align: center;
+  background: var(--bb-surface-grad);
+  border: 1px solid rgba(160, 190, 215, .22);
+  min-width: 0;
+}
+.bb-plan-tile.is-recommended {
+  border: 2px solid var(--bb-cyan);
+  box-shadow: 0 0 22px rgba(0,229,255,.35);
+}
+.bb-plan-tile.is-ultimate {
+  border-color: rgba(245,196,81,.55);
+  background: linear-gradient(180deg, rgba(70, 55, 20, .55), rgba(20, 24, 30, .8));
+}
+.bb-plan-tile.is-selected:not(.is-recommended) { border-color: rgba(0,229,255,.55); }
+.bb-plan-badge {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #04111a;
+  background: var(--bb-cta-grad);
+  white-space: nowrap;
+}
+.bb-plan-tile-icon { color: #9fb3c6; margin-bottom: 4px; }
+.bb-plan-tile.is-recommended .bb-plan-tile-icon,
+.bb-plan-tile:nth-child(2) .bb-plan-tile-icon { color: var(--bb-cyan); }
+.bb-plan-tile.is-ultimate .bb-plan-tile-icon,
+.bb-plan-tile.is-ultimate .bb-plan-tile-name { color: var(--bb-gold); }
+.bb-plan-tile-name { font-size: 17px; font-weight: 700; color: #f4f8fb; }
+.bb-plan-tile-desc { font-size: 11px; line-height: 1.25; color: #b9cbdb; min-height: 28px; }
+.bb-plan-tile.is-recommended .bb-plan-tile-desc { color: var(--bb-cyan); }
+.bb-plan-tile-price {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  width: 100%;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f7fbfe;
+  white-space: nowrap;
+}
+.bb-plan-tile-period { font-size: 11px; color: #9fb3c6; margin-bottom: 8px; }
+.bb-plan-tile-btn {
+  width: 100%;
+  min-height: 40px;
+  margin-top: auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.1;
+  padding: 0 4px;
+  font-weight: 600;
+  color: #e3f4fb;
+  background: rgba(8, 40, 64, .7);
+  border: 1px solid rgba(0,229,255,.4);
+}
+.bb-plan-tile-btn.is-primary { background: var(--bb-cta-grad); color: #04111a; border: none; font-weight: 700; }
+.bb-plan-tile-btn.is-current { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.16); color: #dce8f2; }
+.bb-ai-table-card { padding: 0; overflow: hidden; }
+.bb-ai-table-scroll { overflow-x: auto; }
+.bb-ai-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; }
+.bb-ai-table col.bb-ai-col-label { width: 22%; }
+.bb-ai-table th, .bb-ai-table td {
+  padding: 9px 4px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  vertical-align: middle;
+}
+.bb-ai-table thead th { font-size: 13px; font-weight: 600; color: #f4f8fb; text-align: center; }
+.bb-ai-table thead th:first-child { text-align: left; padding-left: 10px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.bb-ai-table thead th.is-pro { color: var(--bb-cyan); }
+.bb-ai-table thead th.is-elite { color: var(--bb-gold); }
+.bb-ai-table tbody th { text-align: left; font-size: 12px; font-weight: 600; color: #eef5fa; padding-left: 10px; hyphens: manual; }
+.bb-ai-table td { text-align: center; color: #cfdbe6; line-height: 1.3; }
+.bb-ai-table td + td, .bb-ai-table thead th + th { border-left: 1px solid rgba(255,255,255,.05); }
+.bb-ai-table tbody tr:last-child > * { border-bottom: none; }
+.bb-ai-dots { display: flex; justify-content: center; gap: 5px; margin-bottom: 4px; }
+.bb-ai-dots i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.bb-ai-dots.level-0 i { background: #ff8a3d; }
+.bb-ai-dots.level-1 i { background: #f5c451; }
+.bb-ai-dots.level-2 i, .bb-ai-dots.level-3 i { background: var(--bb-green); }
+.bb-detail-card { display: grid; gap: 10px; }
+.bb-detail-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.bb-detail-title { font-size: 17px; font-weight: 700; color: #f4f8fb; }
+.bb-detail-hint { font-size: 13px; color: #b9cbdb; }
+.bb-segment {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 999px;
+  background: rgba(8, 20, 34, .7);
+  border: 1px solid rgba(0,229,255,.22);
+}
+.bb-segment button {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #dce8f2;
+}
+.bb-segment button.is-active { background: var(--bb-cta-grad); color: #04111a; font-weight: 700; }
+.bb-ultimate-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--bb-radius);
+  color: #f5e3b3;
+  background: linear-gradient(120deg, rgba(90, 70, 20, .65), rgba(30, 30, 30, .75));
+  border: 1.5px solid rgba(245,196,81,.6);
+  box-shadow: 0 0 18px rgba(245,196,81,.18);
+}
+.bb-ultimate-banner strong { display: block; font-size: 17px; color: var(--bb-gold); }
+.bb-ultimate-banner span span, .bb-ultimate-banner > span > span { display: block; font-size: 13px; color: #e6dcc0; margin-top: 2px; }
+.bb-ultimate-crown { color: var(--bb-gold); flex-shrink: 0; filter: drop-shadow(0 0 8px rgba(245,196,81,.5)); }
+.bb-plan-detail { display: grid; gap: 12px; scroll-margin-top: 16px; }
+.bb-plan-detail.is-ultimate { border-color: rgba(245,196,81,.5); }
+.bb-plan-detail-name { font-size: 22px; font-weight: 800; color: #f4f8fb; }
+.bb-plan-detail-desc { font-size: 14px; color: #b9cbdb; margin-top: 2px; }
+.bb-plan-detail-price { font-size: 24px; font-weight: 800; color: #f7fbfe; white-space: nowrap; }
+.bb-plan-features { display: grid; gap: 8px; }
+.bb-plan-features li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #dce8f2; }
+.bb-plan-features li > svg { color: var(--bb-green); flex-shrink: 0; margin-top: 2px; }
+.bb-dash-row.is-selected { border-color: rgba(0,229,255,.55); }
+@media (max-width: 360px) {
+  .bb-plan-tile-desc { display: none; }
+  .bb-plan-tile-price { font-size: 16px; }
+}
