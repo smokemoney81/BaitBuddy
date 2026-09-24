@@ -14,8 +14,10 @@ export default function LastBuddyMessage() {
         "-timestamp",
         1
       );
-      if (msgs && msgs.length > 0) {
-        setLastMessage(msgs[0]);
+      // chat_messages ist öffentlich lesbar — nur eigene Nachrichten zeigen.
+      const own = Array.isArray(msgs) ? msgs.filter(m => m.is_own) : [];
+      if (own.length > 0) {
+        setLastMessage(own[0]);
       } else {
         setLastMessage(null);
       }

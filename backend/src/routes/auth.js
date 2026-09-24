@@ -3,6 +3,7 @@ import { supabase, supabaseUrl, supabaseKey } from '../lib/supabase.js';
 import { requireAuth, isAdminEmail, getFreshUser, invalidateCachedUser } from '../middleware/auth.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
+import { invalidateProfileDirectory } from '../lib/publicProfiles.js';
 
 const router = Router();
 
@@ -185,6 +186,8 @@ router.patch('/auth/me', requireAuth, async (req, res) => {
   });
   if (error) return sendDbError(res, error);
   invalidateCachedUser(req.user.id);
+  // Name/Avatar erscheinen in Community-Listen — dort sofort aktualisieren.
+  invalidateProfileDirectory();
   const u = data.user;
   return res.json({
     id: u.id,

@@ -63,7 +63,9 @@ export default function EventDetails() {
       setEvent(eventData);
       setParticipants(participantsData);
       setLeaderboard(leaderboardData);
-      setIsParticipant(participantsData.some(p => p.user_id === user.email));
+      // Der Server kennzeichnet die eigene Zeile (is_me) — E-Mail-Adressen
+      // anderer Teilnehmer werden nicht mehr ausgeliefert.
+      setIsParticipant(participantsData.some(p => p.is_me));
     } catch (error) {
       console.error('Fehler beim Laden des Events:', error);
       toast.error('Fehler beim Laden des Events');
@@ -145,7 +147,7 @@ export default function EventDetails() {
     return `${daysLeft} Tage verbleibend`;
   };
 
-  const canInvite = event && currentUser && event.created_by === currentUser.email;
+  const canInvite = !!event && !!currentUser && event.is_own === true;
 
   if (loading) {
     return (
@@ -366,7 +368,7 @@ export default function EventDetails() {
             {leaderboard.length > 0 ? (
               <div className="grid gap-2">
                 {leaderboard.map((entry, index) => {
-                  const isMe = entry.user_id === currentUser?.email;
+                  const isMe = entry.is_me === true;
                   const rank = index + 1;
                   const rankColors = { 1: '#fbbf24', 2: '#94a3b8', 3: '#fb923c' };
                   return (
@@ -383,7 +385,7 @@ export default function EventDetails() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">
-                          {isMe ? 'Du' : entry.user_id.split('@')[0]}
+                          {isMe ? 'Du' : (entry.user?.name || 'Angler')}
                         </p>
                         <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
                           {entry.submission_count} Einreichung{entry.submission_count !== 1 ? 'en' : ''}
@@ -416,12 +418,14 @@ export default function EventDetails() {
             <div className="grid gap-2 max-h-64 overflow-y-auto">
               {participants.map((p) => (
                 <div
-                  key={p.user_id}
+                  key={p.id}
                   className="p-2 rounded-xl"
                   style={{ background: 'rgba(96,165,250,.08)', border: '1px solid rgba(96,165,250,.2)' }}
                 >
                   <p className="text-sm text-white font-medium">
-                    {p.user_id === currentUser?.email ? 'Du (Organisator)' : p.user_id.split('@')[0]}
+                    {p.is_me
+                      ? (event?.is_own ? 'Du (Organisator)' : 'Du')
+                      : (p.user?.name || 'Angler')}
                   </p>
                   <p className="text-xs" style={{ color: '#60a5fa' }}>
                     {Math.round(p.total_points * 100) / 100} Punkte

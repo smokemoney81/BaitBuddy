@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, isAdminEmail } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
 import { sendDbError } from '../lib/errorResponse.js';
+import { loadProfileDirectory, publicAuthor } from '../lib/publicProfiles.js';
 
 const router = Router();
 
@@ -29,12 +30,28 @@ const coerce = (v) => {
 // Bewertungen, Likes oder Tiefenkarten die Adressen aller anderen Nutzer aus.
 const PRIVATE_EMAIL_COLS = ['user_email', 'created_by'];
 
-function redactForeignEmails(row, userId, keep) {
-  if (!row || row.user_id === userId) return row;
-  const copy = { ...row };
+const looksLikeEmail = (value) => typeof value === 'string' && value.includes('@');
+
+// Manche Tabellen (voting_likes, von /community/voting/:id/like befüllt)
+// tragen die E-Mail in user_id statt der Auth-UUID — Eigentum deshalb über
+// beide Kennungen prüfen.
+function isOwnRow(row, user) {
+  if (!row || !user) return false;
+  const email = String(user.email || '').toLowerCase();
+  return row.user_id === user.id
+    || (!!email && String(row.user_id || '').toLowerCase() === email)
+    || (!!email && String(row.user_email || '').toLowerCase() === email);
+}
+
+function redactForeignEmails(row, user, keep) {
+  if (!row || typeof row !== 'object') return row;
+  const own = isOwnRow(row, user);
+  const copy = { ...row, is_own: own };
+  if (own) return copy;
   for (const col of PRIVATE_EMAIL_COLS) {
     if (!keep.has(col)) delete copy[col];
   }
+  if (looksLikeEmail(copy.user_id)) delete copy.user_id;
   return copy;
 }
 
@@ -55,9 +72,18 @@ function registerEntity(path, table, allowedFields, {
   const allow = new Set(allowedFields);
   const keepEmails = new Set(publicEmailCols);
   const readsAll = (req) => publicRead || (adminRead && isAdminEmail(req.user?.email));
-  const present = (req, rows) => (publicRead
-    ? rows.map((row) => redactForeignEmails(row, req.user.id, keepEmails))
-    : rows);
+  // Öffentlich lesbare Zeilen bekommen ein Autorenprofil (Name/Avatar) statt
+  // der E-Mail-Adresse; eigene Zeilen behalten ihre Felder (is_own=true).
+  const present = async (req, rows) => {
+    if (!publicRead) return rows;
+    const directory = await loadProfileDirectory();
+    return rows.map((row) => {
+      const email = row?.user_email || row?.created_by
+        || (typeof row?.user_id === 'string' && row.user_id.includes('@') ? row.user_id : null);
+      const out = redactForeignEmails(row, req.user, keepEmails);
+      return out && typeof out === 'object' ? { ...out, author: publicAuthor(email, directory) } : out;
+    });
+  };
 
   const pack = (body = {}) => {
     const out = {};
@@ -89,7 +115,7 @@ function registerEntity(path, table, allowedFields, {
 
       const { data, error } = await q;
       if (error) return sendDbError(res, error);
-      return res.json(present(req, data || []));
+      return res.json(await present(req, data || []));
     } catch (e) {
       return sendDbError(res, e);
     }
@@ -101,7 +127,7 @@ function registerEntity(path, table, allowedFields, {
     if (!readsAll(req)) q = q.eq('user_id', req.user.id);
     const { data, error } = await q.single();
     if (error) return res.status(404).json({ error: 'Nicht gefunden' });
-    return res.json(present(req, [data])[0]);
+    return res.json((await present(req, [data]))[0]);
   });
 
   if (readOnly) return;
@@ -190,15 +216,15 @@ registerEntity('/licenses', 'licenses', [
 ], { publicRead: false });
 
 // Community-Chat-Nachrichten (ChatWidget) — öffentlich im jeweiligen Topic.
-// created_by trägt die E-Mail (vom UI als Absender gerendert).
+// Als Absender rendert das UI das Autorenprofil (author), nicht die E-Mail.
 registerEntity('/ai/messages', 'chat_messages', [
   'role', 'content', 'context',
-], { publicRead: true, ownerEmailCols: ['created_by', 'user_email'], publicEmailCols: ['created_by', 'user_email'] });
+], { publicRead: true, ownerEmailCols: ['created_by', 'user_email'] });
 
 // Chat-Sessions / Online-Status (ChatWidget) — öffentlich lesbar (wer ist online).
 registerEntity('/community/sessions', 'chat_sessions', [
   'user_email', 'user_name', 'last_activity', 'is_active',
-], { publicRead: true, ownerEmailCols: ['user_email', 'created_by'], publicEmailCols: ['user_email', 'created_by'] });
+], { publicRead: true, ownerEmailCols: ['user_email', 'created_by'] });
 
 // Nutzungs-Sessions (Layout-Tracking) — privat pro Nutzer. user_id wird aus der
 // Auth gesetzt; ein vom Frontend als user_id übergebener E-Mail-Wert wird

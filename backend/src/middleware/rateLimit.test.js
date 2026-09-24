@@ -168,6 +168,35 @@ describe('rateLimitKeyGenerator', () => {
     expect(key).toBe('203.0.113.9');
   });
 
+  describe('mit EDGE_SHARED_SECRET', () => {
+    const headers = (extra = {}) => ({
+      'cf-connecting-ip': '203.0.113.9',
+      'x-vercel-forwarded-for': '203.0.113.7',
+      ...extra,
+    });
+
+    it('ignoriert cf-connecting-ip ohne passendes Edge-Secret (gefälschter Header am Origin)', async () => {
+      process.env.EDGE_SHARED_SECRET = 'edge-geheim';
+      try {
+        const { rateLimitKeyGenerator } = await import('./rateLimit.js');
+        expect(rateLimitKeyGenerator({ headers: headers(), ip: '10.0.0.2' })).toBe('203.0.113.7');
+        expect(rateLimitKeyGenerator({ headers: headers({ 'x-bb-edge-secret': 'falsch-12345' }), ip: '10.0.0.2' })).toBe('203.0.113.7');
+      } finally {
+        delete process.env.EDGE_SHARED_SECRET;
+      }
+    });
+
+    it('vertraut cf-connecting-ip mit korrektem Edge-Secret', async () => {
+      process.env.EDGE_SHARED_SECRET = 'edge-geheim';
+      try {
+        const { rateLimitKeyGenerator } = await import('./rateLimit.js');
+        expect(rateLimitKeyGenerator({ headers: headers({ 'x-bb-edge-secret': 'edge-geheim' }), ip: '10.0.0.2' })).toBe('203.0.113.9');
+      } finally {
+        delete process.env.EDGE_SHARED_SECRET;
+      }
+    });
+  });
+
   it('bevorzugt x-vercel-forwarded-for vor anderen Headern und req.ip', async () => {
     const { rateLimitKeyGenerator } = await import('./rateLimit.js');
     const key = rateLimitKeyGenerator({

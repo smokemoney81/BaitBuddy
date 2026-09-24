@@ -214,3 +214,34 @@ describe('POST /api/events/:id/submit', () => {
     expect(res.status).toBe(201);
   });
 });
+
+describe('Friends-Events per ID', () => {
+  it('verbirgt ein fremdes Friends-Event vor Nicht-Freunden', async () => {
+    supabaseMock.current = createSupabaseMock({
+      authUser: ME,
+      fromResults: {
+        events: { data: { id: 'e9', visibility: 'friends', created_by: 'fremd@test.de', is_active: true }, error: null },
+        referrals: { data: [], error: null },
+      },
+    });
+    await buildApp();
+    const res = await request(app).get('/api/events/e9').set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(404);
+    const join = await request(app).post('/api/events/e9/join').set('Authorization', 'Bearer tok');
+    expect(join.status).toBe(404);
+  });
+
+  it('zeigt dem Ersteller sein Friends-Event ohne E-Mail', async () => {
+    supabaseMock.current = createSupabaseMock({
+      authUser: ME,
+      fromResults: {
+        events: { data: { id: 'e9', visibility: 'friends', created_by: ME.email, is_active: true }, error: null },
+      },
+    });
+    await buildApp();
+    const res = await request(app).get('/api/events/e9').set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(200);
+    expect(res.body.is_own).toBe(true);
+    expect(res.body.created_by).toBeUndefined();
+  });
+});

@@ -356,10 +356,6 @@ router.post('/premium/checkout', requireAuth, async (req, res) => {
   return res.json({ ok: true, checkout_url: session.url, session_id: session.id });
 });
 
-router.post('/premium/activate-demo', requireAuth, async (req, res) => {
-  return res.json({ ok: true, message: 'Demo-Modus aktiviert' });
-});
-
 // Aktiviert einen gekauften Plan nach Zahlungsverifikation.
 // Verlangt purchase_token (Google Play) oder transaction_id (sonstige) zur Validierung.
 // Speichert Transaktionsdaten für Audit/Verifizierung.

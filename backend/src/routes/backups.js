@@ -120,17 +120,18 @@ router.post('/backups/:id/restore', requireAuth, async (req, res) => {
     }
   }
 
+  // IDs bleiben erhalten: catches.spot_id verweist auf spots.id. Mit neu
+  // vergebenen IDs zeigten nach einem Restore alle Fänge ins Leere (Dashboard,
+  // Top-Spots, Fangbuch-Ortsangaben). Der Snapshot stammt ausschließlich aus den
+  // eigenen Zeilen (buildSnapshot), fremde IDs können nicht enthalten sein.
+  // - replace: eigene Zeilen löschen, dann mit Original-IDs einfügen.
+  // - merge:   nur fehlende Zeilen ergänzen (ON CONFLICT DO NOTHING). Früher
+  //            legte merge jede noch vorhandene Zeile ein zweites Mal an.
   const snapshot = backup?.payload?.data || {};
   const results = {};
   for (const table of tables) {
     const rows = Array.isArray(snapshot[table]) ? snapshot[table] : [];
-    const sanitized = rows.map(r => {
-      const copy = { ...r };
-      delete copy.id;
-      delete copy.created_at;
-      copy.created_by = req.user.email;
-      return copy;
-    });
+    const sanitized = rows.filter(r => r && r.id).map(r => ({ ...r, created_by: req.user.email }));
     if (mode === 'replace') {
       const { error: delErr } = await supabase.from(table).delete().eq('created_by', req.user.email);
       if (delErr) {
@@ -140,7 +141,8 @@ router.post('/backups/:id/restore', requireAuth, async (req, res) => {
       }
     }
     if (sanitized.length === 0) { results[table] = { ok: true, inserted: 0 }; continue; }
-    const { error: insErr, count } = await supabase.from(table).insert(sanitized, { count: 'exact' });
+    const { error: insErr, count } = await supabase.from(table)
+      .upsert(sanitized, { onConflict: 'id', ignoreDuplicates: true, count: 'exact' });
     if (insErr) {
       console.error(`[Backup Restore] insert ${table} failed:`, insErr.message);
       results[table] = { ok: false, error: 'Wiederherstellen fehlgeschlagen' };

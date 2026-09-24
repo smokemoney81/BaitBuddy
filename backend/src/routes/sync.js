@@ -50,13 +50,6 @@ router.get('/sync/status', requireAuth, async (req, res) => {
   });
 });
 
-router.get('/sync/pending', requireAuth, async (req, res) => {
-  return res.json({
-    items: [],
-    serverTime: new Date().toISOString(),
-  });
-});
-
 async function applyItem(req, item) {
   const entity = ENTITIES[item.entity];
   if (!entity) {

@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { integrations, entities, api, community } from "@/api/frontendClient";
 import TabBar from "@/components/layout/TabBar";
 import { auth } from "@/api/auth";
-import { User } from "@/entities/User";
 import { toast } from "sonner";
 import { Heart, MessageCircle, Send, Camera, AlertTriangle, User as UserIcon, Loader2, X, Globe, Facebook, Trophy, Fish, TrendingUp, Award, Zap, Droplet, Star } from "lucide-react";
 import CompetitionCard from "@/components/community/CompetitionCard";
@@ -49,9 +48,9 @@ const CommentInput = memo(function CommentInput({ onSubmit }) {
 });
 
 // User-Badges: hilfreiche Gewässerinformationen, gute Guides, bestätigte Daten
-function UserBadges({ userEmail, userCache }) {
-  const user = userCache[userEmail];
-  if (!user || !user.badges) return null;
+function UserBadges({ author }) {
+  const badges = Array.isArray(author?.badges) ? author.badges : [];
+  if (badges.length === 0) return null;
 
   const badgeConfig = {
     'water_expert': { icon: Droplet, label: 'Gewässer-Experte', color: 'text-cyan-400' },
@@ -62,7 +61,7 @@ function UserBadges({ userEmail, userCache }) {
 
   return (
     <div className="flex gap-1 flex-wrap">
-      {(user.badges || []).map(badge => {
+      {badges.map(badge => {
         const config = badgeConfig[badge];
         if (!config) return null;
         const Icon = config.icon;
@@ -76,7 +75,8 @@ function UserBadges({ userEmail, userCache }) {
   );
 }
 
-// Gewässer-spezifische Community-Räume
+// Eigene Gewässer mit echten Kennzahlen aus dem Fangbuch. Früher standen hier
+// per Math.random() erfundene „Beiträge“ und „Mitglieder“.
 function WaterBodyRooms() {
   const [waterBodies, setWaterBodies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,14 +84,23 @@ function WaterBodyRooms() {
   useEffect(() => {
     const loadWaterBodies = async () => {
       try {
-        const spots = await entities.Spot.list('', 20);
-        const bodies = spots.slice(0, 6).map(spot => ({
-          id: spot.id,
-          name: spot.name || 'Unbekanntes Gewässer',
-          postCount: Math.floor(Math.random() * 50) + 1,
-          members: Math.floor(Math.random() * 200) + 10,
-          type: spot.water_type || 'Stillgewässer'
-        }));
+        const [spots, catches] = await Promise.all([
+          entities.Spot.list('', 20),
+          entities.Catch.list('-catch_time', 500),
+        ]);
+        const catchesBySpot = {};
+        catches.forEach((c) => {
+          if (c?.spot_id) catchesBySpot[c.spot_id] = (catchesBySpot[c.spot_id] || 0) + 1;
+        });
+        const bodies = spots
+          .map(spot => ({
+            id: spot.id,
+            name: spot.name || 'Unbekanntes Gewässer',
+            catchCount: catchesBySpot[spot.id] || 0,
+            type: spot.water_type || 'Stillgewässer'
+          }))
+          .sort((a, b) => b.catchCount - a.catchCount)
+          .slice(0, 6);
         setWaterBodies(bodies);
       } catch (error) {
         console.error('Fehler beim Laden der Gewässer:', error);
@@ -103,18 +112,26 @@ function WaterBodyRooms() {
 
   if (loading) return <div className="text-center py-8 text-slate-400">Gewässer werden geladen...</div>;
 
+  if (waterBodies.length === 0) {
+    return (
+      <div className="bb-card text-center py-8 text-slate-400">
+        Noch keine Gewässer gespeichert. Speichere Spots auf der Karte, um sie hier zu sehen.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       {waterBodies.map(body => (
-        <div key={body.id} className="bb-card group cursor-pointer hover:bg-slate-700/40 transition-colors">
+        <div key={body.id} className="bb-card">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-slate-100 group-hover:text-cyan-300">{body.name}</h3>
+              <h3 className="font-semibold text-slate-100">{body.name}</h3>
               <p className="text-xs text-slate-400">{body.type}</p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-cyan-300">{body.postCount} Beiträge</p>
-              <p className="text-xs text-slate-400">{body.members} Mitglieder</p>
+              <p className="text-sm font-semibold text-cyan-300">{body.catchCount} {body.catchCount === 1 ? 'Fang' : 'Fänge'}</p>
+              <p className="text-xs text-slate-400">in deinem Fangbuch</p>
             </div>
           </div>
         </div>
@@ -123,57 +140,20 @@ function WaterBodyRooms() {
   );
 }
 
-// Community-Challenges: zeitlich begrenzte Aufgaben
-function CommunityChallenge({ challenge, userCache: _userCache }) {
-  const daysLeft = Math.ceil((new Date(challenge.end_date) - Date.now()) / (1000 * 60 * 60 * 24));
-  const progress = Math.min(100, (challenge.submissions || 0) / (challenge.target || 10) * 100);
-
-  return (
-    <div className="bb-card">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-semibold text-slate-100">{challenge.title}</h3>
-          <p className="text-xs text-slate-400 mt-1">{challenge.description}</p>
-        </div>
-        <span className={`text-xs font-semibold px-2 py-1 rounded ${
-          daysLeft > 3 ? 'bg-emerald-400/10 text-emerald-400' : 'bg-amber-400/10 text-amber-400'
-        }`}>
-          {daysLeft} Tage
-        </span>
-      </div>
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs text-slate-400">
-          <span>{challenge.submissions || 0}/{challenge.target || 10} Beiträge</span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-cyan-400 to-cyan-300 transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-      <button className="bb-secondary mt-3 w-full">Challenge annehmen</button>
-    </div>
-  );
-}
-
 // Memoisierte Post-Karte: rendert nur neu, wenn sich ihre eigenen Props ändern.
 // So lösen unabhängige Re-Renders des Feeds (z.B. der 30s-Aktive-Nutzer-Tick
 // oder das Tippen in der Suche) kein Neurendern aller Karten mehr aus.
 const PostCard = memo(function PostCard({
-  post, userCache, isOwnPost, isCommenting, isDeleting, isReported,
+  post, isOwnPost, isCommenting, isDeleting, isReported,
   onLike, onToggleComment, onReport, onDelete, onSubmitComment,
 }) {
-  const authorOf = (email) => userCache[email] || null;
-  const nameOf = (email) => {
-    const u = authorOf(email);
-    return u?.full_name || u?.nickname || email?.split('@')[0] || 'Anonym';
-  };
-  const picOf = (email) => authorOf(email)?.profile_picture_url || null;
+  // Der Server liefert ein öffentliches Autorenprofil (author) statt der
+  // E-Mail-Adresse — die war früher für jeden sichtbar.
+  const nameOf = (item) => item?.author?.name || 'Angler';
+  const picOf = (item) => item?.author?.avatar_url || null;
 
-  const profilePic = picOf(post.created_by);
-  const displayName = nameOf(post.created_by);
+  const profilePic = picOf(post);
+  const displayName = nameOf(post);
 
   return (
     <div className="bb-card">
@@ -189,7 +169,7 @@ const PostCard = memo(function PostCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold">{displayName}</p>
-              <UserBadges userEmail={post.created_by} userCache={userCache} />
+              <UserBadges author={post.author} />
             </div>
             <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
               {new Date(post.created_at).toLocaleDateString('de-DE', {
@@ -245,8 +225,8 @@ const PostCard = memo(function PostCard({
       {post.comments && post.comments.length > 0 && (
         <div className="space-y-2 pt-3 mt-3" style={{ borderTop: '1px solid var(--bb-border)' }}>
           {post.comments.map((comment) => {
-            const commentProfilePic = picOf(comment.created_by);
-            const commentDisplayName = nameOf(comment.created_by);
+            const commentProfilePic = picOf(comment);
+            const commentDisplayName = nameOf(comment);
             return (
               <div key={comment.id} className="flex gap-2">
                 {commentProfilePic ? (
@@ -281,7 +261,6 @@ export default function Community() {
   const [uploading, setUploading] = useState(false);
   const [commenting, setCommenting] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [userCache, setUserCache] = useState({});
   const [deletingPostId, setDeletingPostId] = useState(null);
   const [reportedPostIds, setReportedPostIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('reported_posts') || '[]'); } catch { return []; }
@@ -381,7 +360,8 @@ export default function Community() {
             target_species: e.target_species,
             start_date: e.start_date,
             end_date: e.end_date,
-            created_by: e.created_by,
+            creator: e.creator,
+            is_own: e.is_own,
             is_active: true
           }));
         } catch (err) {
@@ -422,15 +402,10 @@ export default function Community() {
   const eventCompetitions = competitions.filter(c => c.competition_type === 'event');
   const otherCompetitions = competitions.filter(c => c.competition_type !== 'photo_contest' && c.competition_type !== 'most_catches' && c.competition_type !== 'event');
 
-  const getUserDisplayName = useCallback((email) => {
-    const user = userCache[email];
-    return user?.full_name || user?.nickname || email?.split('@')[0] || 'Anonym';
-  }, [userCache]);
-
   const filteredPosts = posts.filter(post => {
     const query = searchQuery.toLowerCase();
     const matchesText = (post.text || "").toLowerCase().includes(query);
-    const matchesCreator = getUserDisplayName(post.created_by).toLowerCase().includes(query);
+    const matchesCreator = (post.author?.name || '').toLowerCase().includes(query);
     return matchesText || matchesCreator;
   });
 
@@ -441,42 +416,6 @@ export default function Community() {
         entities.Post.list("-created_at", 50),
         entities.Comment.list('', 1000)
       ]);
-
-      const newCache = { ...userCache };
-      const allEmails = new Set();
-
-      postsData.forEach(post => allEmails.add(post.created_by));
-      allComments.forEach(comment => allEmails.add(comment.created_by));
-
-      const missingEmails = Array.from(allEmails).filter(email => !newCache[email]);
-
-      if (missingEmails.length > 0) {
-        try {
-          const allUsers = await User.list('', 1000);
-
-          missingEmails.forEach(email => {
-            const foundUser = allUsers.find(u => u.email === email);
-            newCache[email] = foundUser || {
-              email,
-              nickname: null,
-              full_name: null,
-              profile_picture_url: null
-            };
-          });
-        } catch (err) {
-          console.error("Fehler beim Laden der Users:", err);
-          missingEmails.forEach(email => {
-            newCache[email] = {
-              email,
-              nickname: null,
-              full_name: null,
-              profile_picture_url: null
-            };
-          });
-        }
-      }
-
-      setUserCache(newCache);
 
       const commentMap = {};
       allComments.forEach(comment => {
@@ -497,7 +436,7 @@ export default function Community() {
       toast.error("Posts konnten nicht geladen werden");
     }
     setLoading(false);
-  }, [userCache]);
+  }, []);
 
 
   const handleImageSelect = (e) => {
@@ -588,8 +527,13 @@ export default function Community() {
       id: tempId,
       post_id: postId,
       text,
-      created_by: currentUser.email,
-      created_date: new Date().toISOString()
+      author: {
+        id: currentUser.id,
+        name: currentUser.nickname || currentUser.full_name || 'Du',
+        avatar_url: currentUser.profile_picture_url || null,
+      },
+      is_own: true,
+      created_at: new Date().toISOString()
     };
 
     setPosts(prev => prev.map(p =>
@@ -700,7 +644,6 @@ export default function Community() {
           tabs={[
             { key: 'feed', label: 'Feed' },
             { key: 'waters', label: 'Gewässer' },
-            { key: 'challenges', label: 'Challenges' },
             { key: 'competitions', label: 'Wettbewerbe' },
             { key: 'leaderboards', label: 'Bestenlisten' },
           ]}
@@ -815,8 +758,7 @@ export default function Community() {
             <PostCard
               key={post.id}
               post={post}
-              userCache={userCache}
-              isOwnPost={!!currentUser && post.created_by === currentUser.email}
+              isOwnPost={post.is_own === true}
               isCommenting={commenting === post.id}
               isDeleting={deletingPostId === post.id}
               isReported={reportedPostIds.includes(post.id)}
@@ -848,52 +790,10 @@ export default function Community() {
         {activeTab === "waters" && (
           <div className="space-y-4">
             <div>
-              <p className="bb-eyebrow mb-2">Gemeinschaften</p>
-              <h2 className="text-xl font-semibold text-slate-100">Gewässer-Räume</h2>
+              <p className="bb-eyebrow mb-2">Deine Gewässer</p>
+              <h2 className="text-xl font-semibold text-slate-100">Gewässer & Fänge</h2>
             </div>
             <WaterBodyRooms />
-          </div>
-        )}
-
-        {/* Challenges Tab */}
-        {activeTab === "challenges" && (
-          <div className="space-y-4">
-            <div>
-              <p className="bb-eyebrow mb-2">Gemeinschaft</p>
-              <h2 className="text-xl font-semibold text-slate-100">Aktuelle Challenges</h2>
-            </div>
-            <div className="space-y-3">
-              <CommunityChallenge
-                challenge={{
-                  title: 'Tagesköder identifizieren',
-                  description: 'Fotografiere und identifiziere 3 verschiedene Köder aus deinem Bestand',
-                  end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-                  submissions: 7,
-                  target: 10
-                }}
-                userCache={userCache}
-              />
-              <CommunityChallenge
-                challenge={{
-                  title: 'Gewässer-Tipps teilen',
-                  description: 'Schreibe einen hilfreichen Tipp über dein Lieblings-Gewässer',
-                  end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                  submissions: 12,
-                  target: 20
-                }}
-                userCache={userCache}
-              />
-              <CommunityChallenge
-                challenge={{
-                  title: 'Beste Montage des Monats',
-                  description: 'Zeige deine innovativste Angel-Montage mit Foto und Erklärung',
-                  end_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-                  submissions: 5,
-                  target: 15
-                }}
-                userCache={userCache}
-              />
-            </div>
           </div>
         )}
 

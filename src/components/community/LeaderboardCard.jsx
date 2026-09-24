@@ -1,127 +1,37 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { entities } from "@/api/frontendClient";
-import { Catch } from "@/entities/Catch";
-import { User } from "@/entities/User";
+import { api } from "@/api/frontendClient";
 import { Loader2, Medal, User as UserIcon } from "lucide-react";
 
+const VALUE_LABELS = { points: 'Punkte', catches: 'Fänge', biggest: 'cm' };
+
+// Globale Bestenliste. Die Aggregation läuft serverseitig
+// (GET /api/community/leaderboard): Der Client sieht nur die eigenen Fänge
+// und könnte keine echte Rangliste bilden. Angezeigt werden öffentliche
+// Profile (Name, Avatar) — keine E-Mail-Adressen.
 export default function LeaderboardCard({ type, title, icon: Icon }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userCache, setUserCache] = useState({});
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    loadLeaderboard();
-  }, [type]);
-
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
-      let data = [];
-      
-      if (type === 'points') {
-        const entries = await entities.LeaderboardEntry.filter({ period: 'all_time' });
-        data = entries
-          .sort((a, b) => b.points - a.points)
-          .slice(0, 10)
-          .map(entry => ({
-            user_id: entry.user_id,
-            value: entry.points,
-            label: 'Punkte'
-          }));
-      } else if (type === 'catches') {
-        const catches = await Catch.list('', 1000);
-        const userCatches = {};
-        
-        catches.forEach(c => {
-          if (!userCatches[c.created_by]) {
-            userCatches[c.created_by] = 0;
-          }
-          userCatches[c.created_by]++;
-        });
-        
-        data = Object.entries(userCatches)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([user_id, count]) => ({
-            user_id,
-            value: count,
-            label: 'Faenge'
-          }));
-      } else if (type === 'biggest') {
-        const catches = await Catch.filter({ length_cm: { $gt: 0 } });
-        const userBiggest = {};
-        
-        catches.forEach(c => {
-          if (!userBiggest[c.created_by] || c.length_cm > userBiggest[c.created_by]) {
-            userBiggest[c.created_by] = c.length_cm;
-          }
-        });
-        
-        data = Object.entries(userBiggest)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([user_id, size]) => ({
-            user_id,
-            value: size,
-            label: 'cm'
-          }));
-      }
-
-      const allEmails = [...new Set(data.map(d => d.user_id))];
-      const newCache = {};
-
-      try {
-        const allUsers = await User.list('', 1000);
-        allEmails.forEach(email => {
-          const foundUser = allUsers.find(u => u.email === email);
-          newCache[email] = foundUser ?? {
-            email,
-            full_name: null,
-            profile_picture_url: null
-          };
-        });
-      } catch {
-        allEmails.forEach(email => {
-          newCache[email] = {
-            email,
-            full_name: null,
-            profile_picture_url: null
-          };
-        });
-      }
-
-      setUserCache(newCache);
-      setLeaderboard(data);
+      const result = await api.get(`/api/community/leaderboard?type=${encodeURIComponent(type)}`);
+      setLeaderboard(Array.isArray(result?.entries) ? result.entries : []);
     } catch (error) {
       console.error("Fehler beim Laden des Leaderboards:", error);
+      setLeaderboard([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  };
+  }, [type]);
 
-  const getUserDisplayName = (email) => {
-    if (!email) return "Unbekannt";
-    
-    const user = userCache[email];
-    if (!user) {
-      const emailUsername = email.split('@')[0];
-      return emailUsername || "Unbekannt";
-    }
-    
-    if (user.full_name && user.full_name.trim() !== '') {
-      return user.full_name.trim();
-    }
-    
-    const emailUsername = email.split('@')[0];
-    return emailUsername || "Angler";
-  };
-
-  const getUserProfilePicture = (email) => {
-    const user = userCache[email];
-    if (!user) return null;
-    return user.profile_picture_url || null;
-  };
+  useEffect(() => {
+    loadLeaderboard();
+  }, [loadLeaderboard]);
 
   const getMedalColor = (rank) => {
     if (rank === 0) return "text-amber-400";
@@ -155,18 +65,23 @@ export default function LeaderboardCard({ type, title, icon: Icon }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {leaderboard.length === 0 ? (
+        {loadError ? (
+          <div className="text-center py-8 text-gray-500">
+            Bestenliste konnte nicht geladen werden.
+            <button type="button" className="bb-secondary mt-3 mx-auto" onClick={loadLeaderboard}>Erneut versuchen</button>
+          </div>
+        ) : leaderboard.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             Noch keine Daten verfuegbar
           </div>
         ) : (
           leaderboard.map((entry, idx) => {
-            const profilePic = getUserProfilePicture(entry.user_id);
-            const displayName = getUserDisplayName(entry.user_id);
+            const profilePic = entry.user?.avatar_url || null;
+            const displayName = entry.is_me ? 'Du' : (entry.user?.name || 'Angler');
             
             return (
               <div
-                key={idx}
+                key={entry.user?.id || `rank-${entry.rank ?? idx}`}
                 className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
                 <div className="flex items-center gap-3 flex-1">
@@ -200,7 +115,7 @@ export default function LeaderboardCard({ type, title, icon: Icon }) {
                     {entry.value}
                   </span>
                   <span className="text-gray-500 text-xs ml-1">
-                    {entry.label}
+                    {VALUE_LABELS[type]}
                   </span>
                 </div>
               </div>

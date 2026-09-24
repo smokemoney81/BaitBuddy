@@ -304,3 +304,11 @@ describe('Start ohne CRON_SECRET', () => {
     }
   });
 });
+
+describe('Cron-Secret nicht per URL', () => {
+  it('lehnt ?secret= ab (Secrets gehören nicht in Access-Logs)', async () => {
+    const res = await request(app)
+      .get(`/api/admin/premium/check-expiry?secret=${encodeURIComponent(process.env.CRON_SECRET)}`);
+    expect(res.status).toBe(401);
+  });
+});

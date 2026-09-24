@@ -24,12 +24,10 @@ export default function VotingEventCard({ competition, currentUser }) {
       
       setSubmissions(response.leaderboard || []);
       
-      const likes = await entities.VotingLike.filter({
-        user_id: currentUser?.email,
-        competition_id: competition.id
-      });
-      
-      setUserLikes(new Set(likes.map(l => l.submission_id)));
+      // Nur die eigenen Likes markieren — die Liste enthält alle Likes, der
+      // Server kennzeichnet eigene Zeilen mit is_own.
+      const likes = await entities.VotingLike.list();
+      setUserLikes(new Set(likes.filter(l => l.is_own).map(l => l.submission_id)));
     } catch (error) {
       console.error('Fehler beim Laden:', error);
     } finally {
@@ -112,10 +110,12 @@ export default function VotingEventCard({ competition, currentUser }) {
                       <Heart className="w-3 h-3" />
                       {sub.community_likes}
                     </span>
-                    <span className="text-cyan-400 flex items-center gap-1">
-                      <Award className="w-3 h-3" />
-                      KI: {sub.ai_score}
-                    </span>
+                    {sub.ai_score != null && (
+                      <span className="text-cyan-400 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        KI: {sub.ai_score}
+                      </span>
+                    )}
                   </div>
                 </div>
                 

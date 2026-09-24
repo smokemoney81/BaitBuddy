@@ -12,6 +12,7 @@ const { state } = vi.hoisted(() => ({
     backupRow: null,
     safetyBackupShouldFail: false,
     deleteCalls: [],
+    upsertCalls: [],
   },
 }));
 
@@ -24,6 +25,11 @@ function makeTableBuilder(table) {
       } else {
         builder.__result = { data: null, error: null, count: Array.isArray(rows) ? rows.length : 1 };
       }
+      return builder;
+    }),
+    upsert: vi.fn((rows, options) => {
+      state.upsertCalls.push({ table, rows, options });
+      builder.__result = { data: null, error: null, count: rows.length };
       return builder;
     }),
     delete: vi.fn(() => {
@@ -51,7 +57,16 @@ let app;
 
 beforeEach(async () => {
   vi.resetModules();
-  state.backupRow = { payload: { data: { catches: [{ species: 'Hecht' }], spots: [], water_scenes: [] } } };
+  state.backupRow = {
+    payload: {
+      data: {
+        catches: [{ id: 'c1', species: 'Hecht', spot_id: 's1', created_by: 'alt@test.de' }],
+        spots: [{ id: 's1', name: 'Elbe' }],
+        water_scenes: [],
+      },
+    },
+  };
+  state.upsertCalls = [];
   state.safetyBackupShouldFail = false;
   state.deleteCalls = [];
   ({ default: app } = await import('../server.js'));
@@ -81,5 +96,32 @@ describe('POST /api/backups/:id/restore (mode=replace)', () => {
     expect(res.status).toBe(200);
     expect(state.deleteCalls).toEqual(['catches']);
     expect(res.body.results.catches.ok).toBe(true);
+  });
+});
+
+describe('POST /api/backups/:id/restore – IDs und Merge', () => {
+  // Früher bekamen wiederhergestellte Zeilen neue IDs: catches.spot_id zeigte
+  // danach ins Leere. merge legte zudem vorhandene Zeilen doppelt an.
+  it('stellt mit Original-IDs wieder her (Spot-Verweise bleiben gültig)', async () => {
+    const res = await request(app)
+      .post('/api/backups/backup-1/restore')
+      .set('Authorization', 'Bearer test-token')
+      .send({ mode: 'replace', tables: ['spots', 'catches'] });
+
+    expect(res.status).toBe(200);
+    const byTable = Object.fromEntries(state.upsertCalls.map((c) => [c.table, c]));
+    expect(byTable.spots.rows[0].id).toBe('s1');
+    expect(byTable.catches.rows[0]).toEqual(expect.objectContaining({ id: 'c1', spot_id: 's1', created_by: TEST_USER.email }));
+  });
+
+  it('merge ergänzt nur fehlende Zeilen statt sie zu duplizieren', async () => {
+    const res = await request(app)
+      .post('/api/backups/backup-1/restore')
+      .set('Authorization', 'Bearer test-token')
+      .send({ mode: 'merge', tables: ['catches'] });
+
+    expect(res.status).toBe(200);
+    expect(state.deleteCalls).toEqual([]);
+    expect(state.upsertCalls[0].options).toEqual(expect.objectContaining({ onConflict: 'id', ignoreDuplicates: true }));
   });
 });

@@ -135,3 +135,81 @@ describe('POST /api/trips', () => {
     expect(supabaseMock.current.__builders.live_trips.upsert).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/water/bathymetric-map', () => {
+  const ADMIN = { id: 'admin-1', email: 'admin@baitbuddy.test' };
+
+  it('ist Admins vorbehalten', async () => {
+    const res = await request(app)
+      .post('/api/water/bathymetric-map')
+      .set('Authorization', 'Bearer test-token')
+      .send({ water_body_name: 'Wannsee' });
+    expect(res.status).toBe(403);
+  });
+
+  it('aggregiert öffentliche Uploads zu einer Community-Karte', async () => {
+    process.env.ADMIN_EMAILS = ADMIN.email;
+    try {
+      supabaseMock.current = createSupabaseMock({
+        authUser: ADMIN,
+        fromResults: {
+          bathymetric_maps: {
+            data: [
+              { id: 'm1', user_id: 'a', name: 'Wannsee', map_data: { is_public: true } },
+              { id: 'm2', user_id: 'b', name: 'wannsee', map_data: { is_public: false } },
+            ],
+            error: null,
+          },
+          depth_data_points: {
+            data: [
+              { latitude: 52.4, longitude: 13.1, depth_m: 4, user_id: 'a' },
+              { latitude: 52.4001, longitude: 13.1, depth_m: 8, user_id: 'a' },
+            ],
+            error: null,
+          },
+        },
+      });
+      const res = await request(app)
+        .post('/api/water/bathymetric-map')
+        .set('Authorization', 'Bearer test-token')
+        .send({ water_body_name: 'Wannsee' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(expect.objectContaining({
+        kind: 'community', status: 'ready', max_depth: 8, avg_depth: 6, data_points_count: 2, contributors_count: 1,
+      }));
+      // Nur der öffentliche Upload fließt ein.
+      expect(supabaseMock.current.__builders.depth_data_points.in).toHaveBeenCalledWith('map_id', ['m1']);
+    } finally {
+      delete process.env.ADMIN_EMAILS;
+    }
+  });
+});
+
+describe('Angelvereine aus fishing_clubs', () => {
+  const CLUBS = [
+    { id: 'c1', name: 'Anglerverein Nah', latitude: 52.52, longitude: 13.40, region: 'Berlin', website: 'https://nah.de' },
+    { id: 'c2', name: 'Anglerverein Fern', latitude: 48.14, longitude: 11.58, region: 'München', website: null },
+  ];
+
+  // Beide Routen lieferten bisher fest [] — die 148 Vereine aus der
+  // Datenbank erschienen nirgends.
+  it('GET /api/fishing/clubs liefert die Vereine im Kartenformat', async () => {
+    supabaseMock.current = createSupabaseMock({ fromResults: { fishing_clubs: { data: CLUBS, error: null } } });
+    const res = await request(app).get('/api/fishing/clubs');
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      id: 'c1', category: 'club', city: 'Berlin', coordinates: { lat: 52.52, lng: 13.40 },
+    }));
+  });
+
+  it('POST /api/fishing/clubs/nearby sortiert nach Entfernung und begrenzt den Radius', async () => {
+    supabaseMock.current = createSupabaseMock({ fromResults: { fishing_clubs: { data: CLUBS, error: null } } });
+    const res = await request(app)
+      .post('/api/fishing/clubs/nearby')
+      .send({ latitude: 52.5, longitude: 13.4, radius_km: 50 });
+    expect(res.status).toBe(200);
+    expect(res.body.map((c) => c.id)).toEqual(['c1']);
+    expect(res.body[0].distance_km).toBeLessThan(5);
+  });
+});

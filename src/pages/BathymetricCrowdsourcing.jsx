@@ -49,8 +49,20 @@ function BathymetricCrowdsourcingInner() {
   const loadMaps = async () => {
     setLoadingMaps(true);
     try {
-      const data = await entities.BathymetricMap.list('-generated_at', 50);
-      setMaps(data);
+      // Community-Karten (von POST /api/water/bathymetric-map berechnet) —
+      // einzelne Uploads stehen unter „Meine Daten“. Die Kennzahlen liegen in
+      // map_data und werden für die Kartenanzeige flach gezogen.
+      const data = await entities.BathymetricMap.list('-created_at', 200);
+      setMaps(
+        data
+          .filter((row) => row?.map_data?.kind === 'community')
+          .map((row) => ({
+            ...row.map_data,
+            id: row.id,
+            water_body_name: row.name,
+            status: row.map_data?.status || 'ready',
+          }))
+      );
     } catch {
       toast.error('Fehler beim Laden der Karten');
     } finally {

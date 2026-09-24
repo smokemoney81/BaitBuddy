@@ -160,7 +160,7 @@ const EventCard = ({ event, isUserJoined, userEntry, onJoin, leaderboard }) => {
                 const rankColors = { 1: '#fbbf24', 2: '#94a3b8', 3: '#fb923c' };
                 return (
                   <motion.div
-                    key={entry.user_id}
+                    key={entry.id || `rank-${rank}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05 }}
@@ -175,7 +175,7 @@ const EventCard = ({ event, isUserJoined, userEntry, onJoin, leaderboard }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
-                        {isMe ? "Du" : entry.user_id.split("@")[0]}
+                        {isMe ? "Du" : (entry.user?.name || "Angler")}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -220,11 +220,13 @@ export default function Events() {
         const joinedSet = new Set();
         await Promise.all(comps.map(async (comp) => {
           const lb = await api.get(`/api/events/${comp.id}/leaderboard`).catch(() => []);
+          // Eigene Zeile markiert der Server (is_me); fremde E-Mails kommen
+          // nicht mehr mit.
           leaderboardsMap[comp.id] = Array.isArray(lb) ? lb.map((e) => ({
             ...e,
-            is_user: e.user_id === user.email
+            is_user: e.is_me === true
           })) : [];
-          const userJoined = (leaderboardsMap[comp.id] || []).some(entry => entry.user_id === user.email);
+          const userJoined = (leaderboardsMap[comp.id] || []).some(entry => entry.is_me === true);
           if (userJoined) joinedSet.add(comp.id);
         }));
         setLeaderboards(leaderboardsMap);
@@ -295,7 +297,7 @@ export default function Events() {
               key={event.id}
               event={event}
               isUserJoined={joined.has(event.id)}
-              userEntry={(leaderboards[event.id] || []).find(e => e.user_id === currentUser?.email)}
+              userEntry={(leaderboards[event.id] || []).find(e => e.is_me === true)}
               onJoin={handleJoin}
               leaderboard={leaderboards[event.id] || []}
             />

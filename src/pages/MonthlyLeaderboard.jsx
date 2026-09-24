@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { leaderboards, rewards } from '@/api/frontendClient';
-import { auth } from '@/api/auth';
 import { toast } from 'sonner';
 import {
   Trophy,
@@ -22,7 +21,6 @@ export default function MonthlyLeaderboard() {
   useFeatureTracking('monthly_leaderboard');
   const [leaderboard, setLeaderboard] = useState([]);
   const [myRewards, setMyRewards] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [claimingReward, setClaimingReward] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -34,9 +32,6 @@ export default function MonthlyLeaderboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const user = await auth.me();
-      setCurrentUser(user);
-
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
 
@@ -165,7 +160,7 @@ export default function MonthlyLeaderboard() {
                   )}
                 </div>
                 <p className="text-sm mt-1" style={{ color: '#d1d5db' }}>
-                  {entry.user_id === currentUser?.email ? 'Du' : entry.user_id}
+                  {entry.is_me ? 'Du' : (entry.user?.name || 'Angler')}
                 </p>
               </div>
               <div className="grid gap-4">
@@ -190,7 +185,7 @@ export default function MonthlyLeaderboard() {
                     ) : (
                       <button
                         onClick={() => handleClaimReward(entry.id)}
-                        disabled={claimingReward === entry.id || entry.user_id !== currentUser?.email}
+                        disabled={claimingReward === entry.id || !entry.is_me}
                         className="bb-action w-full text-sm py-1"
                         style={{ background: 'linear-gradient(to right, #d97706, #ea580c)' }}
                       >
@@ -228,8 +223,8 @@ export default function MonthlyLeaderboard() {
                     key={entry.id}
                     className="flex items-center justify-between p-4 rounded-lg border transition-all"
                     style={{
-                      background: entry.user_id === currentUser?.email ? 'rgba(120,53,15,0.2)' : 'rgba(55,65,81,0.2)',
-                      borderColor: entry.user_id === currentUser?.email ? 'rgba(217,119,6,0.5)' : 'rgba(55,65,81,0.5)',
+                      background: entry.is_me ? 'rgba(120,53,15,0.2)' : 'rgba(55,65,81,0.2)',
+                      borderColor: entry.is_me ? 'rgba(217,119,6,0.5)' : 'rgba(55,65,81,0.5)',
                     }}
                   >
                     <div className="flex items-center gap-4 flex-1">
@@ -238,7 +233,7 @@ export default function MonthlyLeaderboard() {
                       </span>
                       <div className="flex-1">
                         <p className="text-white font-medium">
-                          {entry.user_id === currentUser?.email ? 'Du' : entry.user_id}
+                          {entry.is_me ? 'Du' : (entry.user?.name || 'Angler')}
                         </p>
                         <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
                           {entry.event_count} {entry.event_count === 1 ? 'Event' : 'Events'}

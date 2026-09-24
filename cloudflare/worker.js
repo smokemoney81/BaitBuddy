@@ -14,6 +14,9 @@
 //   - env.ASSETS      : Static-Assets-Binding (dist/)
 //   - env.BACKEND_URL : Basis-URL des Backends, z. B. https://api.<domain>
 //   - env.CRON_SECRET : Secret fuer die Cron-Authentifizierung (als Secret setzen)
+//   - env.EDGE_SHARED_SECRET (optional, als Secret setzen): identisch zum
+//     Backend-Env EDGE_SHARED_SECRET; nur damit vertraut das Backend dem
+//     cf-connecting-ip-Header fuer das Rate-Limiting.
 
 // Cron-Ausdruck -> Admin-Pfad. Muss synchron zu vercel.json > crons und
 // docker/cron/crontab bleiben.
@@ -42,6 +45,12 @@ export default {
       // Original-Host fuer korrekte Absolut-URLs / Logging erhalten.
       proxied.headers.set('X-Forwarded-Host', url.host);
       proxied.headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
+      // Weist die Anfrage gegenüber dem Backend als über Cloudflare gekommen
+      // aus — erst dann vertraut der Rate-Limiter cf-connecting-ip
+      // (backend/src/middleware/rateLimit.js). Ein vom Client mitgeschickter
+      // Header gleichen Namens wird hier überschrieben bzw. entfernt.
+      if (env.EDGE_SHARED_SECRET) proxied.headers.set('X-BB-Edge-Secret', env.EDGE_SHARED_SECRET);
+      else proxied.headers.delete('X-BB-Edge-Secret');
       return fetch(proxied);
     }
 

@@ -49,7 +49,7 @@ export default function FunctionRatings() {
         functionName,
         avgRating: avgRating.toFixed(1),
         count: functionRatings.length,
-        ratings: functionRatings.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+        ratings: functionRatings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       };
     }).sort((a, b) => b.count - a.count);
   };
@@ -123,10 +123,10 @@ export default function FunctionRatings() {
                           />
                         ))}
                       </div>
-                      <span className="text-sm" style={{ color: 'var(--bb-muted)' }}>{rating.user_email}</span>
+                      <span className="text-sm" style={{ color: 'var(--bb-muted)' }}>{rating.author?.name || rating.user_email}</span>
                     </div>
                     <span className="text-xs" style={{ color: 'var(--bb-muted)' }}>
-                      {new Date(rating.created_date).toLocaleDateString('de-DE', {
+                      {new Date(rating.created_at).toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: '2-digit',
                         year: 'numeric',

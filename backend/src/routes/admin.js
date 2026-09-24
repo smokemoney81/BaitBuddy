@@ -18,16 +18,17 @@ function requireCronAuth(req, res, next) {
     console.error('[admin] CRON_SECRET ist nicht gesetzt — Cron-Routen gesperrt');
     return res.status(500).json({ error: 'Cron-Secret nicht konfiguriert' });
   }
-  // Drei akzeptierte Wege, damit ALLE Cron-Ausloeser denselben Endpunkt treffen:
+  // Zwei akzeptierte Wege, damit ALLE Cron-Ausloeser denselben Endpunkt treffen:
   // - x-cron-secret Header (manuelle/eigene Aufrufe)
-  // - ?secret= Query
   // - Authorization: Bearer <secret> (Vercel-Crons, Docker-Cron und der
   //   Cloudflare-Cron-Worker senden diesen Header). Frueher pruefte diese Route
   //   NUR x-cron-secret, waehrend Vercel/Docker Bearer schickten — der
   //   check-expiry-Cron lief dadurch dauerhaft in 401.
+  // Bewusst NICHT mehr als ?secret=: URLs landen in Access-Logs (Vercel,
+  // Cloudflare, Nginx, requestLogger) — das Secret wäre dort im Klartext.
   const authHeader = req.get('authorization') || '';
   const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const secret = req.get('x-cron-secret') || req.query.secret || bearer;
+  const secret = req.get('x-cron-secret') || bearer;
   if (secret !== ADMIN_SECRET) {
     return res.status(401).json({ error: 'Unauthorised' });
   }

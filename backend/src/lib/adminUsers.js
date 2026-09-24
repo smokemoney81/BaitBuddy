@@ -44,10 +44,14 @@ export async function listAllUsers(supabase) {
  */
 export function toAdminUserSummary(user) {
   const meta = user?.app_metadata || {};
+  // Name/Spitzname liegen in user_metadata (PATCH /auth/me, Registrierung),
+  // Plan-Felder in app_metadata. Früher wurde der Name aus app_metadata
+  // gelesen — die Admin-Liste zeigte deshalb bei niemandem einen Namen.
+  const profile = user?.user_metadata || {};
   return {
     id: user.id,
     email: user.email || '',
-    full_name: meta.full_name || meta.nickname || '',
+    full_name: profile.full_name || profile.nickname || '',
     created_at: user.created_at || null,
     last_sign_in_at: user.last_sign_in_at || null,
     premium_plan_id: meta.premium_plan_id || 'free',

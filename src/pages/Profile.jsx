@@ -52,8 +52,10 @@ export default function ProfilePage() {
 
       // Lade Posts-Anzahl
       try {
-        const posts = await entities.Post.filter({ created_by: currentUser.email });
-        setPostsCount((posts && Array.isArray(posts)) ? posts.length : 0);
+        // Der Post-Endpunkt filtert nicht nach Autor; eigene Posts markiert
+        // der Server mit is_own (E-Mail-Adressen werden nicht ausgeliefert).
+        const posts = await entities.Post.list('-created_at', 500);
+        setPostsCount(Array.isArray(posts) ? posts.filter(p => p.is_own).length : 0);
       } catch (error) {
         console.error('Fehler beim Laden der Posts:', error);
         setPostsCount(0);
@@ -73,28 +75,32 @@ export default function ProfilePage() {
 
       // Lade Chat-Historie (letzte 5 Konversationen)
       try {
-        const messages = await entities.ChatMessage.list('-created_date', 100);
+        const allMessages = await entities.ChatMessage.list('-created_at', 100);
+        // Die Liste enthält den öffentlichen Community-Chat aller Nutzer —
+        // im Profil nur die eigenen Nachrichten zeigen.
+        const messages = Array.isArray(allMessages) ? allMessages.filter(m => m.is_own) : null;
 
         // P2.4: Null-check für messages (könnte null sein)
-        if (!messages || !Array.isArray(messages)) {
+        if (!messages || messages.length === 0) {
           setChatHistory([]);
         } else {
-          // Gruppiere nach conversation_id
+          // Gruppiere nach Chat-Thema (context)
           const groupedConversations = {};
           messages.forEach(msg => {
-            if (!groupedConversations[msg.conversation_id]) {
-              groupedConversations[msg.conversation_id] = [];
+            const key = msg.context || 'Allgemein';
+            if (!groupedConversations[key]) {
+              groupedConversations[key] = [];
             }
-            groupedConversations[msg.conversation_id].push(msg);
+            groupedConversations[key].push(msg);
           });
 
           // Konvertiere zu Array und sortiere
           const conversations = Object.entries(groupedConversations).map(([id, msgs]) => ({
             id,
-            messages: msgs.sort((a, b) => new Date(a.created_date).getTime() - new Date(b.created_date).getTime()),
-            lastMessage: msgs.sort((a, b) => new Date(a.created_date).getTime() - new Date(b.created_date).getTime())[msgs.length - 1],
+            messages: msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+            lastMessage: msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[msgs.length - 1],
             messageCount: msgs.length
-          })).sort((a, b) => new Date(b.lastMessage.created_date).getTime() - new Date(a.lastMessage.created_date).getTime());
+          })).sort((a, b) => new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime());
 
           setChatHistory(conversations.slice(0, 5));
         }
@@ -305,7 +311,7 @@ export default function ProfilePage() {
           <div className="bb-form-title mb-4">Mitgliedschaft</div>
           <div className="grid gap-3">
             {[
-              { icon: Calendar, label: 'Mitglied seit', value: formatDate(user?.created_date) },
+              { icon: Calendar, label: 'Mitglied seit', value: formatDate(user?.created_at || user?.created_date) },
               { icon: Clock, label: 'Letzte Aktivität', value: formatDateTime(user?.last_active) },
               { icon: MessageSquare, label: 'Beiträge', value: postsCount },
             ].map(({ icon: I, label, value }) => (
@@ -388,7 +394,7 @@ export default function ProfilePage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="text-sm mb-1" style={{ color: 'var(--bb-muted)' }}>{formatDateTime(conv.lastMessage.created_date)}</div>
+                      <div className="text-sm mb-1" style={{ color: 'var(--bb-muted)' }}>{formatDateTime(conv.lastMessage.created_at)}</div>
                       <div className="text-white text-sm line-clamp-2">
                         {conv.lastMessage.content ? conv.lastMessage.content.substring(0, 100) + (conv.lastMessage.content.length > 100 ? '...' : '') : ''}
                       </div>
@@ -405,7 +411,7 @@ export default function ProfilePage() {
                       <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className="max-w-[80%] rounded-xl px-3 py-2 text-sm" style={{ background: msg.role === 'user' ? 'var(--bb-cyan)' : 'var(--bb-surface)', color: msg.role === 'user' ? '#080F16' : 'var(--bb-text-secondary)' }}>
                           <div className="text-xs opacity-70 mb-1">
-                            {new Date(msg.created_date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(msg.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                           <div className="whitespace-pre-wrap">{msg.content}</div>
                         </div>

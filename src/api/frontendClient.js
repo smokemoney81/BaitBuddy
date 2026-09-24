@@ -2,6 +2,7 @@
 // Eigener BaitBuddy API-Client — ersetzt @base44/sdk vollständig
 
 import { timeoutSignal, anySignal } from '@/lib/abortCompat';
+import { estimateTravel } from '@/lib/travelEstimate';
 import {
   isGuestEntity,
   guestList,
@@ -485,11 +486,12 @@ const FUNCTION_MAP = {
   aiEvaluateCatch:        (d) => api.post('/api/ai/evaluate-catch', d),
   generateCatchReport:    (d) => api.post('/api/ai/generate-catch-report', d),
   fishBehaviorAnalysis:   (d) => api.post('/api/ai/fish-behavior-analysis', d),
-  calculateTravelTime:    (d) => api.post('/api/fishing/clubs/nearby', d).catch(() => ({})),
+  // Schätzung (Luftlinie × Umwegfaktor), siehe lib/travelEstimate.js. Vorher
+  // zeigte der Aufruf auf einen Backend-Platzhalter, der immer [] lieferte.
+  calculateTravelTime:    (d) => Promise.resolve({ data: estimateTravel(d || {}) }),
   angelspotsGeojson:      ()  => api.get('/api/fishing/hotspots').catch(() => ({})),
   'angelspots-geojson':   ()  => api.get('/api/fishing/hotspots').catch(() => ({})),
   createStripeCheckoutSession: (d) => api.post('/api/premium/checkout', d),
-  activateDemoMode:       ()  => api.post('/api/premium/activate-demo'),
   activatePlan:           (d) => api.post('/api/premium/activate', d),
   // Bewusst OHNE .catch(() => ({ ok: true })): der Fallback meldete jeden
   // Fehlschlag als Erfolg zurueck. Fehler muessen bis in die Oberflaeche
@@ -501,14 +503,28 @@ const FUNCTION_MAP = {
   getClanLeaderboard:     (d) => api.get(`/api/community/clans/leaderboard?competition_id=${d?.competition_id || ''}`).catch(() => ({ leaderboard: [] })),
   checkFeatureAccess:     (d) => api.post('/api/premium/check-feature', d).catch(() => ({ allowed: false })),
   addVotingLike:          (d) => api.post(`/api/community/voting/${d?.submission_id}/like`).catch(() => ({ ok: true })),
-  getVotingLeaderboard:   ()  => api.get('/api/community/voting/leaderboard').then(r => ({ leaderboard: Array.isArray(r) ? r : (r?.leaderboard || []) })).catch(() => ({ leaderboard: [] })),
+  // Liefert Einreichungen im Format der Voting-Karten (submission_id, rank,
+  // community_likes). Mit competition_id nur die Einreichungen dieses
+  // Wettbewerbs — vorher wurde der Parameter ignoriert und jede Karte zeigte
+  // die globale Liste mit leeren IDs.
+  getVotingLeaderboard:   (d) => api.get(d?.competition_id
+    ? `/api/competitions/${encodeURIComponent(d.competition_id)}/leaderboard`
+    : '/api/community/voting/leaderboard')
+    .then(r => {
+      const rows = Array.isArray(r) ? r : (r?.leaderboard || []);
+      return {
+        leaderboard: rows.map((row, index) => ({
+          ...row,
+          submission_id: row.submission_id ?? row.id,
+          rank: row.rank ?? index + 1,
+          community_likes: row.community_likes ?? row.likes ?? 0,
+        })),
+      };
+    })
+    .catch(() => ({ leaderboard: [] })),
   catchgbtPing:           ()  => api.get('/api/health').catch(() => ({ ok: false })),
   generateBathymetricMap: (d) => api.post('/api/water/bathymetric-map', d).catch(() => null),
   bathymetryProxy:        (d) => api.post('/api/water/bathymetry', d).catch(() => null),
-  cleanupOldSessions:     ()  => Promise.resolve({ ok: true }),
-  autoRenewPlans:         ()  => Promise.resolve({ ok: true }),
-  verifyPlayIntegrity:    ()  => Promise.resolve({ valid: false }),
-  recordWebVitals:        ()  => Promise.resolve({ ok: true }),
   startCommunityCompetition: (d) => api.post('/api/community/competitions/start', { template_id: d?.template_id }),
   getMyReferral:          ()  => api.get('/api/referrals/me'),
   redeemReferralCode:     (d) => api.post('/api/referrals/redeem', { code: d?.code }),
@@ -749,8 +765,6 @@ export const integrations = {
       console.warn('InvokeLLM: konnte kein JSON aus der Antwort extrahieren', trimmed.slice(0, 200));
       return {};
     },
-    SendEmail:  () => Promise.resolve({ ok: true }),
-    SendSMS:    () => Promise.resolve({ ok: true }),
     UploadFile: async ({ file }) => {
       if (!file) throw new Error('Datei erforderlich');
       if (!file.name) throw new Error('Datei hat keinen Namen');
@@ -773,7 +787,6 @@ export const integrations = {
         throw new Error(`Upload fehlgeschlagen: ${error.message}`);
       }
     },
-    GenerateImage: () => Promise.resolve({ url: '' }),
     ExtractDataFromUploadedFile: async ({ file_url, json_schema: _json_schema }) => {
       if (!file_url) throw new Error('file_url erforderlich');
       const response = await api.post('/api/analyze-photo', { image: file_url });
@@ -898,7 +911,6 @@ export const premium = {
   config:       ()          => api.get('/api/premium/config'),
   checkFeature: (feature)   => api.post('/api/premium/check-feature', { feature }),
   checkout:     (plan_id)   => api.post('/api/premium/checkout', { plan_id }),
-  activateDemo: ()          => api.post('/api/premium/activate-demo'),
 };
 
 export const fishing = {
@@ -962,22 +974,15 @@ export const rewards = {
 // beide Pfade gibt es im Backend nicht (die Ausrüstung läuft über
 // entities.GearItem -> /api/gear/items). Er hatte keinen einzigen Aufrufer.
 
-export const water = {
-  analyze: (lat, lng, name) => api.post('/api/water', { latitude: lat, longitude: lng, spotName: name }),
-  history: ()               => api.get('/api/water/history'),
-};
 
 export const user = {
   deleteAccount: () => api.del('/api/user/account'),
-  startSession:  (feature) => api.post('/api/user/sessions/start', { feature }),
-  endSession:    (id)       => api.post(`/api/user/sessions/${id}/end`),
 };
 
 export const dashboard = {
   // BFF (Backend For Frontend) aggregated dashboard data
   // Single request returns: next_trip, recent_catches, top_spots, weather, buddy_suggestion, statistics
   getData: () => api.get('/api/dashboard'),
-  refresh: () => api.post('/api/dashboard/refresh'),
 };
 
 // Transparenzbereich "BaitBuddy kennt dich" (§6). Nur lesend — korrigiert und

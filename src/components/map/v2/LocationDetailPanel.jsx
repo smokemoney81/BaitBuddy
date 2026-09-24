@@ -21,7 +21,6 @@ export default function LocationDetailPanel({ location, onClose, onSetAsLocation
 
   const loadTravelTime = async () => {
     if (!currentLocation?.lat || !currentLocation?.lon) {
-      console.log("No current location available");
       return;
     }
 
@@ -37,14 +36,8 @@ export default function LocationDetailPanel({ location, onClose, onSetAsLocation
     }
 
     if (!toLat || !toLon) {
-      console.log("No destination coordinates available");
       return;
     }
-
-    console.log("Calculating travel time from", { 
-      fromLat: currentLocation.lat, 
-      fromLon: currentLocation.lon 
-    }, "to", { toLat, toLon });
 
     setLoading(true);
 
@@ -56,8 +49,6 @@ export default function LocationDetailPanel({ location, onClose, onSetAsLocation
         toLon: toLon
       });
 
-      console.log("Travel time response:", response);
-
       if (response.data?.duration_minutes) {
         setTravelInfo({
           duration_minutes: response.data.duration_minutes,
@@ -67,7 +58,7 @@ export default function LocationDetailPanel({ location, onClose, onSetAsLocation
           toLat,
           toLon
         });
-        toast.success(`Fahrzeit: ${response.data.duration_minutes} Min`);
+        toast.success(`Fahrzeit ca. ${response.data.duration_minutes} Min`);
       } else {
         console.warn("No travel data in response:", response);
         toast.error("Fahrzeitberechnung fehlgeschlagen");
@@ -191,11 +182,11 @@ export default function LocationDetailPanel({ location, onClose, onSetAsLocation
           {travelInfo && !loading && (
             <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Fahrzeit:</span>
-                <span className="text-white font-medium">{travelInfo.duration_minutes} Minuten</span>
+                <span className="text-gray-400">Fahrzeit (geschätzt):</span>
+                <span className="text-white font-medium">ca. {travelInfo.duration_minutes} Minuten</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Entfernung:</span>
+                <span className="text-gray-400">Luftlinie:</span>
                 <span className="text-white font-medium">{travelInfo.distance_km} km</span>
               </div>
               <Button

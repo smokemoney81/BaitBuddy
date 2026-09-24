@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
 import { validateCatchPayload } from './catches.js';
+import { loadProfileDirectory, replaceEmails, publicAuthor } from '../lib/publicProfiles.js';
 import {
   calculateSubmissionPoints,
   calculateEventFinalRankings,
@@ -98,6 +99,33 @@ function buildVisibilityOrExpr(allowedEmails) {
   return `visibility.eq.public,and(visibility.eq.friends,created_by.in.(${quoted}))`;
 }
 
+// Event-Ersteller und Teilnehmer stehen als E-Mail in der Datenbank. Nach
+// außen gehen öffentliche Profile (lib/publicProfiles.js), keine Adressen.
+async function publicEvents(req, rows) {
+  const directory = await loadProfileDirectory();
+  return replaceEmails(rows, {
+    field: 'created_by', as: 'creator', ownFlag: 'is_own', viewerEmail: req.user?.email, directory,
+  });
+}
+
+async function publicParticipants(req, rows) {
+  const directory = await loadProfileDirectory();
+  return replaceEmails(rows, {
+    field: 'user_id', as: 'user', ownFlag: 'is_me', viewerEmail: req.user?.email, directory,
+  });
+}
+
+// 'friends'-Events sieht nur der Ersteller und dessen Freundeskreis — auch
+// beim direkten Abruf über die ID (vorher nur in der Liste geprüft).
+async function canSeeEvent(req, event) {
+  if (!event) return false;
+  if (event.visibility !== 'friends') return true;
+  if (!req.user?.email) return false;
+  if (String(event.created_by).toLowerCase() === String(req.user.email).toLowerCase()) return true;
+  const friendEmails = await resolveFriendEmails(req.user.id);
+  return friendEmails.some((e) => String(e).toLowerCase() === String(event.created_by).toLowerCase());
+}
+
 router.get('/events', optionalAuth, async (req, res) => {
   try {
     let query = supabase
@@ -119,7 +147,7 @@ router.get('/events', optionalAuth, async (req, res) => {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    return res.json(await publicEvents(req, data || []));
   } catch (error) {
     console.error('Error fetching events:', error);
     res.status(500).json({ error: 'Fehler beim Laden der Events' });
@@ -134,8 +162,10 @@ router.get('/events/:id', optionalAuth, async (req, res) => {
       .eq('id', req.params.id)
       .single();
 
-    if (error) return res.status(404).json({ error: 'Event nicht gefunden' });
-    return res.json(data);
+    if (error || !(await canSeeEvent(req, data))) {
+      return res.status(404).json({ error: 'Event nicht gefunden' });
+    }
+    return res.json((await publicEvents(req, [data]))[0]);
   } catch (error) {
     console.error('Error fetching event:', error);
     res.status(500).json({ error: 'Fehler beim Laden des Events' });
@@ -212,7 +242,7 @@ router.post('/events', requireAuth, async (req, res) => {
       .from('event_point_configs')
       .insert(config);
 
-    return res.status(201).json(event);
+    return res.status(201).json((await publicEvents(req, [event]))[0]);
   } catch (error) {
     console.error('Error creating event:', error);
     res.status(500).json({ error: 'Fehler beim Erstellen des Events' });
@@ -257,7 +287,7 @@ router.patch('/events/:id', requireAuth, async (req, res) => {
       .single();
 
     if (error) return sendDbError(res, error);
-    return res.json(data);
+    return res.json((await publicEvents(req, [data]))[0]);
   } catch (error) {
     console.error('Error updating event:', error);
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Events' });
@@ -294,6 +324,15 @@ router.delete('/events/:id', requireAuth, async (req, res) => {
 
 router.post('/events/:id/join', requireAuth, async (req, res) => {
   try {
+    const { data: event } = await supabase
+      .from('events')
+      .select('id, created_by, visibility, is_active')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (!event || event.is_active === false || !(await canSeeEvent(req, event))) {
+      return res.status(404).json({ error: 'Event nicht gefunden' });
+    }
+
     const { error } = await supabase
       .from('event_participants')
       .insert({
@@ -416,7 +455,7 @@ router.get('/events/:id/participants', optionalAuth, async (req, res) => {
       .order('total_points', { ascending: false });
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    return res.json(await publicParticipants(req, data || []));
   } catch (error) {
     console.error('Error fetching participants:', error);
     res.status(500).json({ error: 'Fehler beim Laden der Teilnehmer' });
@@ -433,7 +472,7 @@ router.get('/events/:id/leaderboard', optionalAuth, async (req, res) => {
       .limit(100);
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    return res.json(await publicParticipants(req, data || []));
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
     res.status(500).json({ error: 'Fehler beim Laden des Leaderboards' });
@@ -524,7 +563,18 @@ router.get('/events/invitations/me', requireAuth, async (req, res) => {
       .order('sent_at', { ascending: false });
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    const directory = await loadProfileDirectory();
+    const invitations = replaceEmails(data || [], {
+      field: 'inviter_id', as: 'inviter', ownFlag: 'is_own', viewerEmail: req.user.email, directory,
+    }).map((inv) => {
+      if (!inv.events) return inv;
+      const { created_by: creatorEmail, ...eventFields } = inv.events;
+      return {
+        ...inv,
+        events: { ...eventFields, creator: publicAuthor(creatorEmail, directory) },
+      };
+    });
+    return res.json(invitations);
   } catch (error) {
     console.error('Error fetching invitations:', error);
     res.status(500).json({ error: 'Fehler beim Laden von Einladungen' });
@@ -616,7 +666,7 @@ router.get('/leaderboards/monthly', optionalAuth, async (req, res) => {
       .limit(100);
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    return res.json(await publicParticipants(req, data || []));
   } catch (error) {
     console.error('Error fetching monthly leaderboard:', error);
     res.status(500).json({ error: 'Fehler beim Laden des monatlichen Leaderboards' });

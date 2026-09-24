@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { entities } from "@/api/frontendClient";
-import { auth } from "@/api/auth";
 
 export default function MyDepthDataList() {
   const [stats, setStats] = useState({ total: 0, waterBodies: [] });
@@ -14,19 +13,36 @@ export default function MyDepthDataList() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const user = await auth.me();
-      const points = await entities.DepthDataPoint.filter({ created_by: user.email });
-      
-      const byWater = {};
+      // Jeder Upload ist ein Eintrag in bathymetric_maps (Name = Gewässer,
+      // map_data.point_count/max_depth). Die Liste enthält auch öffentliche
+      // Karten anderer — hier nur die eigenen Uploads (is_own), keine
+      // Community-Karten. Für ältere Uploads ohne max_depth wird die Tiefe aus
+      // den eigenen Messpunkten ermittelt.
+      const [maps, points] = await Promise.all([
+        entities.BathymetricMap.list('-created_at', 500),
+        entities.DepthDataPoint.list('-created_at', 500),
+      ]);
+      const uploads = maps.filter((m) => m.is_own && m.map_data?.kind !== 'community');
+      const pointDepthByMap = {};
       for (const p of points) {
-        const name = p.water_body_name || "Unbekannt";
+        const depth = Number(p.depth_m);
+        if (Number.isFinite(depth)) pointDepthByMap[p.map_id] = Math.max(pointDepthByMap[p.map_id] || 0, depth);
+      }
+
+      const byWater = {};
+      let total = 0;
+      for (const m of uploads) {
+        const name = m.name || "Unbekannt";
+        const count = Number(m.map_data?.point_count) || 0;
+        const maxDepth = Number(m.map_data?.max_depth ?? pointDepthByMap[m.id]) || 0;
         if (!byWater[name]) byWater[name] = { count: 0, maxDepth: 0 };
-        byWater[name].count++;
-        byWater[name].maxDepth = Math.max(byWater[name].maxDepth, p.depth_meters);
+        byWater[name].count += count;
+        byWater[name].maxDepth = Math.max(byWater[name].maxDepth, maxDepth);
+        total += count;
       }
 
       setStats({
-        total: points.length,
+        total,
         waterBodies: Object.entries(byWater).map(([name, data]) => ({ name, ...data }))
       });
     } catch (err) {

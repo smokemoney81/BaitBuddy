@@ -238,22 +238,4 @@ router.get(
   })
 );
 
-/**
- * POST /api/dashboard/refresh
- *
- * Force refresh dashboard cache (invalidates client-side cache).
- * Useful after mutations (new catch, trip update, etc).
- *
- * Returns: 204 No Content on success
- */
-router.post(
-  '/refresh',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    // In a real app, this would invalidate cached entries in Redis or similar.
-    // For now, just acknowledge the request.
-    res.status(204).send();
-  })
-);
-
 export default router;

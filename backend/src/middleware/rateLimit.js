@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import Redis from 'ioredis';
@@ -11,8 +12,24 @@ import { resolvePlan } from '../lib/planResolver.js';
 // Client-IP kommt aus dem vertrauenswuerdigen Header des jeweiligen Edge:
 // Cloudflare setzt 'cf-connecting-ip' (bevorzugt), Vercel 'x-vercel-forwarded-for'
 // (Fallback fuer den Uebergang / Vorschau-Deploys), danach die Standard-Header.
-function clientIp(req) {
-  const fwd = req.headers['cf-connecting-ip']
+// cf-connecting-ip setzt Cloudflare — am direkt erreichbaren Origin kann ihn
+// aber jeder Client selbst mitschicken und so jedes Limit umgehen (neue
+// Fantasie-IP pro Anfrage). Ist EDGE_SHARED_SECRET gesetzt, wird der Header
+// nur akzeptiert, wenn der Cloudflare-Worker das Secret in x-bb-edge-secret
+// mitsendet (cloudflare/worker.js). Ohne Secret bleibt das bisherige
+// Verhalten, damit ein Deployment ohne Worker nicht plötzlich alle Nutzer
+// einer Edge-IP in einen Topf wirft.
+function edgeHeaderTrusted(req) {
+  const secret = process.env.EDGE_SHARED_SECRET;
+  if (!secret) return true;
+  const sent = req.headers['x-bb-edge-secret'];
+  if (typeof sent !== 'string' || sent.length !== secret.length) return false;
+  return timingSafeEqual(Buffer.from(sent), Buffer.from(secret));
+}
+
+export function clientIp(req) {
+  const cfIp = edgeHeaderTrusted(req) ? req.headers['cf-connecting-ip'] : undefined;
+  const fwd = cfIp
     || req.headers['x-vercel-forwarded-for']
     || req.headers['x-real-ip']
     || req.headers['x-forwarded-for'];

@@ -107,11 +107,8 @@ export async function executeBuddyAction(action, context, options = {}) {
       if (!p.text) {
         return { success: false, message: 'Was soll ich posten?' };
       }
-      const me = await auth.me().catch(() => null);
-      await entities.Post.create({
-        text: p.text,
-        author_name: me?.nickname || me?.full_name || 'Angler',
-      });
+      // Der Autor wird serverseitig aus der Anmeldung bestimmt.
+      await entities.Post.create({ text: p.text });
       toast.success('Community-Post erstellt');
       return { success: true, message: 'Dein Beitrag wurde in der Community gepostet.' };
     }

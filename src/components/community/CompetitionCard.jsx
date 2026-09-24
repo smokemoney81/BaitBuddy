@@ -1,14 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Calendar, Users, Award } from 'lucide-react';
 import { toast } from 'sonner';
-import { entities } from "@/api/frontendClient";
+import { events } from "@/api/frontendClient";
 
+// Wettbewerbe sind Events (/api/events). Teilnahme läuft über die
+// Event-Endpunkte join/leave — früher versuchte die Karte, das Event selbst
+// per PATCH um eine `participants`-Liste zu ergänzen. Das durfte nur der
+// Ersteller (403 für alle anderen) und die Spalte gibt es gar nicht.
 export default function CompetitionCard({ competition, currentUser, onUpdate }) {
-  const isParticipating = competition.participants?.includes(currentUser?.email);
+  const [participants, setParticipants] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const isParticipating = participants.some((p) => p.is_me);
   const isActive = new Date(competition.end_date) > new Date() && competition.is_active;
   const hasStarted = new Date(competition.start_date) <= new Date();
+
+  const loadParticipants = useCallback(async () => {
+    try {
+      const rows = await events.participants(competition.id);
+      setParticipants(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error('Teilnehmer konnten nicht geladen werden:', error);
+    }
+  }, [competition.id]);
+
+  useEffect(() => {
+    loadParticipants();
+  }, [loadParticipants]);
 
   const getTypeLabel = (type) => {
     const labels = {
@@ -21,30 +40,36 @@ export default function CompetitionCard({ competition, currentUser, onUpdate }) 
   };
 
   const handleJoin = async () => {
+    if (!currentUser) {
+      toast.error('Bitte melde dich an');
+      return;
+    }
+    setBusy(true);
     try {
-      const updatedParticipants = [...(competition.participants || []), currentUser.email];
-      await entities.Competition.update(competition.id, {
-        participants: updatedParticipants
-      });
+      await events.join(competition.id);
       toast.success('Du nimmst jetzt am Wettbewerb teil!');
-      onUpdate();
+      await loadParticipants();
+      onUpdate?.();
     } catch (error) {
       console.error('Fehler beim Beitreten:', error);
       toast.error('Fehler beim Beitreten');
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleLeave = async () => {
+    setBusy(true);
     try {
-      const updatedParticipants = competition.participants.filter(p => p !== currentUser.email);
-      await entities.Competition.update(competition.id, {
-        participants: updatedParticipants
-      });
+      await events.leave(competition.id);
       toast.success('Du nimmst nicht mehr am Wettbewerb teil');
-      onUpdate();
+      await loadParticipants();
+      onUpdate?.();
     } catch (error) {
       console.error('Fehler beim Verlassen:', error);
       toast.error('Fehler beim Verlassen');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -58,7 +83,7 @@ export default function CompetitionCard({ competition, currentUser, onUpdate }) 
             </div>
             <div>
               <CardTitle className="text-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.7)]">
-                {competition.title}
+                {competition.title || competition.name}
               </CardTitle>
               <p className="text-xs text-gray-400 mt-1">{getTypeLabel(competition.competition_type)}</p>
             </div>
@@ -85,14 +110,14 @@ export default function CompetitionCard({ competition, currentUser, onUpdate }) 
           </div>
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            {competition.participants?.length || 0} Teilnehmer
+            {participants.length} Teilnehmer
           </div>
         </div>
 
-        {competition.prize && (
+        {(competition.prize || competition.prize_description) && (
           <div className="p-3 bg-amber-900/20 border border-amber-600/30 rounded-lg">
             <p className="text-xs text-amber-400 mb-1">Preis</p>
-            <p className="text-sm text-white font-semibold">{competition.prize}</p>
+            <p className="text-sm text-white font-semibold">{competition.prize || competition.prize_description}</p>
           </div>
         )}
 
@@ -103,6 +128,7 @@ export default function CompetitionCard({ competition, currentUser, onUpdate }) 
                 variant="outline" 
                 className="w-full border-amber-600/50 text-amber-400 hover:bg-amber-900/20"
                 onClick={handleLeave}
+                disabled={busy}
               >
                 Teilnahme beenden
               </Button>
@@ -110,6 +136,7 @@ export default function CompetitionCard({ competition, currentUser, onUpdate }) 
               <Button 
                 className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700"
                 onClick={handleJoin}
+                disabled={busy}
               >
                 Jetzt teilnehmen
               </Button>

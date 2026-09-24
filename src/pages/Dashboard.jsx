@@ -2,7 +2,6 @@ import DashboardOverview from '@/components/dashboard/DashboardOverview';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import React, { useState, useEffect } from "react";
 import { integrations } from "@/api/frontendClient";
-import { functions } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import MiniKarte from "@/components/home/MiniKarte";
 import { Brain, Users, Loader2 } from "lucide-react";
@@ -63,15 +62,6 @@ export default function Dashboard() {
   useEffect(() => {
     isMountedRef.current = true;
 
-    const cleanupSessions = async () => {
-      try {
-        await functions.invoke('cleanupOldSessions');
-      } catch {
-        // Session cleanup errors are non-critical
-      }
-    };
-
-    cleanupSessions();
     loadData();
 
     return () => {

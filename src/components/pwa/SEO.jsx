@@ -12,17 +12,6 @@ export default function SEO() {
       el.setAttribute("content", value);
     };
 
-    const setLink = (rel, href, type) => {
-      let el = document.querySelector(`link[rel="${rel}"]`);
-      if (!el) {
-        el = document.createElement("link");
-        el.setAttribute("rel", rel);
-        document.head.appendChild(el);
-      }
-      el.setAttribute("href", href);
-      if (type) el.setAttribute("type", type);
-    };
-
     // Title und Description
     document.title = "BaitBuddy – Angeln smarter: Fangbuch, Spots, KI & mehr";
     setMeta("name", "description", "BaitBuddy: Fangbuch, Spots, Wetter, Analyse, Community und KI-Fangberatung – DSGVO-freundlich, Dark Mode, offline nutzbar.");
@@ -36,12 +25,11 @@ export default function SEO() {
     setMeta("property", "og:url", window.location.origin);
     setMeta("property", "og:image", "https://images.unsplash.com/photo-1502720705749-3cfa5f823cdf?q=80&w=1200&auto=format&fit=crop");
 
-    // App Icons
-    setLink("icon", "/favicon.ico");
-    setLink("apple-touch-icon", "/apple-touch-icon.png");
-    
-    // PWA Manifest - zeigt auf unsere Backend-Funktion
-    setLink("manifest", "/api/functions/manifest", "application/manifest+json");
+    // Icons und Manifest stehen korrekt in index.html (/icons/*, /manifest.json).
+    // Früher wurden sie hier überschrieben: mit /favicon.ico und
+    // /apple-touch-icon.png (existieren nicht → 404) und mit einem
+    // Backend-Platzhalter als Manifest (kein gültiges Web-App-Manifest →
+    // PWA nicht installierbar).
   }, []);
 
   return null;

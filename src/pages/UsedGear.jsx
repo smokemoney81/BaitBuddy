@@ -410,7 +410,7 @@ export function UsedGearMarketInner() {
 
                   <div className="flex justify-between items-center pt-2" style={{ borderTop: '1px solid var(--bb-border)' }}>
                     <a
-                      href={`mailto:${item.seller_email || item.created_by}?subject=${encodeURIComponent(
+                      href={`mailto:${item.seller_email}?subject=${encodeURIComponent(
                         "Interesse an " + item.title
                       )}`}
                       className="text-sm flex items-center gap-1"
@@ -420,7 +420,9 @@ export function UsedGearMarketInner() {
                       Kontakt
                     </a>
 
-                    {user && user.email === item.created_by && (
+                    {/* gear_listings hat keine created_by-Spalte — der Vergleich war
+                        nie wahr, Verkäufer konnten ihre Anzeige nicht beenden. */}
+                    {user && item.is_own && (
                       <button
                         onClick={() => deactivate(item.id)}
                         className="p-2 rounded-lg"

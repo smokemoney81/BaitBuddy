@@ -29,9 +29,9 @@ export default function EventsWidget() {
       const active = eventsList?.find(e => new Date(e.end_date) > new Date() && e.status === 'active');
       setActiveEvent(active);
 
-      const user = await import('@/api/auth').then(m => m.auth.me());
-      const rank = leaderboardData?.find(l => l.user_id === user.email);
-      setMonthlyRank(rank);
+      // Die eigene Zeile kennzeichnet der Server mit is_me.
+      const rank = Array.isArray(leaderboardData) ? leaderboardData.find(l => l.is_me === true) : null;
+      setMonthlyRank(rank || null);
     } catch (error) {
       console.error('Fehler beim Laden von Event-Daten:', error);
     } finally {

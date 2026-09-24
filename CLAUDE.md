@@ -475,6 +475,20 @@ genau wie `POST /api/auth/refresh`. `supabase.auth.admin.*` und
   `userEntities.js` entfernen fremde `user_email`/`created_by`.
 - **Uploads** (`/api/files/upload`) nur mit erlaubten Medientypen; CSV/GPX
   werden als `text/plain` abgelegt (öffentlicher Bucket → kein HTML/SVG).
+- **Nie E-Mail-Adressen anderer Nutzer ausliefern.** Community-, Voting-,
+  Clan-, Event- und Ranglisten-Tabellen führen den Autor als E-Mail
+  (`created_by`/`user_id`). Nach außen geht stattdessen ein öffentliches
+  Profil aus `backend/src/lib/publicProfiles.js` (`author`/`user`/`creator`/
+  `owner` = `{ id, name, avatar_url, badges }`) plus `is_own`/`is_me`. Das
+  Frontend vergleicht Eigentum **nur** über diese Flags, nie über
+  `created_by === user.email`. Anzeigenamen nie aus der E-Mail ableiten.
+- **Globale Ranglisten serverseitig** (`GET /api/community/leaderboard`): Der
+  Client sieht nur die eigenen Fänge und kann keine echte Rangliste bilden.
+- **Cron-Secret nur per Header** (`Authorization: Bearer` oder
+  `x-cron-secret`), nie als URL-Parameter (landet in Access-Logs).
+- **Rate-Limit hinter Cloudflare:** `EDGE_SHARED_SECRET` in Backend **und**
+  Worker setzen — erst dann ist `cf-connecting-ip` nicht mehr am Origin
+  fälschbar (siehe `backend/.env.example`).
 
 #### Storage-URLs beim Self-Hosting: `SUPABASE_PUBLIC_URL`
 

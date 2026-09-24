@@ -16,6 +16,9 @@ const router = Router();
 
 const UPSTREAM_TIMEOUT_MS = 10000;
 
+// Maskiert %, _ und \ für PostgREST-ilike-Muster (Nutzereingaben).
+const escapeLike = (text) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
+
 // Spalten von fishing_plans (siehe supabase/schema.sql + Live-Schema-Audit).
 // War zuvor auf ['name','date','location','target_species','notes',
 // 'forecast_data'] gesetzt — keine dieser Spalten existiert in der Tabelle,
@@ -51,12 +54,69 @@ router.get('/fishing/rules/active', optionalAuth, async (req, res) => {
   return res.json(active);
 });
 
+// Angelvereine aus der Tabelle fishing_clubs (148 Einträge in Produktion).
+// Beide Routen lieferten bisher fest [] — auf Karte und MiniKarte fehlten
+// damit alle Vereine aus der Datenbank. Ausgabe im Format der statischen
+// Vereinsliste (src/data/fishingClubsCSVExport.json), die die Karte mischt.
+const CLUB_COLUMNS = 'id, name, description, latitude, longitude, region, contact, website';
+const MAX_CLUBS = 2000;
+const NEARBY_DEFAULT_RADIUS_KM = 50;
+const NEARBY_MAX_RADIUS_KM = 500;
+const NEARBY_LIMIT = 20;
+
+function toClubPayload(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    category: 'club',
+    city: row.region || null,
+    description: row.description || null,
+    coordinates: { lat: row.latitude, lng: row.longitude },
+    latitude: row.latitude,
+    longitude: row.longitude,
+    website: row.website || null,
+    contact: row.contact || null,
+    source: 'database',
+  };
+}
+
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
 router.get('/fishing/clubs', optionalAuth, async (req, res) => {
-  return res.json([]);
+  let query = supabase.from('fishing_clubs').select(CLUB_COLUMNS)
+    .not('latitude', 'is', null).not('longitude', 'is', null)
+    .order('name', { ascending: true }).limit(MAX_CLUBS);
+  const city = typeof req.query.city === 'string' ? req.query.city.trim() : '';
+  if (city) query = query.ilike('region', `%${escapeLike(city)}%`);
+  const { data, error } = await query;
+  if (error) return sendDbError(res, error);
+  return res.json((data || []).map(toClubPayload));
 });
 
 router.post('/fishing/clubs/nearby', optionalAuth, async (req, res) => {
-  return res.json([]);
+  const coords = parseCoordinates(req.body?.latitude, req.body?.longitude);
+  if (!coords.ok) return res.status(400).json({ error: coords.error });
+  const radius = Math.min(Number(req.body?.radius_km) || NEARBY_DEFAULT_RADIUS_KM, NEARBY_MAX_RADIUS_KM);
+
+  const { data, error } = await supabase.from('fishing_clubs').select(CLUB_COLUMNS)
+    .not('latitude', 'is', null).not('longitude', 'is', null).limit(MAX_CLUBS);
+  if (error) return sendDbError(res, error);
+
+  const nearby = (data || [])
+    .map((row) => ({
+      ...toClubPayload(row),
+      distance_km: Math.round(distanceKm(coords.latitude, coords.longitude, row.latitude, row.longitude) * 10) / 10,
+    }))
+    .filter((club) => club.distance_km <= radius)
+    .sort((a, b) => a.distance_km - b.distance_km)
+    .slice(0, NEARBY_LIMIT);
+  return res.json(nearby);
 });
 
 // /api/fishing/licenses (GET/POST) wurden entfernt: sie nutzten die Spalten
@@ -113,18 +173,6 @@ router.get('/fishing/hotspots', optionalAuth, async (req, res) => {
 // entities.GearItem/-Category/-Rule -> /api/gear/items etc. in gear.js,
 // deren Tabellen (gear_items/gear_categories/gear_rules) real existieren.
 
-router.get('/water', requireAuth, async (req, res) => {
-  return res.json({ analysis: 'Wasseranalyse nicht verfügbar' });
-});
-
-router.post('/water', optionalAuth, async (req, res) => {
-  return res.json({ analysis: 'Wasseranalyse wird verarbeitet', ok: true });
-});
-
-router.get('/water/history', requireAuth, async (req, res) => {
-  return res.json([]);
-});
-
 // Tiefendaten-Upload (Bathymetrie-Crowdsourcing): lädt die zuvor hochgeladene
 // CSV/GPX-Datei, parst lat/lon/Tiefe und legt eine Bathymetrie-Karte samt
 // Tiefenpunkten an. Wird vom Frontend über processDepthData aufgerufen.
@@ -161,6 +209,7 @@ router.post('/water/bathymetry', requireAuth, async (req, res) => {
         is_public: is_public !== false,
         point_count: limited.length,
         source_points: points.length,
+        max_depth: Math.round(Math.max(...limited.map((p) => p.depth)) * 10) / 10,
       },
     }).select().single();
     if (mapErr) return sendDbError(res, mapErr);
@@ -183,6 +232,131 @@ router.post('/water/bathymetry', requireAuth, async (req, res) => {
     console.error('[Bathymetry Upload Error]', e);
     return sendDbError(res, e);
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Community-Tiefenkarte je Gewässer (Admin). Das Frontend rief diesen
+// Endpunkt schon länger auf (BathymetricCrowdsourcing/BathymetricMapCard),
+// er existierte aber nicht — jede Berechnung endete mit 404.
+//
+// Aggregiert alle ÖFFENTLICHEN Uploads (map_data.is_public !== false) mit
+// demselben Gewässernamen zu einer Community-Karte (map_data.kind =
+// 'community'): Maximal-/Durchschnittstiefe, Messpunkte, Beitragende und
+// zwei berechnete Hotspots (tiefste Stelle, steilste Kante) aus einem Raster.
+const COMMUNITY_MAP_KIND = 'community';
+const BATHY_MAX_POINTS = 50000;
+// ~11 m Rasterweite (4 Nachkommastellen Breite); reicht für Kanten-Erkennung
+// bei Echolot-Daten und hält die Rasterzahl klein.
+const BATHY_GRID_DECIMALS = 4;
+
+const round1 = (n) => Math.round(n * 10) / 10;
+
+export function summarizeDepthPoints(points) {
+  const depths = points.map((p) => Number(p.depth_m)).filter((d) => Number.isFinite(d) && d >= 0);
+  if (depths.length === 0) {
+    return { max_depth: null, avg_depth: null, data_points_count: 0, contributors_count: 0, hotspots: [] };
+  }
+
+  const factor = 10 ** BATHY_GRID_DECIMALS;
+  const cells = new Map();
+  for (const p of points) {
+    const depth = Number(p.depth_m);
+    const lat = Number(p.latitude);
+    const lon = Number(p.longitude);
+    if (!Number.isFinite(depth) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const i = Math.round(lat * factor);
+    const j = Math.round(lon * factor);
+    const key = `${i}:${j}`;
+    const cell = cells.get(key) || { i, j, sum: 0, n: 0 };
+    cell.sum += depth;
+    cell.n += 1;
+    cells.set(key, cell);
+  }
+
+  const cellDepth = (c) => c.sum / c.n;
+  const center = (c) => ({ latitude: c.i / factor, longitude: c.j / factor });
+  const hotspots = [];
+  let deepest = null;
+  for (const c of cells.values()) {
+    if (!deepest || cellDepth(c) > cellDepth(deepest)) deepest = c;
+  }
+  if (deepest) {
+    hotspots.push({ label: 'Tiefste Stelle', depth: round1(cellDepth(deepest)), ...center(deepest) });
+  }
+  let steepest = null;
+  for (const c of cells.values()) {
+    for (const [di, dj] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+      const n = cells.get(`${c.i + di}:${c.j + dj}`);
+      if (!n) continue;
+      const diff = Math.abs(cellDepth(c) - cellDepth(n));
+      if (!steepest || diff > steepest.diff) {
+        steepest = { diff, cell: cellDepth(c) > cellDepth(n) ? c : n };
+      }
+    }
+  }
+  if (steepest && steepest.diff > 0) {
+    hotspots.push({ label: 'Steilste Kante', depth: round1(cellDepth(steepest.cell)), ...center(steepest.cell) });
+  }
+
+  return {
+    max_depth: round1(Math.max(...depths)),
+    avg_depth: round1(depths.reduce((sum, d) => sum + d, 0) / depths.length),
+    data_points_count: depths.length,
+    contributors_count: new Set(points.map((p) => p.user_id).filter(Boolean)).size,
+    hotspots,
+  };
+}
+
+router.post('/water/bathymetric-map', requireAuth, requireAdmin, async (req, res) => {
+  const { water_body_name, map_id } = req.body || {};
+  let name = typeof water_body_name === 'string' ? water_body_name.trim() : '';
+
+  if (!name && map_id) {
+    const { data: existing, error } = await supabase.from('bathymetric_maps')
+      .select('name').eq('id', map_id).maybeSingle();
+    if (error) return sendDbError(res, error);
+    name = existing?.name?.trim() || '';
+  }
+  if (!name) return res.status(400).json({ error: 'water_body_name erforderlich' });
+
+  const { data: maps, error: mapsErr } = await supabase.from('bathymetric_maps')
+    .select('id, user_id, name, map_data')
+    .ilike('name', escapeLike(name));
+  if (mapsErr) return sendDbError(res, mapsErr);
+
+  const sources = (maps || []).filter((m) => m.map_data?.kind !== COMMUNITY_MAP_KIND && m.map_data?.is_public !== false);
+  const communityMap = (maps || []).find((m) => m.map_data?.kind === COMMUNITY_MAP_KIND) || null;
+  if (sources.length === 0) {
+    return res.status(404).json({ error: 'Für dieses Gewässer gibt es noch keine öffentlichen Tiefendaten' });
+  }
+
+  const { data: points, error: pointsErr } = await supabase.from('depth_data_points')
+    .select('latitude, longitude, depth_m, user_id')
+    .in('map_id', sources.map((m) => m.id))
+    .limit(BATHY_MAX_POINTS);
+  if (pointsErr) return sendDbError(res, pointsErr);
+
+  const summary = summarizeDepthPoints(points || []);
+  const mapData = {
+    kind: COMMUNITY_MAP_KIND,
+    status: summary.data_points_count > 0 ? 'ready' : 'error',
+    ...summary,
+    source_map_count: sources.length,
+    generated_at: new Date().toISOString(),
+  };
+
+  const query = communityMap
+    ? supabase.from('bathymetric_maps').update({ map_data: mapData }).eq('id', communityMap.id)
+    : supabase.from('bathymetric_maps').insert({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      name,
+      map_data: mapData,
+    });
+  const { data: saved, error: saveErr } = await query.select().single();
+  if (saveErr) return sendDbError(res, saveErr);
+
+  return res.json({ ok: true, id: saved.id, water_body_name: saved.name, ...mapData });
 });
 
 router.post('/weather', optionalAuth, async (req, res) => {
@@ -289,7 +463,6 @@ router.get('/trips', requireAuth, async (req, res) => {
 // fuer die vollstaendige Tabellenliste) sowie den Auth-User selbst. Bislang
 // war das ein reiner No-op-Stub, obwohl das Frontend (DeleteAccountDialog,
 // DeleteAccountSection) dem Nutzer echte Loeschung verspricht.
-router.del = router.delete;
 router.delete('/user/account', requireAuth, async (req, res) => {
   try {
     const result = await deleteUserAccount({ userId: req.user.id, email: req.user.email });
@@ -303,14 +476,6 @@ router.delete('/user/account', requireAuth, async (req, res) => {
     console.error('[Account Deletion Error]', e);
     return res.status(500).json({ success: false, message: 'Account konnte nicht geloescht werden' });
   }
-});
-
-router.post('/user/sessions/start', requireAuth, async (req, res) => {
-  return res.json({ ok: true, session_id: Date.now().toString() });
-});
-
-router.post('/user/sessions/:id/end', requireAuth, async (req, res) => {
-  return res.json({ ok: true });
 });
 
 // Lieferte bis hierher eine fest verdrahtete leere Liste — die

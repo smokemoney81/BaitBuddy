@@ -1,2 +1,2 @@
-export { InvokeLLM, SendEmail, SendSMS, UploadFile, GenerateImage, ExtractDataFromUploadedFile }
+export { InvokeLLM, UploadFile, ExtractDataFromUploadedFile }
   from '@/api/integrations.js';

@@ -94,8 +94,12 @@ function MapController() {
   // Einträge, die bereits in der Angelpark-Ebene stecken, werden hier
   // ausgeschlossen, damit sie nicht doppelt (Verein + Angelpark) erscheinen.
   const allClubs = useMemo(() => {
+    // Datenbank-Vereine und die statische CSV-Liste überschneiden sich —
+    // die IDs unterscheiden sich, deshalb zusätzlich über den Namen entdoppeln.
+    const nameKey = (c) => String(c?.name || '').trim().toLowerCase();
     const seen = new Set((fishingClubs || []).map(fc => fc.id));
-    const csvClubs = (fishingClubsCSVExport || []).filter(c => !seen.has(c.id));
+    const seenNames = new Set((fishingClubs || []).map(nameKey).filter(Boolean));
+    const csvClubs = (fishingClubsCSVExport || []).filter(c => !seen.has(c.id) && !seenNames.has(nameKey(c)));
     csvClubs.forEach(c => seen.add(c.id));
     const staticParks = angelparks.filter(p => !seen.has(p.id));
     return [...fishingClubs, ...csvClubs, ...staticParks]

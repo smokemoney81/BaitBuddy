@@ -81,7 +81,7 @@ export default function EventInvitationsWidget() {
               <p className="text-white font-semibold">{invitation.events?.name}</p>
               <p className="text-sm text-purple-300 mt-1">
                 <Mail className="w-3 h-3 inline mr-1" />
-                Von: {invitation.inviter_id?.split('@')[0] || 'Unbekannt'}
+                Von: {invitation.inviter?.name || 'Unbekannt'}
               </p>
             </div>
             {invitation.events?.description && (

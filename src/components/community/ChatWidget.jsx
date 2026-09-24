@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
-import { User } from "@/entities/User";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -14,7 +13,6 @@ export default function ChatWidget({ topic = "Allgemein" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeUsers, setActiveUsers] = useState([]);
-  const [userCache, setUserCache] = useState({});
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -53,24 +51,6 @@ export default function ChatWidget({ topic = "Allgemein" }) {
     try {
       const data = await entities.ChatMessage.filter({ context: topic }, '-timestamp', 30);
 
-      const newCache = { ...userCache };
-      const missingEmails = [...new Set(data.map(m => m.created_by))].filter(e => !newCache[e]);
-
-      if (missingEmails.length > 0) {
-        try {
-          const allUsers = await User.list('', 1000);
-          missingEmails.forEach(email => {
-            const foundUser = allUsers.find(u => u.email === email);
-            newCache[email] = foundUser?.full_name || email.split('@')[0];
-          });
-        } catch {
-          missingEmails.forEach(email => {
-            newCache[email] = email.split('@')[0];
-          });
-        }
-      }
-
-      setUserCache(newCache);
       setMessages(data);
     } catch (e) {
       console.error("Error loading messages:", e);
@@ -100,7 +80,8 @@ export default function ChatWidget({ topic = "Allgemein" }) {
       } else {
         await entities.ChatSession.create({
           user_email: user.email,
-          user_name: user.full_name || user.email.split('@')[0],
+          // Anzeigename nie aus der E-Mail ableiten (enthält oft den Klarnamen).
+          user_name: user.nickname || user.full_name || 'Angler',
           last_activity: new Date().toISOString(),
           is_active: true
         });
@@ -151,7 +132,7 @@ export default function ChatWidget({ topic = "Allgemein" }) {
              <div className="mt-2 flex flex-wrap gap-1" aria-live="polite" aria-label="Online Nutzer">
                {activeUsers.map((u) => (
                  <span key={u.id} className="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded">
-                   {u.user_name}
+                   {u.author?.name || u.user_name || 'Angler'}
                  </span>
                ))}
              </div>
@@ -166,12 +147,12 @@ export default function ChatWidget({ topic = "Allgemein" }) {
               <div
                 key={msg.id}
                 className={`text-sm p-2 rounded ${
-                  msg.created_by === user?.email
+                  msg.is_own
                     ? "bg-cyan-900 text-cyan-100 ml-4"
                     : "bg-slate-800 text-slate-200 mr-4"
                 }`}
               >
-                <p className="text-xs opacity-75 mb-1">{userCache[msg.created_by] || msg.created_by}</p>
+                <p className="text-xs opacity-75 mb-1">{msg.is_own ? 'Du' : (msg.author?.name || 'Angler')}</p>
                 <p>{msg.content}</p>
               </div>
             ))
