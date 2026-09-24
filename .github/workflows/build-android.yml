@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -36,11 +38,10 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK platform 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/16.0/bin:$ANDROID_HOME/platform-tools:$PATH"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install deps
         run: npm install --legacy-peer-deps
@@ -78,8 +79,6 @@ jobs:
       # übernommen, damit beim Zusammenführen keine Fähigkeit verloren geht).
       - name: Build Debug APK
         run: cd android && ./gradlew assembleDebug --no-daemon
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -105,8 +104,6 @@ jobs:
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }} \
             -PappVersionCode=${{ github.event.inputs.version_code || '31' }} \
             -PappVersionName=${{ github.event.inputs.version_name || '2.117899.1' }}
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
 
       - name: Upload Release AAB
         if: ${{ env.KEYSTORE_BASE64 != '' }}
