@@ -74,7 +74,7 @@ async function getAggregatedDataFallback(userEmail) {
     .select('spot_name, spot_id, is_released')
     .eq('created_by', userEmail)
     .gt('catch_time', thirtyDaysAgo.toISOString())
-    .not('spot_name', 'is', null);
+    .neq('spot_name', null);
 
   const spotCounts = {};
   const spotSuccess = {};
