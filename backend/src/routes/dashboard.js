@@ -48,7 +48,7 @@ async function getAggregatedDataFallback(userEmail) {
 
   const { data: catchesData } = await supabase
     .from('catches')
-    .select('id, species, weight_kg, length_cm, spot_name, catch_time, photo_url, bait_used')
+    .select('id, species, weight_kg, length_cm, catch_time, photo_url, bait_used, spot_id')
     .eq('created_by', userEmail)
     .gt('catch_time', sevenDaysAgo.toISOString())
     .order('catch_time', { ascending: false })
@@ -59,7 +59,7 @@ async function getAggregatedDataFallback(userEmail) {
     species: c.species,
     weight: c.weight_kg,
     length: c.length_cm,
-    location: c.spot_name,
+    location: c.spot_name || c.spot_id || 'Unknown',
     caught_at: c.catch_time,
     photo_urls: c.photo_url ? [c.photo_url] : [],
     bait_type: c.bait_used,
@@ -71,31 +71,31 @@ async function getAggregatedDataFallback(userEmail) {
 
   const { data: spotsData } = await supabase
     .from('catches')
-    .select('spot_name, spot_id, is_released')
+    .select('spot_id, is_released')
     .eq('created_by', userEmail)
-    .gt('catch_time', thirtyDaysAgo.toISOString())
-    .neq('spot_name', null);
+    .gt('catch_time', thirtyDaysAgo.toISOString());
 
   const spotCounts = {};
   const spotSuccess = {};
   (spotsData || []).forEach(c => {
-    if (!spotCounts[c.spot_name]) {
-      spotCounts[c.spot_name] = 0;
-      spotSuccess[c.spot_name] = 0;
+    const spotKey = c.spot_id || 'unknown';
+    if (!spotCounts[spotKey]) {
+      spotCounts[spotKey] = 0;
+      spotSuccess[spotKey] = 0;
     }
-    spotCounts[c.spot_name]++;
-    if (!c.is_released) spotSuccess[c.spot_name]++;
+    spotCounts[spotKey]++;
+    if (!c.is_released) spotSuccess[spotKey]++;
   });
 
   const top_spots = Object.entries(spotCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([spotName, count]) => ({
-      id: spotName,
-      name: spotName,
+    .map(([spotId, count]) => ({
+      id: spotId,
+      name: spotId,
       location: '',
       usage_count: count,
-      avg_success: spotSuccess[spotName] / count,
+      avg_success: spotSuccess[spotId] / count,
     }));
 
   // Statistiken der letzten 90 Tage
