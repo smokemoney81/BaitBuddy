@@ -13,8 +13,62 @@ import {
   recalcParticipantTotals,
   ACTIVITY_POINTS
 } from '../lib/pointsCalculator.js';
+import { checkSubmission } from '../lib/submissionPlausibility.js';
 
 const router = Router();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ÖFFENTLICHE ANZEIGE VON TEILNEHMERN
+// ─────────────────────────────────────────────────────────────────────────────
+// event_participants/event_submissions führen Teilnehmer über ihre E-Mail.
+// Nach außen gehen nur Anzeigenamen ("Tom S.") und ein is_me-Flag — die
+// Endpunkte sind ohne Login abrufbar, E-Mails wären dort ein Datenleck.
+
+function shortName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return null;
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+}
+
+async function displayNames(emails) {
+  const unique = [...new Set((emails || []).filter(Boolean))];
+  const names = new Map();
+  if (!unique.length) return names;
+  const { data } = await supabase.from('users').select('email, full_name').in('email', unique);
+  for (const row of data || []) {
+    const name = shortName(row.full_name);
+    if (name) names.set(row.email, name);
+  }
+  return names;
+}
+
+function publicPerson(email, names, viewerEmail) {
+  return {
+    name: names.get(email) || 'Angler',
+    is_me: Boolean(viewerEmail) && email === viewerEmail,
+  };
+}
+
+async function loadOwnedEvent(eventId, email) {
+  const { data: event } = await supabase
+    .from('events')
+    .select('id, created_by, start_date, end_date, status, is_active, target_species, requires_approval')
+    .eq('id', eventId)
+    .maybeSingle();
+  if (!event || event.created_by !== email) return null;
+  return event;
+}
+
+// Aktivitäts-Punkte liegen als Pseudo-Einreichung "[aktivität]" in derselben
+// Tabelle; für Längen-/Anzahl-Wertungen zählen nur echte Fische.
+const isRealFish = (submission) => !String(submission?.species || '').startsWith('[');
+
+const STANDING_METRICS = {
+  total_length: (a, b) => b.total_length - a.total_length,
+  biggest: (a, b) => b.biggest - a.biggest,
+  count: (a, b) => b.count - a.count || b.total_length - a.total_length,
+  points: (a, b) => b.points - a.points,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EVENT TEMPLATES
@@ -144,7 +198,7 @@ router.get('/events/:id', optionalAuth, async (req, res) => {
 
 router.post('/events', requireAuth, async (req, res) => {
   try {
-    const { name, description, start_date, end_date, template_id, scoring_method, target_species, prize_description, visibility } = req.body;
+    const { name, description, start_date, end_date, template_id, scoring_method, target_species, prize_description, visibility, requires_approval } = req.body;
 
     if (!name || !start_date || !end_date) {
       return res.status(400).json({ error: 'Name, Startdatum und Enddatum erforderlich' });
@@ -173,6 +227,7 @@ router.post('/events', requireAuth, async (req, res) => {
         target_species: target_species || null,
         prize_description: prize_description || null,
         visibility: eventVisibility,
+        requires_approval: requires_approval === true,
         status: 'active',
         is_active: true
       })
@@ -224,7 +279,7 @@ router.patch('/events/:id', requireAuth, async (req, res) => {
     // Prüfe Ownership
     const { data: event } = await supabase
       .from('events')
-      .select('created_by')
+      .select('created_by, start_date, scoring_method, target_species, end_date, requires_approval, template_id')
       .eq('id', req.params.id)
       .single();
 
@@ -239,11 +294,21 @@ router.patch('/events/:id', requireAuth, async (req, res) => {
     const EVENT_UPDATE_FIELDS = [
       'name', 'description', 'start_date', 'end_date', 'template_id',
       'event_type', 'scoring_method', 'target_species', 'prize_description',
-      'status', 'is_active',
+      'status', 'is_active', 'requires_approval',
     ];
     const patch = {};
     for (const k of EVENT_UPDATE_FIELDS) {
       if (k in req.body) patch[k] = req.body[k];
+    }
+
+    // Wettbewerbsregeln sind ab dem Start fixiert und für alle gleich: Wertung,
+    // Zielarten, Zeitraum und Freigabepflicht lassen sich danach nicht mehr
+    // ändern (Beenden über status/is_active bleibt möglich).
+    const LOCKED_AFTER_START = ['start_date', 'end_date', 'scoring_method', 'target_species', 'requires_approval', 'template_id'];
+    const started = event.start_date && new Date(event.start_date).getTime() <= Date.now();
+    const lockedChange = started && LOCKED_AFTER_START.find(k => k in patch && String(patch[k] ?? '') !== String(event[k] ?? ''));
+    if (lockedChange) {
+      return res.status(409).json({ error: 'Die Wettbewerbsregeln sind seit dem Start fixiert.', field: lockedChange });
     }
 
     const { data, error } = await supabase
@@ -341,7 +406,7 @@ router.post('/events/:id/submit', requireAuth, async (req, res) => {
     // Einreichungen die bereits archivierten Endstände verändert.
     const { data: event } = await supabase
       .from('events')
-      .select('id, status, is_active, start_date, end_date')
+      .select('id, status, is_active, start_date, end_date, target_species, requires_approval')
       .eq('id', req.params.id)
       .maybeSingle();
     const nowMs = Date.now();
@@ -368,6 +433,31 @@ router.post('/events/:id/submit', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'catch_time ist kein gültiger Zeitpunkt' });
     }
 
+    // Plausibilitätsprüfung: harte Verstöße ablehnen, Auffälligkeiten in die
+    // Prüfung durch den Veranstalter schicken.
+    const { data: recent } = await supabase
+      .from('event_submissions')
+      .select('species, length_cm, catch_time')
+      .eq('event_id', req.params.id)
+      .eq('user_id', req.user.email)
+      .order('submitted_at', { ascending: false })
+      .limit(20);
+    const plausibility = checkSubmission(
+      {
+        species: validated.value.species,
+        length_cm: validated.value.length_cm,
+        weight_kg: validated.value.weight_kg,
+        photo_url: validated.value.photo_url,
+        catch_time: parsedCatchTime.toISOString(),
+      },
+      event,
+      { now: nowMs, recent: Array.isArray(recent) ? recent.filter(isRealFish) : [] }
+    );
+    if (plausibility.blocked) {
+      const reason = plausibility.checks.find(c => !c.ok && c.severity === 'block');
+      return res.status(422).json({ error: reason?.message || 'Einreichung nicht plausibel', checks: plausibility.checks });
+    }
+
     // 1. Berechne Punkte
     const pointsResult = await calculateSubmissionPoints(
       { species: validated.value.species, length_cm: validated.value.length_cm, community_likes: 0 },
@@ -388,19 +478,21 @@ router.post('/events/:id/submit', requireAuth, async (req, res) => {
         catch_time: parsedCatchTime.toISOString(),
         calculated_points: pointsResult.total,
         points_breakdown: pointsResult.breakdown,
-        verified: true
+        verified: !plausibility.needsReview,
+        review_status: plausibility.needsReview ? 'pending' : 'confirmed',
+        plausibility: plausibility.checks,
       })
       .select()
       .single();
 
     if (submissionError) return sendDbError(res, submissionError);
 
-    // 3. Teilnehmer-Summen aus den Einreichungen neu berechnen. Legt den
-    //    Teilnehmer bei Bedarf an, sodass die Punkte nie verloren gehen, und
-    //    vermeidet Lost-Updates bei parallelen Einreichungen.
+    // 3. Teilnehmer-Summen aus den (bestätigten) Einreichungen neu berechnen.
+    //    Legt den Teilnehmer bei Bedarf an, sodass die Punkte nie verloren
+    //    gehen, und vermeidet Lost-Updates bei parallelen Einreichungen.
     await recalcParticipantTotals(req.params.id, req.user.email, supabase);
 
-    return res.status(201).json(submission);
+    return res.status(201).json({ ...submission, checks: plausibility.checks });
   } catch (error) {
     console.error('Error submitting event entry:', error);
     res.status(500).json({ error: 'Fehler beim Einreichen der Einreichung' });
@@ -411,12 +503,13 @@ router.get('/events/:id/participants', optionalAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('event_participants')
-      .select('*')
+      .select('id, user_id, joined_at, submission_count, total_points, is_winner')
       .eq('event_id', req.params.id)
       .order('total_points', { ascending: false });
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    const names = await displayNames((data || []).map(p => p.user_id));
+    return res.json((data || []).map(({ user_id, ...row }) => ({ ...row, ...publicPerson(user_id, names, req.user?.email) })));
   } catch (error) {
     console.error('Error fetching participants:', error);
     res.status(500).json({ error: 'Fehler beim Laden der Teilnehmer' });
@@ -427,17 +520,224 @@ router.get('/events/:id/leaderboard', optionalAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('event_participants')
-      .select('*')
+      .select('id, user_id, joined_at, submission_count, total_points, is_winner')
       .eq('event_id', req.params.id)
       .order('total_points', { ascending: false })
       .limit(100);
 
     if (error) return sendDbError(res, error);
-    return res.json(data || []);
+    const names = await displayNames((data || []).map(p => p.user_id));
+    return res.json((data || []).map(({ user_id, ...row }) => ({ ...row, ...publicPerson(user_id, names, req.user?.email) })));
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
     res.status(500).json({ error: 'Fehler beim Laden des Leaderboards' });
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WETTBEWERB: WERTUNG, EIGENE EINREICHUNGEN, PRÜFUNG, EINSPRÜCHE
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Rangliste nach Wertungskategorie. Zählt nur bestätigte Einreichungen.
+router.get('/events/:id/standings', optionalAuth, async (req, res) => {
+  try {
+    const metric = STANDING_METRICS[req.query.metric] ? req.query.metric : 'total_length';
+    const { data, error } = await supabase
+      .from('event_submissions')
+      .select('id, user_id, species, length_cm, photo_url, catch_time, calculated_points')
+      .eq('event_id', req.params.id)
+      .eq('review_status', 'confirmed')
+      .limit(5000);
+    if (error) return sendDbError(res, error);
+
+    const byUser = new Map();
+    for (const sub of data || []) {
+      const entry = byUser.get(sub.user_id) || { user_id: sub.user_id, count: 0, total_length: 0, biggest: 0, points: 0, submissions: [] };
+      entry.points += Number(sub.calculated_points) || 0;
+      if (isRealFish(sub)) {
+        const length = Number(sub.length_cm) || 0;
+        entry.count += 1;
+        entry.total_length += length;
+        entry.biggest = Math.max(entry.biggest, length);
+        entry.submissions.push({ id: sub.id, species: sub.species, length_cm: sub.length_cm, photo_url: sub.photo_url, catch_time: sub.catch_time });
+      }
+      byUser.set(sub.user_id, entry);
+    }
+
+    const names = await displayNames([...byUser.keys()]);
+    const rows = [...byUser.values()]
+      .filter(e => metric === 'points' || e.count > 0)
+      .sort(STANDING_METRICS[metric])
+      .slice(0, 100)
+      .map(({ user_id, ...entry }, index) => ({
+        rank: index + 1,
+        ...publicPerson(user_id, names, req.user?.email),
+        ...entry,
+        total_length: Math.round(entry.total_length * 10) / 10,
+        points: Math.round(entry.points),
+        submissions: entry.submissions.sort((a, b) => (Number(b.length_cm) || 0) - (Number(a.length_cm) || 0)).slice(0, 10),
+      }));
+    return res.json({ metric, entries: rows });
+  } catch (error) {
+    console.error('Error fetching standings:', error);
+    res.status(500).json({ error: 'Fehler beim Laden der Rangliste' });
+  }
+});
+
+// Eigene Einreichungen mit Prüfstatus (für "Meine Einreichungen").
+router.get('/events/:id/my-submissions', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('event_submissions')
+    .select('id, species, length_cm, weight_kg, photo_url, catch_time, submitted_at, calculated_points, review_status, plausibility, review_note')
+    .eq('event_id', req.params.id)
+    .eq('user_id', req.user.email)
+    .order('submitted_at', { ascending: false })
+    .limit(100);
+  if (error) return sendDbError(res, error);
+  return res.json((data || []).filter(isRealFish));
+});
+
+// Prüf-Warteschlange des Veranstalters: offene Einreichungen und Einsprüche.
+router.get('/events/:id/review', requireAuth, async (req, res) => {
+  const event = await loadOwnedEvent(req.params.id, req.user.email);
+  if (!event) return res.status(403).json({ error: 'Nur der Veranstalter kann prüfen' });
+
+  const [{ data: pending, error: pendingError }, { data: disputes, error: disputeError }] = await Promise.all([
+    supabase.from('event_submissions')
+      .select('id, user_id, species, length_cm, weight_kg, photo_url, catch_time, plausibility')
+      .eq('event_id', req.params.id)
+      .eq('review_status', 'pending')
+      .order('submitted_at', { ascending: true })
+      .limit(100),
+    supabase.from('event_disputes')
+      .select('id, submission_id, reporter, reason, created_at')
+      .eq('event_id', req.params.id)
+      .eq('status', 'open')
+      .order('created_at', { ascending: true })
+      .limit(100),
+  ]);
+  if (pendingError || disputeError) return sendDbError(res, pendingError || disputeError);
+
+  const disputedIds = [...new Set((disputes || []).map(d => d.submission_id))];
+  let disputedSubs = [];
+  if (disputedIds.length) {
+    const { data, error } = await supabase.from('event_submissions')
+      .select('id, user_id, species, length_cm, weight_kg, photo_url, catch_time, review_status')
+      .in('id', disputedIds);
+    if (error) return sendDbError(res, error);
+    disputedSubs = data || [];
+  }
+  const subsById = new Map(disputedSubs.map(sub => [sub.id, sub]));
+  const names = await displayNames([
+    ...(pending || []).map(p => p.user_id),
+    ...disputedSubs.map(sub => sub.user_id),
+    ...(disputes || []).map(d => d.reporter),
+  ]);
+  const strip = ({ user_id, ...sub }) => ({ ...sub, angler: publicPerson(user_id, names, req.user.email).name });
+
+  return res.json({
+    pending: (pending || []).filter(isRealFish).map(strip),
+    disputes: (disputes || []).map(({ reporter, ...dispute }) => ({
+      ...dispute,
+      reporter: publicPerson(reporter, names, req.user.email).name,
+      submission: subsById.has(dispute.submission_id) ? strip(subsById.get(dispute.submission_id)) : null,
+    })),
+  });
+});
+
+router.post('/events/:id/submissions/:sid/review', requireAuth, async (req, res) => {
+  const event = await loadOwnedEvent(req.params.id, req.user.email);
+  if (!event) return res.status(403).json({ error: 'Nur der Veranstalter kann prüfen' });
+  const { decision, note } = req.body || {};
+  if (decision !== 'confirm' && decision !== 'reject') {
+    return res.status(400).json({ error: "decision muss 'confirm' oder 'reject' sein" });
+  }
+
+  const { data: submission } = await supabase.from('event_submissions')
+    .select('id, user_id').eq('id', req.params.sid).eq('event_id', req.params.id).maybeSingle();
+  if (!submission) return res.status(404).json({ error: 'Einreichung nicht gefunden' });
+
+  const confirmed = decision === 'confirm';
+  const { error } = await supabase.from('event_submissions').update({
+    review_status: confirmed ? 'confirmed' : 'rejected',
+    verified: confirmed,
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: req.user.email,
+    review_note: typeof note === 'string' ? note.trim().slice(0, 300) || null : null,
+  }).eq('id', submission.id);
+  if (error) return sendDbError(res, error);
+
+  await recalcParticipantTotals(req.params.id, submission.user_id, supabase);
+  return res.json({ ok: true, review_status: confirmed ? 'confirmed' : 'rejected' });
+});
+
+router.post('/events/:id/submissions/:sid/dispute', requireAuth, async (req, res) => {
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+  if (reason.length < 10 || reason.length > 1000) {
+    return res.status(400).json({ error: 'Bitte begründe den Einspruch (10 bis 1000 Zeichen).' });
+  }
+
+  const [{ data: submission }, { data: participant }] = await Promise.all([
+    supabase.from('event_submissions').select('id, user_id, review_status')
+      .eq('id', req.params.sid).eq('event_id', req.params.id).maybeSingle(),
+    supabase.from('event_participants').select('id')
+      .eq('event_id', req.params.id).eq('user_id', req.user.email).maybeSingle(),
+  ]);
+  if (!submission || !isRealFish(submission) || submission.review_status === 'rejected') {
+    return res.status(404).json({ error: 'Einreichung nicht gefunden' });
+  }
+  if (!participant) return res.status(403).json({ error: 'Nur Teilnehmer können Einspruch einlegen' });
+  if (submission.user_id === req.user.email) {
+    return res.status(400).json({ error: 'Gegen den eigenen Fang ist kein Einspruch möglich' });
+  }
+
+  const { data, error } = await supabase.from('event_disputes').insert({
+    event_id: req.params.id,
+    submission_id: submission.id,
+    reporter: req.user.email,
+    reason,
+  }).select('id, status, created_at').single();
+  if (error?.code === '23505') return res.status(409).json({ error: 'Du hast gegen diesen Fang bereits Einspruch eingelegt' });
+  if (error) return sendDbError(res, error);
+  return res.status(201).json(data);
+});
+
+router.post('/events/:id/disputes/:did/resolve', requireAuth, async (req, res) => {
+  const event = await loadOwnedEvent(req.params.id, req.user.email);
+  if (!event) return res.status(403).json({ error: 'Nur der Veranstalter entscheidet über Einsprüche' });
+  const { decision, resolution } = req.body || {};
+  if (decision !== 'upheld' && decision !== 'dismissed') {
+    return res.status(400).json({ error: "decision muss 'upheld' oder 'dismissed' sein" });
+  }
+
+  const { data: dispute } = await supabase.from('event_disputes')
+    .select('id, submission_id, status').eq('id', req.params.did).eq('event_id', req.params.id).maybeSingle();
+  if (!dispute) return res.status(404).json({ error: 'Einspruch nicht gefunden' });
+  if (dispute.status !== 'open') return res.status(409).json({ error: 'Einspruch ist bereits entschieden' });
+
+  const now = new Date().toISOString();
+  const text = typeof resolution === 'string' ? resolution.trim().slice(0, 300) || null : null;
+  const { error } = await supabase.from('event_disputes')
+    .update({ status: decision, resolution: text, resolved_at: now })
+    .eq('id', dispute.id);
+  if (error) return sendDbError(res, error);
+
+  if (decision === 'upheld') {
+    const { data: submission } = await supabase.from('event_submissions')
+      .select('id, user_id').eq('id', dispute.submission_id).maybeSingle();
+    if (submission) {
+      const { error: rejectError } = await supabase.from('event_submissions').update({
+        review_status: 'rejected',
+        verified: false,
+        reviewed_at: now,
+        reviewed_by: req.user.email,
+        review_note: text || 'Einspruch stattgegeben',
+      }).eq('id', submission.id);
+      if (rejectError) return sendDbError(res, rejectError);
+      await recalcParticipantTotals(req.params.id, submission.user_id, supabase);
+    }
+  }
+  return res.json({ ok: true, status: decision });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

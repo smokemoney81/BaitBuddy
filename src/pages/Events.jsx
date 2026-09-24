@@ -173,11 +173,9 @@ export default function Events() {
         const joinedSet = new Set();
         await Promise.all(comps.map(async (comp) => {
           const lb = await api.get(`/api/events/${comp.id}/leaderboard`).catch(() => []);
-          leaderboardsMap[comp.id] = Array.isArray(lb) ? lb.map((e) => ({
-            ...e,
-            is_user: e.user_id === user.email
-          })) : [];
-          const userJoined = (leaderboardsMap[comp.id] || []).some(entry => entry.user_id === user.email);
+          // Der Server liefert Anzeigenamen + is_me statt E-Mail-Adressen.
+          leaderboardsMap[comp.id] = Array.isArray(lb) ? lb : [];
+          const userJoined = leaderboardsMap[comp.id].some(entry => entry.is_me);
           if (userJoined) joinedSet.add(comp.id);
         }));
         setLeaderboards(leaderboardsMap);
