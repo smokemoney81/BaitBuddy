@@ -6,6 +6,7 @@ import {
   Gauge
 } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
+import PageTitle from "@/components/layout/PageTitle";
 
 /**
  * MyDevices 2.0 — Zentrale Seite für Geräte-Integration
@@ -184,11 +185,7 @@ export default function MyDevices() {
       <div className="space-y-8 pb-8">
         {/* Header mit CTA */}
         <div className="bb-card space-y-4">
-          <div>
-            <p className="bb-eyebrow mb-2">Geräteverwaltung</p>
-            <h1 className="bb-title">Meine Geräte</h1>
-            <p className="bb-muted mt-2">Verbinde Hardware, um Echosondierungen, Sensor-Daten und Live-Tracking zu nutzen.</p>
-          </div>
+          <PageTitle title="Meine Geräte" subtitle="Verbinde Hardware, um Echosondierungen, Sensor-Daten und Live-Tracking zu nutzen." />
 
           <div className="flex gap-3">
             <button

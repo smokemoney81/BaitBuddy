@@ -13,6 +13,7 @@ import { MapPin, AlertCircle, Thermometer, Wind, Droplets, Eye, Gauge, Cloud, Lo
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import WeatherRadarMap from "@/components/weather/WeatherRadarMap";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function Weather() {
   return (
@@ -305,9 +306,7 @@ Sei konkret, praktisch und detailliert!`;
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-            Wetter & Angelprognose
-          </h1>
+          <PageTitle title="Wetter & Prognosen" />
           <div className="flex items-center gap-1.5 mt-1">
             <MapPin size={14} style={{ color: 'rgba(0,229,255,.5)' }} />
             <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>

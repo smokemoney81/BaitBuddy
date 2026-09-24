@@ -15,6 +15,7 @@ import PlanGuard from "@/components/premium/PlanGuard";
 import ChatWidget from "@/components/community/ChatWidget";
 import PageContainer from "@/components/layout/PageContainer";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
+import PageTitle from "@/components/layout/PageTitle";
 
 const CommentInput = memo(function CommentInput({ onSubmit }) {
   const [text, setText] = useState("");
@@ -684,11 +685,7 @@ export default function Community() {
     <PageContainer maxWidth="max-w-4xl" enableSwipeRefresh={true} onRefresh={handleRefresh}>
       <div className="grid gap-6">
         <header className="flex items-center justify-between gap-4">
-          <div>
-            <p className="bb-eyebrow mb-1">Gemeinschaft</p>
-            <h1 className="bb-title">Community</h1>
-            <p className="bb-muted mt-1">Tausche dich mit anderen Anglern aus.</p>
-          </div>
+          <PageTitle className="flex-1 min-w-0" title="BaitBuddy Community" subtitle="Tausche dich mit anderen Anglern aus." />
           <div className="bb-pill-success">
             <span className="w-2 h-2 rounded-full" style={{ background: 'var(--bb-green)' }} />
             {activeUserCount} online

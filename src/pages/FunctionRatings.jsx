@@ -3,6 +3,7 @@ import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import { Star, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function FunctionRatings() {
   const [ratings, setRatings] = useState([]);
@@ -77,9 +78,9 @@ export default function FunctionRatings() {
   const stats = calculateStats();
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto px-4 pb-32 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-50">Funktionsbewertungen</h1>
+        <PageTitle className="flex-1 min-w-0" title="Funktions-Bewertungen" />
         <span className="bb-pill-info" style={{ background: 'transparent', border: '1px solid var(--bb-border)', color: '#d1d5db', fontSize: '0.75rem' }}>
           <Users size={16} className="mr-2" />
           {ratings.length} Bewertungen

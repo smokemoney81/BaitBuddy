@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
-import {
-  ArrowLeft, Bell, BellOff, Fish, CloudLightning, Trophy, Users,
+import { Bell, BellOff, Fish, CloudLightning, Trophy, Users,
   Wrench, Info, Clock, Trash2, CheckCheck, ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
+import PageTitle from "@/components/layout/PageTitle";
 
 const CATEGORY_CONFIG = {
   catch:    { label: "Fangbuch",         icon: Fish,          color: "var(--bb-cyan)",   bg: "rgba(8,145,178,0.2)", borderColor: "rgba(14,116,144,0.4)" },
@@ -98,7 +97,6 @@ function NotificationItem({ item, onDelete }) {
 
 export default function NotificationCenter() {
   useFeatureTracking("notification_center");
-  const navigate = useNavigate();
 
   const [globalEnabled, setGlobalEnabled]     = useState(() => loadPref(STORAGE_KEY_ENABLED, true));
   const [categoryPrefs, setCategoryPrefs]     = useState(() => loadPref(STORAGE_KEY_CATS, {
@@ -165,18 +163,13 @@ export default function NotificationCenter() {
   return (
     <div className="bb-page" style={{ paddingBottom: '6rem' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur px-4 py-3" style={{ background: 'rgba(17,24,39,0.95)', borderBottom: '1px solid var(--bb-border)' }}>
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg transition" style={{ color: 'var(--bb-muted)' }}>
-              <ArrowLeft size={20} />
-            </button>
-            <Bell size={20} style={{ color: '#60a5fa' }} />
-            <h1 className="text-lg font-bold text-white">Benachrichtigungen</h1>
-            {unreadCount > 0 && (
-              <span className="bb-pill-info" style={{ background: '#2563eb', color: '#fff', fontSize: '0.75rem', padding: '0.1rem 0.375rem' }}>{unreadCount}</span>
-            )}
-          </div>
+      <div>
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          <PageTitle
+            className="flex-1 min-w-0"
+            title="Deine Benachrichtigungen"
+            subtitle={unreadCount > 0 ? `${unreadCount} ungelesen` : 'Wetter, Fänge, Events und mehr.'}
+          />
           {history.length > 0 && (
             <button onClick={clearAll} className="text-xs flex items-center gap-1 transition hover:text-red-400" style={{ color: 'var(--bb-muted)' }}>
               <Trash2 size={14} /> Alle löschen

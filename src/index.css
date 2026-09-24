@@ -77,12 +77,12 @@ button:focus-visible {
 @layer base {
   /* BaitBuddy ist eine reine Dark-Mode-App — keine Light-Mode-Defaults */
   :root {
-    /* Deep dark base = #080F16 = hsl(210 43% 6%) */
-    --background: 210 43% 6%;
+    /* Deep dark base = #0B1324 = hsl(221 53% 9%) */
+    --background: 221 53% 9%;
     --foreground: 200 30% 94%;
-    --card: 210 50% 9%;
+    --card: 217 51% 12%;
     --card-foreground: 200 30% 94%;
-    --popover: 210 50% 9%;
+    --popover: 217 51% 12%;
     --popover-foreground: 200 30% 94%;
     --primary: 189 100% 50%;
     --primary-foreground: 210 60% 5%;
@@ -113,13 +113,13 @@ button:focus-visible {
     --sidebar-ring: 189 100% 50%;
   }
   .dark {
-    /* Deep dark base = #080F16 = hsl(210 43% 6%) */
-    --background: 210 43% 6%;
+    /* Deep dark base = #0B1324 = hsl(221 53% 9%) */
+    --background: 221 53% 9%;
     --foreground: 200 30% 94%;
     /* Glass card surface ~rgba(15,30,45,.75) */
-    --card: 210 50% 9%;
+    --card: 217 51% 12%;
     --card-foreground: 200 30% 94%;
-    --popover: 210 50% 9%;
+    --popover: 217 51% 12%;
     --popover-foreground: 200 30% 94%;
     /* Signal-Cyan #00E5FF = hsl(189 100% 50%) */
     --primary: 189 100% 50%;

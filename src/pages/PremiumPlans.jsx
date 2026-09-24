@@ -10,6 +10,7 @@ import {
   restoreGooglePlayPurchases
 } from "@/components/premium/googlePlayBilling";
 import WebCheckoutButton from "@/components/premium/WebCheckoutButton";
+import PageTitle from "@/components/layout/PageTitle";
 
 // Offener Stripe-Kauf, dessen Aktivierung noch nicht bestätigt ist. Zwischen
 // "bei Stripe bezahlt" und "serverseitig freigeschaltet" liegt ein API-Aufruf;
@@ -373,13 +374,12 @@ export default function PremiumPlans() {
   return (
     <div className="bb-page">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--bb-cyan)' }}>
-            Premium-Pläne
-          </h1>
-          <p className="text-lg" style={{ color: 'var(--bb-muted)' }}>
-            Wähle den Plan, der am besten zu deinem Angel-Abenteuer passt
-          </p>
+        <div className="mb-8">
+          <PageTitle
+            title="Tarif & KI-Zugriff"
+            subtitle="Wähle den passenden Plan für dein Angelerlebnis. Mehr Möglichkeiten. Mehr Fänge."
+            script="Bessere Entscheidungen. Mehr Fische."
+          />
           {currentPlan && currentPlan.id !== 'free' && (
             <div className="mt-4">
               <span className="bb-pill-info" style={{ background: '#059669', color: '#fff' }}>

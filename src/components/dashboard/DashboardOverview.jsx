@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Brain, Map, CloudSun, BookOpen, MapPin, Wind, Gauge, Droplets, Backpack, CalendarDays } from 'lucide-react';
+import { ArrowRight, ArrowUp, ArrowDown, Brain, Map, CloudSun, BookOpen, MapPin, Wind, Gauge, Droplets, Backpack, CalendarDays, ChevronRight, Eye } from 'lucide-react';
 import { entities } from '@/api/frontendClient';
 import { useLocation } from '@/components/location/LocationManager';
 import { useFishingConditions } from '@/hooks/useFishingConditions';
@@ -9,6 +9,8 @@ import { formatForecastTime, weatherDescription } from '@/lib/fishingConditions'
 import BuddyCard from '@/components/buddy/BuddyCard';
 import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+const DashboardMapPreview = lazy(() => import('@/components/dashboard/DashboardMapPreview'));
 
 function DataError({ onRetry, children }) {
   return (
@@ -24,18 +26,18 @@ function BiteIndexRing({ value, size = 100 }) {
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, value || 0));
   const offset = circumference - (clamped / 100) * circumference;
-  const color = clamped >= 70 ? 'var(--bb-green)' : clamped >= 40 ? 'var(--bb-cyan)' : 'var(--bb-orange)';
+  const color = clamped >= 55 ? 'var(--bb-green)' : clamped >= 40 ? 'var(--bb-cyan)' : 'var(--bb-orange)';
 
   return (
     <div className="bb-bite-ring" style={{ width: size, height: size }}>
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
         <circle
           cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="8"
+          fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="9"
         />
         <circle
           cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke={color} strokeWidth="8"
+          fill="none" stroke={color} strokeWidth="9"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -44,11 +46,25 @@ function BiteIndexRing({ value, size = 100 }) {
         />
       </svg>
       <div className="bb-bite-ring-value">
-        <strong style={{ color, fontSize: size > 80 ? 22 : 18 }}>{clamped}</strong>
-        <span>/100</span>
+        <strong style={{ fontSize: size > 100 ? 30 : size > 80 ? 22 : 18 }}>{clamped}%</strong>
       </div>
     </div>
   );
+}
+
+function currentHourIndex(hours) {
+  const now = Date.now();
+  const row = hours.find(entry => entry.time <= now && now < entry.time + 3600000);
+  if (!row || row.index == null) return null;
+  const next = hours.find(entry => entry.time === row.time + 3600000);
+  return { value: row.index, rising: next?.index != null ? next.index > row.index : null };
+}
+
+function biteLabel(value) {
+  if (value >= 70) return 'Sehr gut';
+  if (value >= 55) return 'Gut';
+  if (value >= 40) return 'Mittel';
+  return 'Schwach';
 }
 
 export default function DashboardOverview({ user, nearestSpots = [], nextTrip = null, tripsError = false, onRetryTrips }) {
@@ -61,17 +77,27 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
     queryFn: () => entities.GearItem.list(),
     staleTime: 60000,
   });
+  const spots = useQuery({
+    queryKey: ['dashboard-map-spots', user?.id],
+    enabled: !!user,
+    queryFn: () => entities.Spot.list(),
+    staleTime: 5 * 60000,
+  });
 
   const tripTitle = nextTrip?.name || nextTrip?.title || null;
   const tripDate = nextTrip?.start_date || nextTrip?.planned_date || null;
   const gearItems = Array.isArray(gear.data) ? gear.data : [];
+  const mapSpots = Array.isArray(spots.data) ? spots.data : [];
   const hours = conditions.hours.filter(row => row.time >= Date.now() - 3600000).slice(0, 12);
   const nextWindow = conditions.window;
   const timezone = conditions.data?.timezone;
   const weather = conditions.data?.current;
+  const bite = currentHourIndex(conditions.hours);
   const hour = new Date().getHours();
   const greeting = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend';
   const name = user?.nickname || user?.full_name?.split(' ')[0];
+  const topSpot = nearestSpots[0] || null;
+  const locationName = currentLocation?.name || (conditions.hasLocation ? 'Dein Standort' : null);
 
   const upcoming = tripTitle && tripDate
     ? `Dein naechster Trip: ${tripTitle}, ${new Date(tripDate).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. Lass uns deine Vorbereitung pruefen.`
@@ -83,58 +109,149 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
     <>
       <OnboardingFlow />
 
-      {/* Hero greeting */}
-      <header className="bb-dash-hero">
-        <div className="bb-dash-hero-text">
-          <p className="bb-eyebrow mb-1">Dein Tag am Wasser</p>
-          <h1 className="bb-dash-greeting">
-            {greeting}{name ? `, ${name}` : ''}.
-          </h1>
-          <p className="bb-muted mt-1">Ein guter Ausflug beginnt mit einem guten Plan.</p>
+      {/* Begruessung + Wetter-Chip */}
+      <header className="bb-dash-greet-row">
+        <div className="min-w-0">
+          <h1 className="bb-dash-greeting">{greeting}{name ? `, ${name}` : ''}!</h1>
+          <p className="bb-dash-greet-sub">Bereit für dein nächstes Abenteuer?</p>
         </div>
+        {weather ? (
+          <Link to="/Weather" className="bb-weather-chip" aria-label="Wetter öffnen">
+            <CloudSun size={34} aria-hidden="true" className="bb-weather-icon" />
+            <span>
+              <strong>{Math.round(weather.temperature_2m)}°C</strong>
+              {locationName && <span className="bb-weather-chip-loc">{locationName}</span>}
+            </span>
+            <ChevronRight size={18} aria-hidden="true" className="bb-title-accent" />
+          </Link>
+        ) : !conditions.hasLocation ? (
+          <button type="button" onClick={requestGpsLocation} className="bb-weather-chip">
+            <MapPin size={22} aria-hidden="true" className="bb-title-accent" />
+            <span className="text-sm">Standort<br />verwenden</span>
+          </button>
+        ) : null}
       </header>
 
-      {/* Weather + Bite Index hero card */}
-      <section className="bb-card bb-hero" aria-label="Wetter und Bissprognose">
-        <img src="/assets/buddy/lake-hero.png" alt="" className="bb-hero-image" fetchPriority="high" />
-        <div className="flex items-center gap-2 text-xs text-cyan-100 mb-5">
-          <MapPin size={14} />
-          {currentLocation?.name || (conditions.hasLocation ? 'An deinem Standort' : 'Bereit fuer neue Gewaesser')}
-        </div>
+      {/* Vier Schnellzugriffe */}
+      <nav className="bb-quick-grid" aria-label="Dashboard-Schnellzugriffe">
+        {[
+          [Map, 'Karte', 'Map'],
+          [Eye, 'Gewässer', 'WaterAnalysis'],
+          [Brain, 'KI-Buddy', 'KiBuddyBeta'],
+          [BookOpen, 'Fangbuch', 'Logbook'],
+        ].map(([Icon, label, path]) => (
+          <Link key={path} to={`/${path}`}>
+            <Icon size={28} strokeWidth={1.7} aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
 
-        <div className="bb-dash-weather-row">
-          <div className="bb-dash-weather-info">
-            {weather && (
-              <>
-                <div className="flex items-center gap-3">
-                  <CloudSun className="text-cyan-200" size={30} />
-                  <div>
-                    <strong className="text-xl">{Math.round(weather.temperature_2m)} °C</strong>
-                    <p className="text-xs text-slate-300">{weatherDescription(weather.weather_code)}</p>
-                  </div>
+      {/* Wetter vor Ort + Bissindex */}
+      <div className="bb-dash-conditions">
+        <section className="bb-card bb-dash-weather" aria-label="Wetter vor Ort">
+          <h2 className="bb-dash-card-label">Wetter vor Ort</h2>
+          {weather ? (
+            <>
+              <div className="bb-dash-weather-main">
+                <CloudSun size={52} aria-hidden="true" className="bb-weather-icon" />
+                <div>
+                  <strong className="bb-dash-temp">{Math.round(weather.temperature_2m)}°C</strong>
+                  <p className="bb-dash-weather-desc">{weatherDescription(weather.weather_code)}</p>
                 </div>
-                <div className="bb-dash-weather-stats">
-                  <span><Wind size={14} />{Math.round(weather.wind_speed_10m)} km/h</span>
-                  <span><Gauge size={14} />{Math.round(weather.pressure_msl)} hPa</span>
-                  <span><Droplets size={14} />{weather.precipitation} mm</span>
-                </div>
-              </>
-            )}
-            {conditions.isLoading && <p className="text-sm text-slate-300" role="status">Bedingungen werden geladen ...</p>}
-          </div>
-
-          {nextWindow && (
-            <div className="bb-dash-bite-section">
-              <BiteIndexRing value={nextWindow.index} size={88} />
-              <p className="text-xs text-slate-400 mt-1 text-center">Biss-Index</p>
+              </div>
+              <dl className="bb-dash-weather-stats">
+                <div><dt><Wind size={14} aria-hidden="true" />Wind</dt><dd>{Math.round(weather.wind_speed_10m)} km/h</dd></div>
+                <div><dt><Gauge size={14} aria-hidden="true" />Luftdruck</dt><dd>{Math.round(weather.pressure_msl)} hPa</dd></div>
+                <div><dt><Droplets size={14} aria-hidden="true" />Luftfeuchte</dt><dd>{weather.relative_humidity_2m != null ? `${Math.round(weather.relative_humidity_2m)}%` : '–'}</dd></div>
+              </dl>
+            </>
+          ) : conditions.isLoading ? (
+            <div className="h-24 rounded-xl bg-slate-800/60 animate-pulse mt-3" role="status" aria-label="Wetter wird geladen" />
+          ) : conditions.isError ? (
+            <DataError onRetry={conditions.refetch}>Wetterdaten konnten gerade nicht geladen werden.</DataError>
+          ) : (
+            <div className="mt-3">
+              <p className="bb-muted">Wähle deinen Standort für Wetter und Bissindex.</p>
+              <button type="button" onClick={requestGpsLocation} className="bb-secondary mt-3">
+                <MapPin size={18} aria-hidden="true" />Standort verwenden
+              </button>
             </div>
           )}
-        </div>
+        </section>
 
-        <Link className="bb-action self-start mt-4" to="/TripPlanner?new=1">
-          Ausflug planen <ArrowRight size={18} />
+        <Link to="/Weather" className="bb-card bb-dash-bite" aria-label={bite ? `Bissindex ${bite.value} Prozent, ${biteLabel(bite.value)}` : 'Bissindex'}>
+          <span className="bb-dash-card-label">Bissindex</span>
+          {bite ? (
+            <>
+              <BiteIndexRing value={bite.value} size={112} />
+              <span className="bb-dash-bite-label" style={{ color: bite.value >= 55 ? 'var(--bb-green)' : bite.value >= 40 ? 'var(--bb-cyan)' : 'var(--bb-orange)' }}>
+                {biteLabel(bite.value)}
+                {bite.rising === true && <ArrowUp size={16} aria-hidden="true" />}
+                {bite.rising === false && <ArrowDown size={16} aria-hidden="true" />}
+              </span>
+            </>
+          ) : (
+            <span className="bb-muted text-center text-sm mt-4">{conditions.isLoading ? 'Wird berechnet …' : 'Standort nötig'}</span>
+          )}
         </Link>
+      </div>
+
+      {/* Karte mit Spots */}
+      <section className="bb-card bb-dash-map-card" aria-label="Karte">
+        <Suspense fallback={<div className="bb-dash-map animate-pulse" />}>
+          <DashboardMapPreview location={currentLocation} spots={mapSpots} />
+        </Suspense>
       </section>
+
+      {/* Top-Spot */}
+      {topSpot ? (
+        <Link to={`/Map?spot=${encodeURIComponent(topSpot.id)}`} className="bb-card bb-dash-row">
+          <span className="bb-dash-row-media"><MapPin size={30} aria-hidden="true" /></span>
+          <span className="flex-1 min-w-0">
+            <span className="bb-dash-row-label">Top-Spot</span>
+            <strong className="bb-dash-row-title">{topSpot.name}</strong>
+            <span className="bb-dash-row-meta">
+              {[
+                topSpot.water_type,
+                topSpot.usage_count ? `${topSpot.usage_count} ${topSpot.usage_count === 1 ? 'Fang' : 'Fänge'} in 30 Tagen` : null,
+                topSpot.distance != null ? `${topSpot.distance.toFixed(1)} km` : null,
+              ].filter(Boolean).join(' · ')}
+            </span>
+          </span>
+          <ChevronRight size={22} aria-hidden="true" />
+        </Link>
+      ) : (
+        <Link to="/Map" className="bb-card bb-dash-row">
+          <span className="bb-dash-row-media"><MapPin size={30} aria-hidden="true" /></span>
+          <span className="flex-1 min-w-0">
+            <span className="bb-dash-row-label">Top-Spot</span>
+            <strong className="bb-dash-row-title">Noch kein Top-Spot</strong>
+            <span className="bb-dash-row-meta">Ordne deine Fänge einem Spot zu – dein bester erscheint hier.</span>
+          </span>
+          <ChevronRight size={22} aria-hidden="true" />
+        </Link>
+      )}
+
+      {/* Naechster Ausflug */}
+      {tripsError && user ? (
+        <DataError onRetry={onRetryTrips}>Deine Trips konnten nicht geladen werden.</DataError>
+      ) : (
+        <section className="bb-card bb-dash-row" aria-label="Nächster Ausflug">
+          <CalendarDays size={30} aria-hidden="true" className="bb-title-accent shrink-0" />
+          <span className="flex-1 min-w-0">
+            <strong className="bb-dash-row-title">{tripTitle || 'Nächster Ausflug'}</strong>
+            <span className="bb-dash-row-meta">
+              {tripDate
+                ? new Date(tripDate).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+                : 'Noch nichts geplant'}
+            </span>
+          </span>
+          <Link to={tripTitle ? '/TripPlanner' : '/TripPlanner?new=1'} className="bb-dash-plan-btn">
+            Planen <ArrowRight size={18} aria-hidden="true" />
+          </Link>
+        </section>
+      )}
 
       {/* Buddy card */}
       <BuddyCard
@@ -144,21 +261,6 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
           : 'Welche Spots, Wetterbedingungen und Ausruestung passen zu meinem naechsten Angelausflug?'
         }
       />
-
-      {/* Quick access grid */}
-      <nav className="bb-quick-grid" aria-label="Dashboard-Schnellzugriffe">
-        {[
-          [Brain, 'KI-Buddy', 'KiBuddyBeta'],
-          [Map, 'Karte', 'Map'],
-          [CloudSun, 'Wetter', 'Weather'],
-          [BookOpen, 'Fangbuch', 'Logbook'],
-        ].map(([Icon, label, path]) => (
-          <Link key={path} to={`/${path}`}>
-            <Icon size={25} />
-            <span>{label}</span>
-          </Link>
-        ))}
-      </nav>
 
       {/* Two-column layout */}
       <div className="bb-dashboard-columns">
@@ -291,21 +393,6 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
         </div>
       </div>
 
-      {/* Next trip link */}
-      {tripsError ? (
-        <DataError onRetry={onRetryTrips}>Deine Trips konnten nicht geladen werden.</DataError>
-      ) : (
-        <Link to="/TripPlanner" className="bb-card flex gap-4 items-center">
-          <CalendarDays className="text-cyan-300" />
-          <div className="flex-1">
-            <h2 className="font-semibold">{tripTitle || 'Noch kein Angelausflug geplant'}</h2>
-            <p className="bb-muted">
-              {tripDate ? new Date(tripDate).toLocaleString('de-DE') : 'Plane deinen ersten Ausflug mit deinem Buddy.'}
-            </p>
-          </div>
-          <ArrowRight size={18} />
-        </Link>
-      )}
     </>
   );
 }

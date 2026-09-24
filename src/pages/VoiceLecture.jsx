@@ -3,6 +3,7 @@ import { useElevenLabsVoice } from '@/hooks/useElevenLabsVoice';
 import { functions } from '@/api/frontendClient';
 import PremiumGuard from '@/components/premium/PremiumGuard';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
+import PageTitle from "@/components/layout/PageTitle";
 
 const LECTURE_TOPICS = [
   {
@@ -119,21 +120,12 @@ function VoiceLectureInner() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#060d1a',
-      padding: '24px',
+      padding: '0 16px 128px',
       color: '#e0f0ff',
-      fontFamily: 'system-ui, sans-serif'
     }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 700, color: '#22d3c8', marginBottom: 8 }}>
-            Voice Lectures
-          </h1>
-          <p style={{ fontSize: 14, color: '#8899aa', lineHeight: 1.6 }}>
-            Lerne von erfahrenen Angelexperten. Wähle ein Thema und höre eine detaillierte Vorlesung.
-          </p>
-        </div>
+        <PageTitle className="mb-6" title="Voice Lectures" subtitle="Lerne von erfahrenen Angelexperten. Wähle ein Thema und höre eine detaillierte Vorlesung." />
 
         {!selectedTopic ? (
           // Topic Selection Grid

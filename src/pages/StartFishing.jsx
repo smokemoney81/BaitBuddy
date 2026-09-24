@@ -21,6 +21,7 @@ import {
   Lightbulb
 } from "lucide-react";
 import { motion } from "framer-motion";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function StartFishing() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -233,10 +234,7 @@ Antwort im JSON-Format:
     <div className="bb-page">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Start Fishing</h1>
-          <p style={{ color: '#d1d5db' }}>Bereite deine Angel-Session optimal vor</p>
-        </div>
+        <PageTitle className="mb-6" title="Angel-Session starten" subtitle="Bereite deine Angel-Session optimal vor." />
 
         {/* Progress */}
         <div className="bb-card mb-8">

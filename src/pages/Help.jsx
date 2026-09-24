@@ -8,6 +8,7 @@ import { entities } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function Help() {
   const [user, setUser] = useState(null);
@@ -114,16 +115,11 @@ export default function Help() {
 
   return (
     <div className="bb-page pb-safe-fixed">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-            Hilfe & Support
-          </h1>
-          <p className="mt-1" style={{ color: 'var(--bb-muted)' }}>Wir helfen dir gerne weiter</p>
-        </div>
+      <div className="max-w-4xl mx-auto space-y-6 w-full min-w-0">
+        <PageTitle title="Hilfe & Support" subtitle="Wir helfen dir gerne weiter." />
 
-        <Tabs defaultValue="ticket" className="w-full">
-          <TabsList className="grid w-full grid-cols-4" style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}>
+        <Tabs defaultValue="ticket" className="w-full min-w-0">
+          <TabsList className="flex w-full justify-start overflow-x-auto scrollbar-hide">
             <TabsTrigger value="ticket">Ticket erstellen</TabsTrigger>
             <TabsTrigger value="meine">Meine Tickets</TabsTrigger>
             <TabsTrigger value="ki">KI-Hilfe</TabsTrigger>

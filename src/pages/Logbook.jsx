@@ -26,6 +26,7 @@ import SocialMediaShareDialog from "@/components/log/SocialMediaShareDialog";
 import FishRecognitionResult from "@/components/log/FishRecognitionResult";
 import { mergeRecognitionNote } from "@/lib/fishRecognition";
 import TabBar from "@/components/layout/TabBar";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function Logbook() {
   useFeatureTracking("catch_log");
@@ -363,6 +364,7 @@ export default function Logbook() {
   return (
     <SwipeToRefresh onRefresh={() => queryClient.invalidateQueries({ queryKey: ['catches'] })}>
       <div className="bb-page">
+        <PageTitle title="Dein Fangbuch" subtitle="Jeder Fang zählt – mit Foto, Maß, Köder und Spot." />
 
         {/* ── Stats ──────────────────────────────── */}
         {catches.length > 0 && !loading && (

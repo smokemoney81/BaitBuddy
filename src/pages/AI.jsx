@@ -12,6 +12,7 @@ const SectionSkeleton = () => (
 );
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function AI() {
   return (
@@ -24,16 +25,9 @@ export default function AI() {
 function AIInner() {
   useFeatureTracking("bite_detector");
   return (
-    <div className="min-h-screen bg-gray-950 px-3 sm:px-6 pb-32">
+    <div className="min-h-screen px-4 sm:px-6 pb-32">
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 py-4 sm:py-6">
-        <div className="text-center">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.8)] mb-2">
-            KI-Assistent
-          </h1>
-          <p className="text-sm sm:text-base text-gray-400">
-            Fischarten erkennen & Bisserkennung
-          </p>
-        </div>
+        <PageTitle title="KI-Kamera & Bisserkennung" subtitle="Fischarten erkennen und keinen Biss mehr verpassen." />
 
         <div>
           <Suspense fallback={<SectionSkeleton />}>

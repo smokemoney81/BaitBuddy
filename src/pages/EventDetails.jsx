@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function EventDetails() {
   useFeatureTracking('event_details');
@@ -185,13 +186,7 @@ export default function EventDetails() {
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Trophy size={28} style={{ color: '#fbbf24' }} />
-          {event.name}
-        </h1>
-        {event.description && (
-          <p className="mt-1" style={{ color: 'var(--bb-muted)' }}>{event.description}</p>
-        )}
+        <PageTitle title={event.name} subtitle={event.description || undefined} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

@@ -5,9 +5,10 @@ import { User } from '@/entities/User';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { BrainCircuit, Check, X, Award, Clock, ShoppingCart } from 'lucide-react';
+import { Check, X, Award, Clock, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import PageTitle from "@/components/layout/PageTitle";
 
 // Removed global QUIZ_LEVELS and question definitions as they are now embedded within QuizPage component
 
@@ -321,11 +322,8 @@ export default function QuizPage() {
       <AnimatePresence mode="wait">
         {gameState === 'level-selection' && (
           <motion.div key="level-selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="max-w-2xl mx-auto text-center">
-              <h1 className="text-3xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-                <BrainCircuit size={32} style={{ color: '#34d399' }} /> Quiz-Zeit!
-              </h1>
-              <p className="mb-8" style={{ color: 'var(--bb-muted)' }}>Wähle deinen Schwierigkeitsgrad und sammle Punkte.</p>
+            <div className="max-w-2xl mx-auto">
+              <PageTitle className="mb-6" title="Angel-Quiz Zeit!" subtitle="Wähle deinen Schwierigkeitsgrad und sammle Punkte." />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {quizLevelsConfig.map((level, index) => (
                   <div key={level.key || index} className="bb-card hover:border-emerald-500/50 transition-all">

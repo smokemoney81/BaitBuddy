@@ -29,6 +29,7 @@ function centsToDisplay(cents, currency) {
 }
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function UsedGearMarket() {
   return (
@@ -167,10 +168,7 @@ export function UsedGearMarketInner() {
         className="flex items-center justify-between mb-6"
       >
         <div className="flex items-center gap-3">
-          <Package size={32} style={{ color: 'var(--bb-cyan)' }} />
-          <h1 className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-            Gebrauchtmarkt
-          </h1>
+          <PageTitle title="Gebrauchter Angelbedarf" />
           <span className="px-3 py-1 text-xs font-bold rounded-full" style={{
             background: 'rgba(168,85,247,0.2)',
             color: '#c4b5fd',

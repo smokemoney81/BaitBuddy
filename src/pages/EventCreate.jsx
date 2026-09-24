@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
 import { toast } from "sonner";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function EventCreate() {
   const navigate = useNavigate();
@@ -86,7 +87,7 @@ export default function EventCreate() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900 flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto"></div>
           <p className="text-gray-400 text-sm">Daten werden geladen...</p>
@@ -100,15 +101,10 @@ export default function EventCreate() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900 px-4 py-8 max-w-3xl mx-auto pb-32">
+    <div className="min-h-screen px-4 py-4 max-w-3xl mx-auto pb-32">
       <div className="space-y-8">
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-white">
-            Neue Veranstaltung erstellen
-          </h1>
-          <p className="text-gray-400 text-sm">Starten Sie einen Wettbewerb und laden Sie andere Angler ein</p>
-        </div>
+        <PageTitle title="Neues Event erstellen" subtitle="Starte einen Wettbewerb und lade andere Angler ein." />
 
         {/* Template Selection */}
         {!selectedTemplate && (

@@ -3,7 +3,6 @@ import { leaderboards, rewards } from '@/api/frontendClient';
 import { auth } from '@/api/auth';
 import { toast } from 'sonner';
 import {
-  Trophy,
   Zap,
   Gift,
   Crown,
@@ -17,6 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useFeatureTracking } from '@/hooks/useFeatureTracking';
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function MonthlyLeaderboard() {
   useFeatureTracking('monthly_leaderboard');
@@ -106,13 +106,7 @@ export default function MonthlyLeaderboard() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-            <Trophy size={40} style={{ color: '#fbbf24' }} />
-            Monatliches Leaderboard
-          </h1>
-          <p style={{ color: 'var(--bb-muted)' }}>
-            Der Sieger jedes Monats gewinnt einen kostenlosen Basic Plan für 30 Tage!
-          </p>
+          <PageTitle title="Monatliches Leaderboard" subtitle="Der Sieger jedes Monats gewinnt einen kostenlosen Basic-Plan für 30 Tage." />
         </div>
 
         {/* Month Navigation */}

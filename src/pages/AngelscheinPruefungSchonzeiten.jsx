@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { GraduationCap, MapPin, ArrowLeft, Check, X, Trophy, Target, Clock, Sparkles, Wrench, BookOpen, AlertTriangle, Play, Fish } from "lucide-react";
+import { MapPin, ArrowLeft, Check, X, Trophy, Target, Clock, Sparkles, Wrench, BookOpen, AlertTriangle, Play, Fish } from "lucide-react";
 import { motion } from "framer-motion";
 import RodBuilderGame from "@/components/exam/RodBuilderGame";
 import { entities } from "@/api/frontendClient";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import { isInClosedSeason } from "@/lib/closedSeason";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function AngelscheinPruefungSchonzeiten() {
   useFeatureTracking("angelschein_pruefung");
@@ -230,15 +231,7 @@ export default function AngelscheinPruefungSchonzeiten() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <div className="text-center mb-8">
-              <GraduationCap size={64} className="mx-auto mb-4" style={{ color: 'var(--bb-cyan)' }} />
-              <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--bb-cyan)' }}>
-                Angelschein-Prüfung & Schonzeiten
-              </h1>
-              <p style={{ color: 'var(--bb-muted)' }}>
-                Bereite dich optimal auf die Fischerprüfung vor und kenne deine Regeln
-              </p>
-            </div>
+            <PageTitle className="mb-6" title="Angelschein-Prüfung & Schonzeiten" subtitle="Bereite dich optimal auf die Fischerprüfung vor und kenne deine Regeln." />
 
             <div className="bb-card mb-6">
               <div className="bb-form-title flex items-center gap-2" style={{ color: 'var(--bb-cyan)' }}>

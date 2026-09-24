@@ -1,8 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Lock } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Lock, Crown, ArrowRight } from 'lucide-react';
 import { usePlan } from './PlanContext';
 
 const PLAN_LABELS = {
@@ -15,7 +13,7 @@ const PLAN_LABELS = {
 };
 
 export default function PlanGuard({ children, requiredPlan = 'basic', fallback = null, featureName }) {
-  const { hasFeature, loading, plan } = usePlan();
+  const { hasFeature, loading } = usePlan();
 
   if (loading) {
     return (
@@ -26,7 +24,6 @@ export default function PlanGuard({ children, requiredPlan = 'basic', fallback =
   }
 
   const allowed = hasFeature(requiredPlan);
-  console.log(`[PlanGuard] ${featureName || requiredPlan}: plan=${plan?.id}, required=${requiredPlan}, allowed=${allowed}`);
 
   if (allowed) {
     return children;
@@ -37,25 +34,20 @@ export default function PlanGuard({ children, requiredPlan = 'basic', fallback =
   const planLabel = PLAN_LABELS[requiredPlan] || requiredPlan;
 
   return (
-    <Card className="glass-morphism border-amber-700/50">
-      <CardContent className="p-6 text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-amber-600/20 flex items-center justify-center mx-auto">
-          <Lock className="w-7 h-7 text-amber-400" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-1">
-            {featureName ? `${featureName} ist gesperrt` : 'Diese Funktion ist gesperrt'}
-          </h3>
-          <p className="text-sm text-gray-400">
-            Benötigt mindestens den {planLabel}-Plan.
-          </p>
-        </div>
-        <Link to="/PremiumPlans">
-          <Button className="bg-gradient-to-r from-amber-500 to-orange-600 text-white">
-            Plan upgraden
-          </Button>
-        </Link>
-      </CardContent>
-    </Card>
+    <section className="bb-card bb-lock-card" aria-labelledby="bb-lock-title">
+      <span className="bb-lock-icon"><Lock size={30} aria-hidden="true" /></span>
+      <h2 id="bb-lock-title" className="bb-lock-title">
+        {featureName ? `${featureName} ist gesperrt` : 'Diese Funktion ist gesperrt'}
+      </h2>
+      <p className="bb-lock-plan">
+        <Crown size={16} aria-hidden="true" />
+        Ab dem {planLabel}-Tarif verfügbar
+      </p>
+      <Link to="/PremiumPlans" className="bb-action bb-action-block">
+        <Crown size={20} aria-hidden="true" className="bb-action-icon" />
+        <span>Tarif ansehen</span>
+        <ArrowRight size={20} aria-hidden="true" className="bb-action-arrow" />
+      </Link>
+    </section>
   );
 }

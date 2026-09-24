@@ -33,7 +33,7 @@ export function LoadingCard({ className }) {
 
 export function LoadingState({ text = "Wird geladen..." }) {
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-[60vh] flex items-center justify-center p-4">
       <div className="text-center">
         <LoadingSpinner size="lg" className="mb-4 mx-auto" />
         <p className="text-gray-400">{text}</p>

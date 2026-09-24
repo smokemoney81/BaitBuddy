@@ -251,7 +251,7 @@ export default function ProfilePage() {
                 className="w-full h-full object-cover"
               />
             </div>
-            <label className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ background: 'var(--bb-cyan)', color: '#080F16' }}>
+            <label className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ background: 'var(--bb-cyan)', color: '#0B1324' }}>
               <Camera size={16} />
               <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
             </label>
@@ -403,7 +403,7 @@ export default function ProfilePage() {
                   <div className="ml-4 p-4 rounded-xl grid gap-3 max-h-96 overflow-y-auto" style={{ background: 'rgba(0,0,0,.3)', border: '1px solid var(--bb-border)' }}>
                     {conv.messages.map((msg, idx) => (
                       <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className="max-w-[80%] rounded-xl px-3 py-2 text-sm" style={{ background: msg.role === 'user' ? 'var(--bb-cyan)' : 'var(--bb-surface)', color: msg.role === 'user' ? '#080F16' : 'var(--bb-text-secondary)' }}>
+                        <div className="max-w-[80%] rounded-xl px-3 py-2 text-sm" style={{ background: msg.role === 'user' ? 'var(--bb-cyan)' : 'var(--bb-surface)', color: msg.role === 'user' ? '#0B1324' : 'var(--bb-text-secondary)' }}>
                           <div className="text-xs opacity-70 mb-1">
                             {new Date(msg.created_date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                           </div>

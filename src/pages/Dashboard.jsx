@@ -4,13 +4,11 @@ import React, { useState, useEffect } from "react";
 import { integrations } from "@/api/frontendClient";
 import { functions } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
-import MiniKarte from "@/components/home/MiniKarte";
 import { Brain, Users, Loader2 } from "lucide-react";
 import SchonzeitWarner from "@/components/dashboard/SchonzeitWarner";
 import { toast } from "sonner";
 import OfflineCacheIndicator from "@/components/dashboard/OfflineCacheIndicator";
 import FishingRecommendationCard from "@/components/dashboard/FishingRecommendationCard";
-import NextTripHero from "@/components/dashboard/NextTripHero";
 import BuddyInsightCard from "@/components/dashboard/BuddyInsightCard";
 import AudioNotesWidget from "@/components/dashboard/AudioNotesWidget";
 import { useQueryClient } from "@tanstack/react-query";
@@ -170,7 +168,7 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
           <div className="text-cyan-400/70 text-sm font-medium tracking-wide">Dashboard lädt...</div>
@@ -183,8 +181,8 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
     <PageContainer maxWidth="max-w-7xl" enableSwipeRefresh={true} onRefresh={loadData}>
       {buddy.chosen && <ReferralInvitePopup />}
       <div ref={statusAnnouncementRef} role="status" aria-live="polite" className="sr-only" />
-      <div className="bb-dashboard bb-app">
-        {error && <div className="bb-card" role="alert"><p>Dashboard-Daten konnten nicht geladen werden.</p><button type="button" className="bb-secondary mt-3" onClick={loadData}>Erneut versuchen</button></div>}
+      <div className="bb-dashboard">
+        {error && user && <div className="bb-card" role="alert"><p>Dashboard-Daten konnten nicht geladen werden.</p><button type="button" className="bb-secondary mt-3" onClick={loadData}>Erneut versuchen</button></div>}
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
         <DashboardOverview
           user={user}
@@ -193,12 +191,10 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
           tripsError={!!error}
           onRetryTrips={refetch}
         />
-        <SuspenseWithErrorBoundary isMinimal={true}><NextTripHero /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><BuddyInsightCard /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><SchonzeitWarner /></SuspenseWithErrorBoundary>
         <div className="flex items-center flex-wrap gap-3 justify-between"><button type="button" onClick={handleAiAnalysis} disabled={isAnalyzing} className="bb-secondary"><Brain size={18}/>{isAnalyzing ? 'Standort wird analysiert …' : 'KI Standort-Analyse'}</button><OfflineCacheIndicator /></div>
         {showAnalysis && aiAnalysis && <section className="bb-card" aria-label="KI-Analyse Ergebnis" aria-live="polite"><div className="flex justify-between items-center mb-4"><h2 className="text-lg font-semibold">Deine Standort-Analyse</h2><button type="button" className="bb-secondary" onClick={() => setShowAnalysis(false)}>Schließen</button></div><p className="whitespace-pre-wrap text-sm leading-relaxed">{aiAnalysis}</p></section>}
-        <section className="bb-card overflow-hidden"><h2 className="text-lg font-semibold mb-4">Gewässer entdecken</h2><SuspenseWithErrorBoundary isMinimal={true}><MiniKarte /></SuspenseWithErrorBoundary></section>
         <SuspenseWithErrorBoundary isMinimal={true}><FishingRecommendationCard /></SuspenseWithErrorBoundary>
         <SuspenseWithErrorBoundary isMinimal={true}><AudioNotesWidget /></SuspenseWithErrorBoundary>
         <button type="button" className="bb-secondary justify-center" onClick={() => setShowCommunityDialog(true)}><Users size={18}/>Erlebnis mit der Community teilen</button>

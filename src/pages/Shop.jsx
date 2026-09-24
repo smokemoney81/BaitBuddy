@@ -16,6 +16,7 @@ import PageContainer from '@/components/layout/PageContainer';
 import { usePredictivePrefetch } from '@/hooks/usePredictivePrefetch';
 import angelshops from '@/data/angelshops.json';
 import { UsedGearMarketInner } from '@/pages/UsedGear';
+import PageTitle from "@/components/layout/PageTitle";
 
 const PAGE_SIZE = 24;
 
@@ -201,23 +202,16 @@ export default function ShopPage() {
     <PageContainer maxWidth="max-w-6xl" enableSwipeRefresh={false}>
       <div className="space-y-8">
 
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-            BaitBuddy Shop
-          </h1>
-          <p style={{ color: 'var(--bb-muted)' }}>
-            Angelläden, Gebrauchtmarkt und alles, was du für dein nächstes Abenteuer brauchst.
-          </p>
-        </div>
+        <PageTitle title="BaitBuddy Shop" subtitle="Angelläden, Gebrauchtmarkt und alles, was du für dein nächstes Abenteuer brauchst." />
 
         {/* Tabs */}
         <Tabs defaultValue="shops" className="w-full">
-          <TabsList className="grid w-full grid-cols-2" style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}>
-            <TabsTrigger value="shops" className="data-[state=active]:bg-cyan-600">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="shops">
               <Store size={16} className="mr-2" />
               Angelläden
             </TabsTrigger>
-            <TabsTrigger value="used" className="data-[state=active]:bg-cyan-600">
+            <TabsTrigger value="used">
               <Package size={16} className="mr-2" />
               Gebrauchtmarkt
             </TabsTrigger>

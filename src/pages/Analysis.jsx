@@ -3,6 +3,7 @@ import AnalysisSection from "@/components/analysis/AnalysisSection";
 import { useRef } from "react";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
+import PageTitle from "@/components/layout/PageTitle";
 
 export default function Analysis() {
   return (
@@ -22,7 +23,8 @@ function AnalysisInner() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
+    <div className="min-h-screen px-4 pb-32">
+      <PageTitle className="mb-4" title="Fang-Analyse Profi" subtitle="Zeitreihen, Trends und Muster aus deinen Fängen." />
       <div 
         ref={analysisResultsRef}
         role="region"
