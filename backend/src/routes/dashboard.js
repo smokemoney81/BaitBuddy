@@ -16,109 +16,127 @@ import { resolvePlan } from '../lib/planResolver.js';
 
 const router = Router();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Supabase liefert Fehler als Wert statt sie zu werfen. Im Fallback würde ein
+// verschluckter Fehler als „keine Daten" durchgehen — der Nutzer sähe ein
+// leeres Dashboard statt der Fehlermeldung mit „Erneut versuchen".
+function unwrap({ data, error }, label) {
+  if (error) throw new Error(`${label}: ${error.message || error}`);
+  return data || [];
+}
+
 /**
- * Fallback: Manually aggregate dashboard data if RPC function doesn't exist
- * This runs when the RPC function hasn't been deployed yet
+ * Fallback: dieselbe Aggregation wie die RPC `get_dashboard_data`
+ * (supabase/migrations/20260924200000_fix_dashboard_spot_resolution.sql), falls
+ * die Funktion auf dieser Datenbank fehlt (z. B. Self-Hosting ohne Migration).
+ *
+ * Fänge referenzieren ihren Spot über `spot_id`; `spot_name` ist nur bei
+ * Altdaten gesetzt. Aufgelöst wird ausschließlich gegen die Spots desselben
+ * Nutzers, damit eine fremde spot_id keine fremden Namen/Koordinaten zeigt.
  */
 async function getAggregatedDataFallback(userEmail) {
-  // Nächste geplante Tour
-  const { data: nextTripList } = await supabase
-    .from('fishing_plans')
-    .select('id, title, details, planned_date, spot_info, target_fish, is_active')
-    .eq('created_by', userEmail)
-    .gt('planned_date', new Date().toISOString())
-    .order('planned_date', { ascending: true })
-    .limit(1);
+  const now = Date.now();
+  const since = (days) => new Date(now - days * DAY_MS).toISOString();
 
-  const nextTripData = (nextTripList && nextTripList.length > 0) ? nextTripList[0] : null;
-  const next_trip = nextTripData ? {
-    id: nextTripData.id,
-    name: nextTripData.title,
-    description: nextTripData.details,
-    start_date: nextTripData.planned_date,
+  const [tripRows, catchRows, spotRows] = await Promise.all([
+    supabase
+      .from('fishing_plans')
+      .select('id, title, details, planned_date, spot_info, target_fish, is_active')
+      .eq('created_by', userEmail)
+      .gt('planned_date', new Date(now).toISOString())
+      .order('planned_date', { ascending: true })
+      .limit(1)
+      .then((r) => unwrap(r, 'fishing_plans')),
+    // Ein Abruf für alle drei Zeitfenster (7/30/90 Tage).
+    supabase
+      .from('catches')
+      .select('id, species, weight_kg, length_cm, catch_time, photo_url, bait_used, spot_id, spot_name, water_body, is_released')
+      .eq('created_by', userEmail)
+      .gt('catch_time', since(90))
+      .order('catch_time', { ascending: false })
+      .then((r) => unwrap(r, 'catches')),
+    supabase
+      .from('spots')
+      .select('id, name, latitude, longitude, water_type')
+      .eq('created_by', userEmail)
+      .then((r) => unwrap(r, 'spots')),
+  ]);
+
+  const spotsById = new Map(spotRows.map((sp) => [sp.id, sp]));
+  const spotsByName = new Map();
+  for (const sp of spotRows) {
+    if (sp.name && !spotsByName.has(sp.name)) spotsByName.set(sp.name, sp);
+  }
+  const resolveSpot = (c) => (c.spot_id
+    ? spotsById.get(c.spot_id) || null
+    : (c.spot_name && spotsByName.get(c.spot_name)) || null);
+
+  const trip = tripRows[0] || null;
+  const next_trip = trip ? {
+    id: trip.id,
+    name: trip.title,
+    description: trip.details,
+    start_date: trip.planned_date,
     end_date: null,
-    location: nextTripData.spot_info,
-    target_species: nextTripData.target_fish ? [nextTripData.target_fish] : [],
-    status: nextTripData.is_active ? 'active' : 'planned',
+    location: trip.spot_info,
+    target_species: trip.target_fish ? [trip.target_fish] : [],
+    status: trip.is_active ? 'active' : 'planned',
   } : null;
 
-  // Fänge der letzten 7 Tage
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const inWindow = (c, days) => new Date(c.catch_time).getTime() > now - days * DAY_MS;
 
-  const { data: catchesData } = await supabase
-    .from('catches')
-    .select('id, species, weight_kg, length_cm, catch_time, photo_url, bait_used, spot_id')
-    .eq('created_by', userEmail)
-    .gt('catch_time', sevenDaysAgo.toISOString())
-    .order('catch_time', { ascending: false })
-    .limit(10);
-
-  const recent_catches = (catchesData || []).map(c => ({
-    id: c.id,
-    species: c.species,
-    weight: c.weight_kg,
-    length: c.length_cm,
-    location: c.spot_id || 'Unknown',
-    caught_at: c.catch_time,
-    photo_urls: c.photo_url ? [c.photo_url] : [],
-    bait_type: c.bait_used,
-  }));
-
-  // Top spots der letzten 30 Tage
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const { data: spotsData } = await supabase
-    .from('catches')
-    .select('spot_id, is_released')
-    .eq('created_by', userEmail)
-    .gt('catch_time', thirtyDaysAgo.toISOString());
-
-  const spotCounts = {};
-  const spotSuccess = {};
-  (spotsData || []).forEach(c => {
-    const spotKey = c.spot_id || 'unknown';
-    if (!spotCounts[spotKey]) {
-      spotCounts[spotKey] = 0;
-      spotSuccess[spotKey] = 0;
-    }
-    spotCounts[spotKey]++;
-    if (!c.is_released) spotSuccess[spotKey]++;
-  });
-
-  const top_spots = Object.entries(spotCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([spotId, count]) => ({
-      id: spotId,
-      name: spotId,
-      location: '',
-      usage_count: count,
-      avg_success: spotSuccess[spotId] / count,
+  const recent_catches = catchRows
+    .filter((c) => inWindow(c, 7))
+    .slice(0, 10)
+    .map((c) => ({
+      id: c.id,
+      species: c.species,
+      weight: c.weight_kg,
+      length: c.length_cm,
+      location: resolveSpot(c)?.name ?? c.spot_name ?? c.water_body ?? null,
+      caught_at: c.catch_time,
+      photo_urls: c.photo_url ? [c.photo_url] : [],
+      bait_type: c.bait_used,
     }));
 
-  // Statistiken der letzten 90 Tage
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const groups = new Map();
+  for (const c of catchRows.filter((row) => inWindow(row, 30))) {
+    const spot = resolveSpot(c);
+    const key = spot?.id ?? c.spot_name;
+    if (!key) continue;
+    const g = groups.get(key) || { spot, name: spot?.name ?? c.spot_name, count: 0, kept: 0 };
+    g.count += 1;
+    if (!c.is_released) g.kept += 1;
+    groups.set(key, g);
+  }
+  const top_spots = [...groups.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([id, g]) => ({
+      id,
+      name: g.name,
+      location: g.spot && g.spot.latitude != null && g.spot.longitude != null
+        ? `${g.spot.latitude}, ${g.spot.longitude}`
+        : '',
+      water_type: g.spot?.water_type ?? null,
+      usage_count: g.count,
+      avg_success: g.kept / g.count,
+    }));
 
-  const { data: statsData } = await supabase
-    .from('catches')
-    .select('weight_kg, species, catch_time')
-    .eq('created_by', userEmail)
-    .gt('catch_time', ninetyDaysAgo.toISOString());
-
+  const weights = catchRows.map((c) => Number(c.weight_kg) || 0);
+  // Kalenderwochen ab Montag (wie date_trunc('week') in der RPC).
+  const weekKey = (iso) => {
+    const d = new Date(iso);
+    const day = (d.getUTCDay() + 6) % 7;
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day)).toISOString().slice(0, 10);
+  };
   const statistics = {
-    total_catches: (statsData || []).length,
-    total_weight: (statsData || []).reduce((sum, c) => sum + (c.weight_kg || 0), 0),
-    personal_best: Math.max(0, ...(statsData || []).map(c => c.weight_kg || 0)),
-    species_count: new Set((statsData || []).map(c => c.species)).size,
-    weeks_active: new Set(
-      (statsData || []).map(c => {
-        const d = new Date(c.catch_time);
-        return Math.floor(d.getTime() / (7 * 24 * 60 * 60 * 1000));
-      })
-    ).size,
+    total_catches: catchRows.length,
+    total_weight: Math.round(weights.reduce((sum, w) => sum + w, 0) * 100) / 100,
+    personal_best: weights.reduce((max, w) => Math.max(max, w), 0),
+    species_count: new Set(catchRows.map((c) => c.species).filter(Boolean)).size,
+    weeks_active: new Set(catchRows.map((c) => weekKey(c.catch_time))).size,
   };
 
   return {
@@ -128,7 +146,7 @@ async function getAggregatedDataFallback(userEmail) {
     weather: null,
     buddy_suggestion: null,
     statistics,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date(now).toISOString(),
   };
 }
 
@@ -168,7 +186,6 @@ router.get(
 
       if (!rpcError && rpcData) {
         data = rpcData;
-        console.log('[dashboard] RPC aggregation succeeded');
       } else {
         // Fallback: RPC doesn't exist yet or failed — manually aggregate
         console.warn('[dashboard] RPC aggregation unavailable, using fallback:', rpcError?.message);
@@ -186,24 +203,15 @@ router.get(
 
       const plan = userData?.user ? resolvePlan(userData.user) : { effectiveId: 'free' };
 
-      // Filter data based on plan entitlements
+      // Erweiterte Kennzahlen (personal_best, species_count, weeks_active) erst
+      // ab Basic; Free sieht nur Anzahl und Gesamtgewicht.
+      const stats = data.statistics || {};
       const filteredData = {
         ...data,
-        // Buddy suggestions only for free+ (they exist)
-        buddy_suggestion:
-          plan.effectiveId === 'free' && data.buddy_suggestion
-            ? data.buddy_suggestion
-            : data.buddy_suggestion,
-
-        // Advanced stats (personal_best, species_count) for basic+
         statistics:
           plan.effectiveId === 'free'
-            ? {
-                total_catches: data.statistics.total_catches,
-                total_weight: data.statistics.total_weight,
-                // Hide advanced fields
-              }
-            : data.statistics,
+            ? { total_catches: stats.total_catches ?? 0, total_weight: stats.total_weight ?? 0 }
+            : stats,
       };
 
       // Set cache headers

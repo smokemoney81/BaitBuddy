@@ -14,10 +14,6 @@ import DeleteAccountDialog from "@/components/settings/DeleteAccountDialog";
 import { Trash2 } from "lucide-react";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 
-const generateReferralCode = () => {
-  return Math.random().toString(36).substring(2, 10).toUpperCase();
-};
-
 export default function ProfilePage() {
    useFeatureTracking('profil');
    const navigate = useNavigate();
@@ -42,12 +38,16 @@ export default function ProfilePage() {
       setUser(currentUser);
       setNickname(currentUser.nickname || '');
       
-      // Generiere Referral-Code falls nicht vorhanden
+      // Referral-Code vergibt ausschließlich der Server (eindeutig, im
+      // Reverse-Lookup registriert). Ein clientseitig gewürfelter Code konnte
+      // mit fremden Codes kollidieren und diese überschreiben.
       if (!currentUser.referral_code) {
-        const code = generateReferralCode();
-        await auth.updateMe({ referral_code: code });
-        const updatedUser = await auth.me();
-        setUser(updatedUser);
+        try {
+          const referral = await functions.invoke('getMyReferral');
+          if (referral?.code) setUser({ ...currentUser, referral_code: referral.code });
+        } catch (error) {
+          console.error('Referral-Code konnte nicht geladen werden:', error);
+        }
       }
 
       // Lade Posts-Anzahl

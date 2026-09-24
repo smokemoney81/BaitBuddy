@@ -87,3 +87,51 @@ describe('DELETE /api/user/account (echte Loeschung)', () => {
     expect(res.body.success).toBe(false);
   });
 });
+
+describe('resolveUploadContentType', () => {
+  it('lässt die Medientypen der App durch', async () => {
+    const { resolveUploadContentType } = await import('./misc.js');
+    expect(resolveUploadContentType('image/jpeg')).toBe('image/jpeg');
+    expect(resolveUploadContentType('audio/webm;codecs=opus')).toBe('audio/webm;codecs=opus');
+    expect(resolveUploadContentType('video/webm')).toBe('video/webm');
+  });
+
+  it('legt CSV/GPX als text/plain ab', async () => {
+    const { resolveUploadContentType } = await import('./misc.js');
+    expect(resolveUploadContentType('application/gpx+xml', 'track.gpx')).toBe('text/plain; charset=utf-8');
+    expect(resolveUploadContentType('application/octet-stream', 'tiefen.CSV')).toBe('text/plain; charset=utf-8');
+  });
+
+  it('verweigert aktive Inhalte', async () => {
+    const { resolveUploadContentType } = await import('./misc.js');
+    expect(resolveUploadContentType('text/html', 'x.html')).toBeNull();
+    expect(resolveUploadContentType('image/svg+xml', 'x.svg')).toBeNull();
+    expect(resolveUploadContentType('application/octet-stream', 'x.html')).toBeNull();
+    expect(resolveUploadContentType(undefined, 'x.js')).toBeNull();
+  });
+});
+
+describe('POST /api/files/upload', () => {
+  it('lehnt HTML-Uploads mit 415 ab', async () => {
+    const res = await request(app)
+      .post('/api/files/upload')
+      .set('Authorization', 'Bearer test-token')
+      .send({ file_base64: Buffer.from('<script>alert(1)</script>').toString('base64'), file_name: 'x.html', file_type: 'text/html' });
+    expect(res.status).toBe(415);
+  });
+});
+
+describe('POST /api/trips', () => {
+  it('überschreibt keinen Trip eines anderen Nutzers', async () => {
+    supabaseMock.current = createSupabaseMock({
+      authUser: TEST_USER,
+      fromResults: { live_trips: { data: { user_id: 'someone-else' }, error: null } },
+    });
+    const res = await request(app)
+      .post('/api/trips')
+      .set('Authorization', 'Bearer test-token')
+      .send({ id: 'trip-1', name: 'Fremder Trip' });
+    expect(res.status).toBe(409);
+    expect(supabaseMock.current.__builders.live_trips.upsert).not.toHaveBeenCalled();
+  });
+});

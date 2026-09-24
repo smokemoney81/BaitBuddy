@@ -90,3 +90,48 @@ describe('GET /api/dashboard', () => {
     expect(res.body.data).toBeTruthy();
   });
 });
+
+describe('GET /api/dashboard – Fallback-Aggregation', () => {
+  const recent = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+  function mockFallback({ catches, spots, catchesError = null }) {
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de' },
+      adminUsers: [{ id: 'u1', email: 'a@b.de', user_metadata: {}, app_metadata: { premium_plan_id: 'basic', premium_expires_at: new Date(Date.now() + 86400000).toISOString() } }],
+      rpcResults: {},
+      fromResults: {
+        catches: { data: catches, error: catchesError },
+        spots: { data: spots, error: null },
+        fishing_plans: { data: [], error: null },
+      },
+    });
+  }
+
+  // Fänge tragen spot_id, nicht spot_name. Früher gruppierte die Aggregation
+  // nach spot_name bzw. zeigte die rohe UUID — „Top-Spots" blieb leer.
+  it('löst Spots über spot_id auf und zählt sie', async () => {
+    mockFallback({
+      spots: [{ id: 's1', name: 'Elbe', latitude: 53.5, longitude: 9.9, water_type: 'fluss' }],
+      catches: [
+        { id: 'c1', species: 'Hecht', catch_time: recent, spot_id: 's1', weight_kg: 2 },
+        { id: 'c2', species: 'Zander', catch_time: recent, spot_id: 's1', weight_kg: 3 },
+        { id: 'c3', species: 'Barsch', catch_time: recent, spot_id: 'fremd', weight_kg: 1 },
+      ],
+    });
+
+    const res = await request(app).get('/api/dashboard').set('Authorization', 'Bearer tok');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.top_spots).toEqual([
+      expect.objectContaining({ id: 's1', name: 'Elbe', usage_count: 2, location: '53.5, 9.9' }),
+    ]);
+    expect(res.body.data.recent_catches.map((c) => c.location)).toEqual(['Elbe', 'Elbe', null]);
+    expect(res.body.data.statistics).toEqual(expect.objectContaining({ total_catches: 3, total_weight: 6, personal_best: 3, species_count: 3 }));
+  });
+
+  it('meldet Lesefehler als 500 statt ein leeres Dashboard vorzutäuschen', async () => {
+    mockFallback({ catches: null, spots: [], catchesError: { message: 'boom' } });
+    const res = await request(app).get('/api/dashboard').set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(500);
+  });
+});

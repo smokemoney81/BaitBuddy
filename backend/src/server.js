@@ -126,42 +126,38 @@ if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
     logger.info(`Server running on port ${PORT}`);
   });
 
-  // Graceful Shutdown für Docker SIGTERM
-  // Docker sendet SIGTERM und erwartet Shutdown innerhalb von 10 Sekunden.
-  process.on('SIGTERM', async () => {
-    logger.info('SIGTERM received, starting graceful shutdown...');
+  // Graceful Shutdown für Docker/Container (SIGTERM, Frist ~10 s) und Ctrl+C.
+  // server.close() nimmt keine neuen Verbindungen mehr an und ruft seinen
+  // Callback erst, wenn alle laufenden Requests beendet sind — erst DANN wird
+  // der Prozess beendet. Früher folgte process.exit(0) direkt auf close(),
+  // wodurch laufende Requests (z. B. ein KI-Stream) hart abbrachen.
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info(`${signal} received, starting graceful shutdown...`);
 
-    // 1. Keine neuen Requests mehr akzeptieren
-    server.close(() => {
-      logger.info('Server closed, no new requests accepted');
-    });
-
-    // 2. Bestehende Requests zu Ende laufen lassen (Timeout: 9 Sekunden)
-    const shutdownTimeout = setTimeout(() => {
+    const forceExit = setTimeout(() => {
       logger.warn('Shutdown timeout reached, forcefully exiting');
       process.exit(1);
     }, 9000);
+    forceExit.unref();
 
-    try {
-      // 3. Supabase-Client sauber abfahren (falls vorhanden)
-      // Supabase hat normalerweise keine explizite close() Methode,
-      // aber Axios/HTTP-Connections werden durch Server.close() beendet
-
-      // 4. Erfolgreicher Shutdown
-      clearTimeout(shutdownTimeout);
+    // Keep-Alive-Verbindungen ohne laufenden Request sofort schließen, sonst
+    // hält ein untätiger Client den Shutdown bis zum Timeout auf.
+    server.closeIdleConnections?.();
+    server.close((err) => {
+      clearTimeout(forceExit);
+      if (err) {
+        logger.error('Error during graceful shutdown', { error: err.message });
+        process.exit(1);
+      }
       logger.info('Graceful shutdown completed');
       process.exit(0);
-    } catch (error) {
-      logger.error('Error during graceful shutdown', { error: error.message });
-      process.exit(1);
-    }
-  });
-
-  // Alternative zu SIGTERM (SIGINT von Ctrl+C)
-  process.on('SIGINT', () => {
-    logger.info('SIGINT received, starting graceful shutdown...');
-    server.close(() => process.exit(0));
-  });
+    });
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 
   // Uncaught Exception Handler (sollte nicht passieren, aber sicher ist sicher)
   process.on('uncaughtException', (error) => {

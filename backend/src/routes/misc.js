@@ -97,8 +97,11 @@ router.delete('/fishing/plans/:id', requireAuth, async (req, res) => {
   return res.json({ ok: true });
 });
 
+// Öffentliche Karte: nur als öffentlich markierte Spots (siehe /spots/public).
 router.get('/fishing/hotspots', optionalAuth, async (req, res) => {
-  const { data, error } = await supabase.from('spots').select('id,name,latitude,longitude,water_type');
+  const { data, error } = await supabase.from('spots')
+    .select('id,name,latitude,longitude,water_type')
+    .eq('is_public', true);
   if (error) return sendDbError(res, error);
   return res.json({ hotspots: data || [] });
 });
@@ -257,6 +260,14 @@ router.post('/trips', requireAuth, async (req, res) => {
   try {
     const trip = req.body || {};
     const id = String(trip.id || Date.now());
+    // Upsert über eine vom Client gewählte id: Ohne diese Prüfung überschrieb
+    // ein Upsert mit einer fremden Trip-id deren Inhalt UND Eigentümer.
+    const { data: existing, error: existingErr } = await supabase.from('live_trips')
+      .select('user_id').eq('id', id).maybeSingle();
+    if (existingErr) return sendDbError(res, existingErr);
+    if (existing && existing.user_id !== req.user.id) {
+      return res.status(409).json({ error: 'Trip-ID bereits vergeben' });
+    }
     const { data, error } = await supabase.from('live_trips').upsert({
       id, user_id: req.user.id, user_email: req.user.email, trip,
     }, { onConflict: 'id' }).select().single();
@@ -327,6 +338,31 @@ router.get('/exams', optionalAuth, async (req, res) => {
   return res.json(data || []);
 });
 
+// Der Bucket ist öffentlich. Ein frei wählbarer Content-Type hätte erlaubt,
+// HTML/SVG mit Skript unter der Storage-Domain auszuliefern (Phishing/XSS).
+// Erlaubt sind nur die Medien, die die App tatsächlich hochlädt; Text-Formate
+// der Tiefendaten-Uploads (CSV/GPX) werden als text/plain abgelegt, damit
+// auch XML-basierte Dateien nie als Dokument gerendert werden.
+const UPLOAD_MEDIA_TYPE = /^(image\/(jpeg|png|webp|gif|heic|heif|avif)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)$/;
+const UPLOAD_TEXT_TYPES = new Set([
+  'text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel',
+  'application/gpx+xml', 'application/xml', 'text/xml',
+]);
+
+// Browser melden .gpx/.csv je nach Plattform auch als application/octet-stream;
+// dann entscheidet die Dateiendung.
+const UPLOAD_TEXT_EXTENSION = /\.(csv|gpx|txt)$/i;
+
+export function resolveUploadContentType(fileType, fileName = '') {
+  const base = String(fileType || '').split(';')[0].trim().toLowerCase();
+  if (UPLOAD_MEDIA_TYPE.test(base)) return String(fileType).trim();
+  if (UPLOAD_TEXT_TYPES.has(base)) return 'text/plain; charset=utf-8';
+  if ((base === '' || base === 'application/octet-stream') && UPLOAD_TEXT_EXTENSION.test(fileName)) {
+    return 'text/plain; charset=utf-8';
+  }
+  return null;
+}
+
 router.post('/files/upload', requireAuth, async (req, res) => {
   try {
     const { file_base64, file_name, file_type } = req.body;
@@ -335,12 +371,17 @@ router.post('/files/upload', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'file_base64 und file_name erforderlich' });
     }
 
-    if (!file_base64.match(/^[A-Za-z0-9+/=]+$/)) {
+    const contentType = resolveUploadContentType(file_type, typeof file_name === 'string' ? file_name : '');
+    if (!contentType) {
+      return res.status(415).json({ error: 'Dateityp nicht erlaubt' });
+    }
+
+    if (typeof file_base64 !== 'string' || !file_base64.match(/^[A-Za-z0-9+/=]+$/)) {
       return res.status(400).json({ error: 'Ungültiges Base64-Format' });
     }
 
     // Sicherheit: file_name validieren, um Path Traversal zu verhindern
-    const sanitized = path.basename(file_name);
+    const sanitized = typeof file_name === 'string' ? path.basename(file_name) : '';
     if (!sanitized || sanitized !== file_name) {
       return res.status(400).json({ error: 'Ungültiger Dateiname' });
     }
@@ -361,7 +402,7 @@ router.post('/files/upload', requireAuth, async (req, res) => {
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(filePath, buffer, {
-        contentType: file_type || 'application/octet-stream',
+        contentType,
         upsert: false,
       });
 

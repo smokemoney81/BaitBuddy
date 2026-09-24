@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
+import { validateCatchPayload } from './catches.js';
+import { parseCoordinates } from '../lib/coordinates.js';
 
 const router = Router();
 
@@ -15,6 +17,21 @@ const ENTITIES = {
 };
 
 const OPS = new Set(['insert', 'update', 'delete']);
+
+// Dieselben Prüfungen wie die direkten Routen (POST/PATCH /catches, /spots).
+// Ohne sie landeten über die Offline-Queue Fänge ohne Art, negative Maße oder
+// Spots mit Koordinaten wie "999" in der Datenbank.
+function validatePayload(entityName, payload, { partial }) {
+  if (entityName === 'catches') {
+    return validateCatchPayload(payload, { partial });
+  }
+  if (entityName === 'spots' && (!partial || 'latitude' in payload || 'longitude' in payload)) {
+    const coords = parseCoordinates(payload.latitude, payload.longitude);
+    if (!coords.ok) return { ok: false, error: coords.error };
+    return { ok: true, value: { ...payload, latitude: coords.latitude, longitude: coords.longitude } };
+  }
+  return { ok: true, value: payload };
+}
 
 function pick(obj, keys) {
   const out = {};
@@ -51,20 +68,23 @@ async function applyItem(req, item) {
   const email = req.user.email;
   try {
     if (item.op === 'insert') {
-      const payload = pick(item.payload, entity.fields);
-      const row = { ...payload, created_by: email };
-      if (entity.table === 'catches' && !row.catch_time) {
-        row.catch_time = item.createdAt || new Date().toISOString();
+      const picked = pick(item.payload, entity.fields);
+      if (entity.table === 'catches' && !picked.catch_time && item.createdAt) {
+        picked.catch_time = item.createdAt;
       }
+      const validated = validatePayload(item.entity, picked, { partial: false });
+      if (!validated.ok) return { ok: false, clientId: item.clientId, error: validated.error };
+      const row = { ...validated.value, created_by: email };
       const { data, error } = await supabase.from(entity.table).insert(row).select().single();
       if (error) { console.error('[Sync insert]', error.message); return { ok: false, clientId: item.clientId, error: 'Speichern fehlgeschlagen' }; }
       return { ok: true, clientId: item.clientId, entity: item.entity, op: item.op, record: data };
     }
     if (item.op === 'update') {
       if (!item.targetId) return { ok: false, clientId: item.clientId, error: 'targetId fehlt' };
-      const payload = pick(item.payload, entity.fields);
+      const validated = validatePayload(item.entity, pick(item.payload, entity.fields), { partial: true });
+      if (!validated.ok) return { ok: false, clientId: item.clientId, error: validated.error };
       const { data, error } = await supabase.from(entity.table)
-        .update(payload)
+        .update(validated.value)
         .eq('id', item.targetId)
         .eq('created_by', email)
         .select().single();

@@ -27,10 +27,11 @@ export function securityMiddleware(app) {
       req.clientIp = req.connection.remoteAddress;
     }
 
-    // Protokoll-Information vom Reverse Proxy
-    if (req.headers['x-forwarded-proto']) {
-      req.protocol = req.headers['x-forwarded-proto'];
-    }
+    // Das Protokoll aus X-Forwarded-Proto liefert Express über `trust proxy`
+    // bereits selbst als req.protocol. Eine Zuweisung ist nicht möglich:
+    // req.protocol ist ein reiner Getter, und im Strict Mode (ES-Module) warf
+    // `req.protocol = …` einen TypeError — jede Anfrage hinter Nginx oder dem
+    // Cloudflare-Worker (beide setzen den Header) endete damit in einem 500er.
 
     next();
   });

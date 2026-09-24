@@ -22,13 +22,16 @@ vi.mock('../lib/supabase.js', () => ({
 
 let app;
 
-async function bootApp({ authUser } = {}) {
+async function bootApp({ authUser, referrer = REFERRER } = {}) {
   vi.resetModules();
   supabaseMock.current = createSupabaseMock({ authUser });
-  // Admin-Helfer werden pro Test überschrieben.
+  // Admin-Helfer werden pro Test überschrieben. getUserById antwortet je ID —
+  // die Routen laden sowohl den eigenen (frischen) Stand als auch den Referrer.
+  const users = { [referrer.id]: referrer };
+  if (authUser) users[authUser.id] = authUser;
   supabaseMock.current.auth.admin = {
     updateUserById: vi.fn(async () => ({ data: {}, error: null })),
-    getUserById: vi.fn(async () => ({ data: { user: REFERRER }, error: null })),
+    getUserById: vi.fn(async (id) => ({ data: { user: users[id] || null }, error: null })),
   };
   ({ default: app } = await import('../server.js'));
   return app;
@@ -42,15 +45,13 @@ describe('GET /api/referrals/me', () => {
   it('liefert den bestehenden Code, ohne einen neuen zu erzeugen', async () => {
     await bootApp({ authUser: REFERRER });
 
-    // Upsert des vorhandenen Codes soll durchlaufen (idempotent).
-    const upsertBuilder = createQueryBuilderMock({ data: null, error: null });
+    // Der Code ist bereits diesem Nutzer zugeordnet.
+    const codesBuilder = createQueryBuilderMock({ data: { user_id: REFERRER.id }, error: null });
     // count-Query: liefert count via head:true
     const countBuilder = createQueryBuilderMock({ count: 3, error: null });
 
-    let fromCallCount = 0;
     supabaseMock.current.from = vi.fn((table) => {
-      fromCallCount += 1;
-      if (table === 'user_referral_codes') return upsertBuilder;
+      if (table === 'user_referral_codes') return codesBuilder;
       if (table === 'referrals') return countBuilder;
       return createQueryBuilderMock();
     });
@@ -62,11 +63,51 @@ describe('GET /api/referrals/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.code).toBe('FRIENDS1');
+    expect(res.body.referral_count).toBe(3);
     expect(res.body.reward_days).toBe(7);
     expect(res.body.reward_plan_id).toBe('elite');
-    expect(upsertBuilder.upsert).toHaveBeenCalled();
+    expect(codesBuilder.insert).not.toHaveBeenCalled();
+    expect(codesBuilder.upsert).not.toHaveBeenCalled();
     expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
-    expect(fromCallCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('trägt einen vorhandenen, noch freien Code im Lookup nach', async () => {
+    await bootApp({ authUser: REFERRER });
+    const codesBuilder = createQueryBuilderMock({ data: null, error: null });
+    supabaseMock.current.from = vi.fn((table) => (
+      table === 'user_referral_codes' ? codesBuilder : createQueryBuilderMock({ count: 0, error: null })
+    ));
+
+    const res = await request(app)
+      .get('/api/referrals/me')
+      .set('Authorization', 'Bearer test-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe('FRIENDS1');
+    expect(codesBuilder.insert).toHaveBeenCalledWith({ code: 'FRIENDS1', user_id: REFERRER.id });
+  });
+
+  // Code-Hijack: user_metadata ist clientseitig beschreibbar. Ein dort
+  // eingetragener fremder Code darf den Lookup nicht auf den Angreifer umbiegen.
+  it('übernimmt keinen Code, der einem anderen Nutzer gehört', async () => {
+    const attacker = { id: 'attacker', email: 'a@x.test', user_metadata: { referral_code: 'FRIENDS1' } };
+    await bootApp({ authUser: attacker });
+    const codesBuilder = createQueryBuilderMock({ data: { user_id: REFERRER.id }, error: null });
+    supabaseMock.current.from = vi.fn((table) => (
+      table === 'user_referral_codes' ? codesBuilder : createQueryBuilderMock({ count: 0, error: null })
+    ));
+
+    const res = await request(app)
+      .get('/api/referrals/me')
+      .set('Authorization', 'Bearer test-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).not.toBe('FRIENDS1');
+    expect(codesBuilder.upsert).not.toHaveBeenCalled();
+    expect(codesBuilder.insert).not.toHaveBeenCalledWith({ code: 'FRIENDS1', user_id: 'attacker' });
+    expect(codesBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'attacker' }),
+    );
   });
 });
 
@@ -160,13 +201,14 @@ describe('POST /api/referrals/redeem', () => {
       }),
     );
 
-    // Referrer bekommt Ultimate + Reward-Zähler
+    // Referrer bekommt einen 7-Tage-Ultimate-Pass in app_metadata — nur dort
+    // liest resolvePlan() Plan-Felder.
     const updateCalls = supabaseMock.current.auth.admin.updateUserById.mock.calls;
     const referrerUpdate = updateCalls.find((c) => c[0] === REFERRER.id);
     expect(referrerUpdate).toBeDefined();
-    expect(referrerUpdate[1].user_metadata.premium_plan_id).toBe('elite');
-    expect(referrerUpdate[1].user_metadata.referral_reward_count).toBe(1);
-    expect(new Date(referrerUpdate[1].user_metadata.premium_expires_at).getTime())
+    expect(referrerUpdate[1].user_metadata).toBeUndefined();
+    expect(referrerUpdate[1].app_metadata.referral_reward_count).toBe(1);
+    expect(new Date(referrerUpdate[1].app_metadata.premium_pass_expires_at).getTime())
       .toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000);
 
     // Einladender-Nutzer wird als "referred_by" markiert
@@ -179,16 +221,12 @@ describe('POST /api/referrals/redeem', () => {
     const existingExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const paidReferrer = {
       ...REFERRER,
-      user_metadata: {
-        referral_code: 'FRIENDS1',
+      app_metadata: {
         premium_plan_id: 'friends',
         premium_expires_at: existingExpires,
       },
     };
-    await bootApp({ authUser: NEW_USER });
-    supabaseMock.current.auth.admin.getUserById = vi.fn(async () => ({
-      data: { user: paidReferrer }, error: null,
-    }));
+    await bootApp({ authUser: NEW_USER, referrer: paidReferrer });
     supabaseMock.current.from = vi.fn((table) => {
       if (table === 'user_referral_codes') {
         return createQueryBuilderMock({ data: { user_id: paidReferrer.id }, error: null });
@@ -203,13 +241,44 @@ describe('POST /api/referrals/redeem', () => {
       .send({ code: 'FRIENDS1' });
 
     expect(res.status).toBe(200);
+    // Der 'friends'-Plan bleibt bestehen (nicht auf elite herabgestuft).
+    expect(res.body.reward_plan_id).toBe('friends');
     const updateCalls = supabaseMock.current.auth.admin.updateUserById.mock.calls;
     const referrerUpdate = updateCalls.find((c) => c[0] === paidReferrer.id);
-    // Der 'friends'-Plan bleibt bestehen (nicht auf elite herabgestuft).
-    expect(referrerUpdate[1].user_metadata.premium_plan_id).toBe('friends');
-    // Neue Laufzeit = bisherige + 7 Tage.
+    expect(referrerUpdate[1].app_metadata.premium_plan_id).toBe('friends');
+    expect(referrerUpdate[1].app_metadata.premium_expires_at).toBe(existingExpires);
+    // Bonus-Laufzeit schließt an das Abo an: bisherige + 7 Tage.
     const expected = new Date(new Date(existingExpires).getTime() + 7 * 24 * 60 * 60 * 1000);
-    expect(new Date(referrerUpdate[1].user_metadata.premium_expires_at).getTime())
+    expect(new Date(referrerUpdate[1].app_metadata.premium_pass_expires_at).getTime())
       .toBeCloseTo(expected.getTime(), -3);
+  });
+
+  it('lässt ein laufendes Basic-Abo unangetastet und hebt per Pass auf Ultimate', async () => {
+    const basicExpires = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString();
+    const basicReferrer = {
+      ...REFERRER,
+      app_metadata: { premium_plan_id: 'basic', premium_expires_at: basicExpires },
+    };
+    await bootApp({ authUser: NEW_USER, referrer: basicReferrer });
+    supabaseMock.current.from = vi.fn((table) => {
+      if (table === 'user_referral_codes') {
+        return createQueryBuilderMock({ data: { user_id: basicReferrer.id }, error: null });
+      }
+      return createQueryBuilderMock({ data: null, error: null });
+    });
+
+    const res = await request(app)
+      .post('/api/referrals/redeem')
+      .set('Authorization', 'Bearer test-token')
+      .send({ code: 'FRIENDS1' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.reward_plan_id).toBe('elite');
+    const referrerUpdate = supabaseMock.current.auth.admin.updateUserById.mock.calls
+      .find((c) => c[0] === basicReferrer.id);
+    expect(referrerUpdate[1].app_metadata.premium_plan_id).toBe('basic');
+    expect(referrerUpdate[1].app_metadata.premium_expires_at).toBe(basicExpires);
+    const passEnd = new Date(referrerUpdate[1].app_metadata.premium_pass_expires_at).getTime();
+    expect(passEnd).toBeCloseTo(Date.now() + 7 * 24 * 60 * 60 * 1000, -4);
   });
 });

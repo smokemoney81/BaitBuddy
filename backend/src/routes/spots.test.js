@@ -85,3 +85,19 @@ describe('PATCH /api/spots/:id – Koordinatenpruefung', () => {
     expect(res.status).toBe(400);
   });
 });
+
+// Datenleck: Die öffentlichen Spot-Endpunkte lieferten ohne Anmeldung auch
+// private Spots aller Nutzer samt exakter Koordinaten aus.
+describe('Öffentliche Spot-Endpunkte – nur is_public', () => {
+  it('GET /api/spots/public filtert auf is_public=true', async () => {
+    const res = await request(app).get('/api/spots/public');
+    expect(res.status).toBe(200);
+    expect(supabaseMock.current.__builders.spots.eq).toHaveBeenCalledWith('is_public', true);
+  });
+
+  it('GET /api/fishing/hotspots filtert auf is_public=true', async () => {
+    const res = await request(app).get('/api/fishing/hotspots');
+    expect(res.status).toBe(200);
+    expect(supabaseMock.current.__builders.spots.eq).toHaveBeenCalledWith('is_public', true);
+  });
+});

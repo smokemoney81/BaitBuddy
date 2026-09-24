@@ -70,6 +70,23 @@ describe('ApiClient.request', () => {
     expect(api.getRefreshToken()).toBeNull();
   });
 
+  it.each([429, 500, 503])('behaelt die Tokens, wenn der Refresh mit %i scheitert', async (status) => {
+    // Transienter Serverfehler oder geteiltes Auth-Rate-Limit ist keine
+    // Ablehnung des Refresh-Tokens — der Nutzer darf nicht ausgeloggt werden.
+    api.setToken('expired-token');
+    api.setRefreshToken('refresh-token');
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ error: 'Ungueltiger Token' }, { ok: false, status: 401 }))
+      .mockResolvedValueOnce(jsonResponse({ error: 'Zu viele Anfragen' }, { ok: false, status }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.post('/api/catches', { species: 'Hecht' })).rejects.toThrow();
+
+    expect(api.getToken()).toBe('expired-token');
+    expect(api.getRefreshToken()).toBe('refresh-token');
+  });
+
   it('versucht bei /api/auth/login keinen Refresh, auch bei 401', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ error: 'Falsche Zugangsdaten' }, { ok: false, status: 401 }));

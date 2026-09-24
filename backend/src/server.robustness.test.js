@@ -51,3 +51,15 @@ describe('Async-Fehlerbehandlung im Backend', () => {
     expect(res.status).toBe(504);
   });
 });
+
+describe('Reverse-Proxy-Header', () => {
+  // Nginx (Docker) und der Cloudflare-Worker setzen X-Forwarded-Proto bei
+  // jeder Anfrage. Die Security-Middleware darf daran nicht scheitern.
+  it('beantwortet Anfragen mit X-Forwarded-Proto regulär', async () => {
+    const res = await request(app)
+      .get('/api/health')
+      .set('X-Forwarded-Proto', 'https');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+});

@@ -7,15 +7,17 @@ import { sendDbError } from '../lib/errorResponse.js';
 
 const router = Router();
 
-const ADMIN_SECRET = process.env.CRON_SECRET;
-if (!ADMIN_SECRET) {
-  throw new Error(
-    'CRON_SECRET environment variable is required for admin routes. ' +
-    'Set it in Vercel Environment Variables or .env.production (never commit)'
-  );
-}
-
+// CRON_SECRET wird pro Anfrage geprüft, nicht beim Modul-Import. Früher warf
+// admin.js beim Import, wenn die Variable fehlte — da server.js alle Routen
+// importiert, startete dann das GESAMTE Backend nicht (Login, Fangbuch, KI …),
+// nur weil ein Cron-Secret fehlte. Jetzt sind ausschließlich die Cron-Routen
+// gesperrt (fail-closed), wie bei den Cron-Routen in events.js.
 function requireCronAuth(req, res, next) {
+  const ADMIN_SECRET = process.env.CRON_SECRET;
+  if (!ADMIN_SECRET) {
+    console.error('[admin] CRON_SECRET ist nicht gesetzt — Cron-Routen gesperrt');
+    return res.status(500).json({ error: 'Cron-Secret nicht konfiguriert' });
+  }
   // Drei akzeptierte Wege, damit ALLE Cron-Ausloeser denselben Endpunkt treffen:
   // - x-cron-secret Header (manuelle/eigene Aufrufe)
   // - ?secret= Query
