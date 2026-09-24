@@ -195,7 +195,7 @@ const EventCard = ({ event, isUserJoined, userEntry, onJoin, leaderboard }) => {
 };
 
 export default function Events() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [competitions, setCompetitions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -290,7 +290,7 @@ export default function Events() {
       {/* Events */}
       {competitions.length > 0 ? (
         <div className="grid gap-6">
-          {competitions.map((event, idx) => (
+          {competitions.map((event, _idx) => (
             <EventCard
               key={event.id}
               event={event}

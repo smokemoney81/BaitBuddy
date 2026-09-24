@@ -69,7 +69,7 @@ export function UsedGearMarketInner() {
     try {
       const currentUser = await auth.me();
       setUser(currentUser);
-    } catch (error) {
+    } catch {
       console.log("User not logged in");
     }
   };
@@ -141,7 +141,7 @@ export function UsedGearMarketInner() {
       await entities.GearListing.update(id, { is_active: false });
       setItems((prev) => prev.filter((x) => x.id !== id));
       toast.success("Anzeige gelöscht");
-    } catch (error) {
+    } catch {
       toast.error("Fehler beim Löschen");
     }
   };

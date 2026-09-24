@@ -85,7 +85,7 @@ function RecipeCard({ recipe, index }) {
 export default function FishRecipes() {
   useFeatureTracking("fish_recipes");
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
 
   const speciesParam  = searchParams.get("species") || "";
   const weightParam   = searchParams.get("weight_g") ? Number(searchParams.get("weight_g")) : null;

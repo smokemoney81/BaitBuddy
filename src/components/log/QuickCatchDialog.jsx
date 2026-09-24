@@ -550,7 +550,7 @@ export default function QuickCatchDialog() {
     }
   };
 
-  const upload = async (file) => {
+  const _upload = async (file) => {
     triggerHaptic('light');
     playSound('click');
 
@@ -848,15 +848,15 @@ export default function QuickCatchDialog() {
               onChange={(e) => { setForm({...form, weight_kg: e.target.value || ""}); triggerHaptic('light'); playSound('pop'); }}
               className="bg-gray-800/50 border-gray-700 text-white" />
             <Input placeholder={t('catch.bait')} value={form.bait_used}
-              onBlur={e => { toast.info(`${t('catch.bait')}: ${e.target.value}`); triggerHaptic('light'); playSound('pop'); }}
+              onBlur={_e => { toast.info(`${t('catch.bait')}: ${_e.target.value}`); triggerHaptic('light'); playSound('pop'); }}
               onChange={(e) => { setForm({...form, bait_used: e.target.value || ""}); triggerHaptic('light'); playSound('pop'); }}
               className="bg-gray-800/50 border-gray-700 text-white" />
             <Input type="datetime-local" value={form.catch_time}
-              onBlur={e => { toast.info(`Fangzeit geändert`); triggerHaptic('light'); playSound('pop'); }}
+              onBlur={_e => { toast.info(`Fangzeit geändert`); triggerHaptic('light'); playSound('pop'); }}
               onChange={(e) => { setForm({...form, catch_time: e.target.value || ""}); triggerHaptic('light'); playSound('pop'); }}
               className="bg-gray-800/50 border-gray-700 text-white" />
             <Input placeholder={t('catch.notes')} value={form.notes}
-              onBlur={e => { toast.info(`Notiz hinzugefügt`); triggerHaptic('light'); playSound('pop'); }}
+              onBlur={_e => { toast.info(`Notiz hinzugefügt`); triggerHaptic('light'); playSound('pop'); }}
               onChange={(e) => { setForm({...form, notes: e.target.value || ""}); triggerHaptic('light'); playSound('pop'); }}
               className="bg-gray-800/50 border-gray-700 text-white sm:col-span-2" />
           </div>

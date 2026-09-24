@@ -18,7 +18,7 @@ export default function CameraAnalysisSection() {
 }
 
 function CameraAnalysisSectionInner() {
-  const [user, setUser] = useState(null);
+  const [_user, setUser] = useState(null);
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);

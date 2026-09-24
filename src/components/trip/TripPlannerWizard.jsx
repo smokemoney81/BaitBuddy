@@ -69,7 +69,7 @@ export default function TripPlannerWizard({ onClose, onSave, plan, currentLocati
       await onSave(payload, plan?.id);
       if (activate) { navigate('/AnglerMode'); return; }
       onClose();
-    } catch (e) {
+    } catch {
       setError('Trip konnte nicht gespeichert werden. Bitte erneut versuchen.');
       setSaving(false);
     }

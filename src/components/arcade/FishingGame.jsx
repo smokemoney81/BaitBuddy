@@ -458,7 +458,7 @@ export default function FishingGame() {
       let powerCharging = false;
       let currentPower = 0;
 
-      const onPointerDown = (e) => {
+      const onPointerDown = (_e) => {
         if (currentState === 'ready') {
           powerCharging = true;
           currentPower = 0;
@@ -472,7 +472,7 @@ export default function FishingGame() {
         }
       };
 
-      const onPointerUp = (e) => {
+      const onPointerUp = (_e) => {
         if (currentState === 'ready' && powerCharging) {
           powerCharging = false;
           clearInterval(powerInterval);

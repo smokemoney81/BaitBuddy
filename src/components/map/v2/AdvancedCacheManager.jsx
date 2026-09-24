@@ -10,7 +10,7 @@ import AdvancedCacheOptimizer from './AdvancedCacheOptimizer';
  * - Bandwidth-optimierte Tile-Downloads
  */
 function AdvancedCacheManager({ visible = true }) {
-  const map = useMap();
+  const _map = useMap();
   const [optimizer, setOptimizer] = useState(null);
   const [stats, setStats] = useState(null);
   const [isClearing, setIsClearing] = useState(false);

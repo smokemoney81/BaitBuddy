@@ -142,7 +142,7 @@ async function fetchWikimediaImage(query, markerType) {
   }
 }
 
-export function generateOSMMapImage(lat, lng, zoom = 12, width = 800, height = 400) {
+export function generateOSMMapImage(lat, lng, zoom = 12, _width = 800, _height = 400) {
   // Using OSM tile server
   if (!lat || !lng) return null;
 

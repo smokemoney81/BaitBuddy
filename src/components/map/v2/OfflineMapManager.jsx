@@ -8,7 +8,7 @@ import { Download, Wifi, WifiOff, BarChart3 } from 'lucide-react';
  * Verwaltet Offline-Tile-Caching und Prefetching
  * Integriert mit Leaflet-Map für automatisches Tile-Caching
  */
-function OfflineMapManager({ bounds, autoCache = true, showStats = false }) {
+function OfflineMapManager({ bounds: _bounds, autoCache = true, showStats = false }) {
   const map = useMap();
   const [stats, setStats] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -64,11 +64,11 @@ function OfflineMapManager({ bounds, autoCache = true, showStats = false }) {
     if (!map) return;
 
     // Get the base tile layer and hook it
-    const layers = [];
+    const _layers = [];
     map.eachLayer((layer) => {
       if (layer._url && typeof layer._url === 'string') {
         // This is a tile layer
-        const originalUrl = layer._url;
+        const _originalUrl = layer._url;
 
         // Override tile URL getter
         const originalGetUrl = layer.getTileUrl

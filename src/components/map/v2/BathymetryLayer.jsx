@@ -15,7 +15,7 @@ import L from 'leaflet';
 function BathymetryLayer({ selectedBundesland = null, opacity = 0.6, visible = true }) {
   const map = useMap();
   const [layer, setLayer] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
 
   // Bathymetrie-Daten URLs pro Bundesland
   const bathymetryUrls = {
@@ -52,7 +52,7 @@ function BathymetryLayer({ selectedBundesland = null, opacity = 0.6, visible = t
     // Für echte GeoTIFF-Rendering würde man GDAL/WebGL verwenden
     // Vereinfachte Version: GeoTIFF als PNG/JPEG Tile Server
 
-    const tileUrl = bathymetryUrls[selectedBundesland];
+    const _tileUrl = bathymetryUrls[selectedBundesland];
 
     // Temporary: Einfache TileLayer (benötigt GeoServer oder ähnlich)
     // Später: Mit Rasterio + GeoServer oder GeoTIFF.js

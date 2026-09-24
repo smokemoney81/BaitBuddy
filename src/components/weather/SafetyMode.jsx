@@ -6,7 +6,7 @@ import { weather } from "@/api/frontendClient";
 import { notifyAction } from "@/lib/actionNotifications";
 
 // Schwellwerte für Sicherheitsmodus-Aktivierung
-const SAFETY_TRIGGERS = {
+const _SAFETY_TRIGGERS = {
   extreme: { label: "Extreme Gefahr", color: "purple", priority: 4 },
   severe:  { label: "Unwettergefahr", color: "red",    priority: 3 },
 };
@@ -85,7 +85,7 @@ export default function SafetyMode({
   className = "",
 }) {
   const [alerts, setAlerts]     = useState([]);
-  const [loading, setLoading]   = useState(false);
+  const [_loading, setLoading]   = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(true);
 

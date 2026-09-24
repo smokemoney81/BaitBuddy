@@ -37,7 +37,7 @@ const newCell = (avoidColor = null) => {
   return { color: c, id: newCellId() };
 };
 
-const inBounds = (r, c) => r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+const _inBounds = (r, c) => r >= 0 && r < SIZE && c >= 0 && c < SIZE;
 const cloneBoard = (b) => b.map((row) => row.map((cell) => (cell ? { ...cell } : null)));
 
 function createInitialBoard() {
@@ -472,7 +472,7 @@ export default function Match3Game() {
       try {
         const u = await User.me();
         setUser(u);
-      } catch (error) {
+      } catch {
         setUser(null);
       }
     };

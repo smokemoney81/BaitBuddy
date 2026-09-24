@@ -81,7 +81,7 @@ export default function LeaderboardCard({ type, title, icon: Icon }) {
             profile_picture_url: null
           };
         });
-      } catch (err) {
+      } catch {
         allEmails.forEach(email => {
           newCache[email] = {
             email,

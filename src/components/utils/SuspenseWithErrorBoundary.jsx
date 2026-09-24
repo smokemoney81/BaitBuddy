@@ -4,7 +4,7 @@ import ErrorBoundary from '@/lib/ErrorBoundary';
 export default function SuspenseWithErrorBoundary({ 
   children, 
   fallback = <div className="p-4 text-center text-gray-500">Laden...</div>,
-  errorFallback = null,
+  errorFallback: _errorFallback = null,
   isMinimal = false,
   onError = null
 }) {

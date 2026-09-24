@@ -135,7 +135,7 @@ export default function EnhancedTicker() {
         const u = await User.me();
         setUser(u);
         setSpeed(u?.settings?.ticker_speed || 100);
-      } catch (error) {
+      } catch {
         setUser(null);
       }
     })();

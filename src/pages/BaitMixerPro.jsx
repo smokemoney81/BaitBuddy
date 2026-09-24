@@ -229,7 +229,7 @@ Sei konkret und praktisch!`;
       { id: `tmp-${Date.now()}`, ...data, isFavorite: false },
       ...old
     ],
-    onSuccess: (_, data) => {
+    onSuccess: (_, _data) => {
       triggerHaptic("success");
       toast.success("Rezept gespeichert!");
       setRecipeName("");
@@ -347,7 +347,7 @@ Exportiert: ${exportData.exportDate}
   };
 
   const totalPercentage = Object.values(mix).reduce((sum, val) => sum + val, 0);
-  const isValid = totalPercentage === 100;
+  const _isValid = totalPercentage === 100;
   const activeIngredients = Object.entries(mix).filter(([_, val]) => val > 0);
 
   const pieData = activeIngredients.map(([name, value]) => ({

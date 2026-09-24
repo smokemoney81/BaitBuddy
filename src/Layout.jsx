@@ -98,9 +98,9 @@ function LayoutContent({ children, currentPageName }) {
   const [authLoading, setAuthLoading] = useState(true);
   const scrollPositionsRef = useRef({});
   const [previousPage, setPreviousPage] = useState(null);
-  const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
+  const [_voiceOverlayOpen, _setVoiceOverlayOpen] = useState(false);
   const [wakeWordDetector, setWakeWordDetector] = useState(null);
-  const [voiceStatus, setVoiceStatus] = useState({
+  const [_voiceStatus, setVoiceStatus] = useState({
     isActive: false,
     mode: null,
     isListening: false,
@@ -120,7 +120,7 @@ function LayoutContent({ children, currentPageName }) {
         setAuthLoading(false);
       });
       window.dispatchEvent(new CustomEvent('user-refresh-request'));
-    } catch (error) {
+    } catch {
       startTransition(() => {
         setUser(null);
         setAuthLoading(false);

@@ -97,7 +97,7 @@ const OFFLINE_RULES = [
 
 export default function OfflineFishingPack() {
   useFeatureTracking("offline_fishing_pack");
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
 
   const [meta, setMeta]           = useState(loadMeta);
   const [downloading, setDl]      = useState({});

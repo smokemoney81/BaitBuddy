@@ -70,7 +70,7 @@ function getStatusColor(status) {
   return status === 'connected' ? 'text-green-400' : 'text-slate-400';
 }
 
-function getStatusIcon(status) {
+function _getStatusIcon(status) {
   return status === 'connected' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />;
 }
 
@@ -172,7 +172,7 @@ function SonarSearching() {
 }
 
 export default function MyDevices() {
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [_selectedCategory, _setSelectedCategory] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {

@@ -68,7 +68,7 @@ export function runMobileAudit() {
   // 5. Check for focus rings
   console.log('Checking focus visibility...');
   document.querySelectorAll('button, input, select, textarea, a[href]').forEach(el => {
-    const styles = window.getComputedStyle(el);
+    const _styles = window.getComputedStyle(el);
     const focusVisible = el.className.includes('focus-visible:') || el.className.includes('focus:');
     if (!focusVisible && !el.className.includes('no-focus')) {
       // Soft warning - not critical

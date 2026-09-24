@@ -20,7 +20,7 @@ export function cacheCatches(catches) {
   try {
     localStorage.setItem(KEYS.catches, JSON.stringify(catches));
     localStorage.setItem(KEYS.lastSync, new Date().toISOString());
-  } catch (e) {
+  } catch {
     // Silently fail - cache is not critical
   }
 }
@@ -28,7 +28,7 @@ export function cacheCatches(catches) {
 export function cacheSpots(spots) {
   try {
     localStorage.setItem(KEYS.spots, JSON.stringify(spots));
-  } catch (e) {
+  } catch {
     // Silently fail - cache is not critical
   }
 }

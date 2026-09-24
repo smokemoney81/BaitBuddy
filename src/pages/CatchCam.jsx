@@ -46,7 +46,7 @@ function CatchCamInner() {
 
   // burst & snapshots
   const [snapshots, setSnapshots] = useState([]);
-  const [burstCount, setBurstCount] = useState(6);
+  const [burstCount, _setBurstCount] = useState(6);
   const [isBursting, setIsBursting] = useState(false);
 
   // best photo
@@ -54,7 +54,7 @@ function CatchCamInner() {
 
   // measure
   const [referenceCm, setReferenceCm] = useState(30);
-  const [referencePixelWidth, setReferencePixelWidth] = useState(null);
+  const [_referencePixelWidth, setReferencePixelWidth] = useState(null);
   const [estimatedCm, setEstimatedCm] = useState(null);
   const [measureMode, setMeasureMode] = useState(false);
   const refClicks = useRef([]);
@@ -71,7 +71,7 @@ function CatchCamInner() {
   const [markers, setMarkers] = useState([]);
 
   // highlight clip recording
-  const mediaRecorderRef = useRef(null);
+  const _mediaRecorderRef = useRef(null);
   const [highlightBlob, setHighlightBlob] = useState(null);
   const [isCreatingClip, setIsCreatingClip] = useState(false);
 
@@ -111,7 +111,7 @@ function CatchCamInner() {
     }
   }
 
-  async function fetchWeather(lat, lon) {
+  async function fetchWeather(_lat, _lon) {
     // Demo-Wetterdaten ohne echte API
     setWeather({
       weather: [{ main: "Bewölkt" }],

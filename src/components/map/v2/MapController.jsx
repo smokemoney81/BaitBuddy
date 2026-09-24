@@ -51,7 +51,7 @@ function MapController() {
     fluesse: false
   });
   const [waterBodies, setWaterBodies] = useState([]);
-  const [reviews, setReviews] = useState([]);
+  const [_reviews, setReviews] = useState([]);
   const [isOnlineStatus, setIsOnlineStatus] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tiefenkarten, setTiefenkarten] = useState([]);
@@ -269,7 +269,7 @@ function MapController() {
     invalidateOnSettle: true
   });
 
-  const updateSpotMutation = useOptimisticMutation({
+  const _updateSpotMutation = useOptimisticMutation({
     queryKey: 'mapSpots',
     mutationFn: ({ id, data }) => Spot.update(id, data),
     optimisticUpdate: (oldSpots = [], variables) => 
@@ -288,7 +288,7 @@ function MapController() {
     invalidateOnSettle: true
   });
 
-  const deleteSpotMutation = useOptimisticMutation({
+  const _deleteSpotMutation = useOptimisticMutation({
     queryKey: 'mapSpots',
     mutationFn: (id) => Spot.delete(id),
     optimisticUpdate: (oldSpots = [], id) => 

@@ -85,7 +85,7 @@ const ROD_DATA = {
 
 const LINE_DIAMETERS = ["0.06","0.08","0.10","0.12","0.14","0.16","0.18","0.20","0.23","0.25","0.28","0.30"];
 const HOOK_SIZES = ["2/0","1/0","1","2","4","6","8","10","12"];
-const LURE_TYPES = ["Wobbler","Gummifisch","Spinner","Blinker","Jig","Topwater","Spinnerbait","Chatterbait"];
+const _LURE_TYPES = ["Wobbler","Gummifisch","Spinner","Blinker","Jig","Topwater","Spinnerbait","Chatterbait"];
 const WATER_TYPES = ["Fluss","See","Küste"];
 const TARGETS = ["Barsch","Hecht","Zander","Forelle","Karpfen","Dorsch","Meerforelle","Barbe"];
 

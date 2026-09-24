@@ -31,7 +31,7 @@ export default function EventCatalog() {
   useFeatureTracking('events');
   const [templates, setTemplates] = useState([]);
   const [activeEvents, setActiveEvents] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [_currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [creatingEvent, setCreatingEvent] = useState(false);

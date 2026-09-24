@@ -20,7 +20,7 @@ export default function ShopSection() {
     try {
       const currentUser = await User.me();
       setUser(currentUser);
-    } catch (error) {
+    } catch {
       // User not logged in
     }
   };
@@ -58,7 +58,7 @@ export default function ShopSection() {
           const audio = new Audio('data:audio/wav;base64,UklGRmYBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YWIBAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA==');
           audio.volume = 0.4;
           audio.play();
-        } catch (soundError) {}
+        } catch (_soundError) {}
 
       await fetchUser(); // Refresh user data
       setTimeout(() => setFeedback(""), 5000);

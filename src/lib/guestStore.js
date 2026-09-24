@@ -118,7 +118,7 @@ export function hasGuestData() {
 // Die lokal vergebene `id` und die Zeitstempel gehören zum Gast-Speicher, nicht
 // zum Datensatz — das Backend vergibt beim Anlegen eigene.
 function stripLocalFields(record) {
-  const { id, updated_date, ...rest } = record;
+  const { id: _id, updated_date: _updated_date, ...rest } = record;
   return rest;
 }
 

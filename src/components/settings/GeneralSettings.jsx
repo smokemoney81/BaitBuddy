@@ -23,7 +23,7 @@ export default function GeneralSettings() {
                     setSettings(currentSettings);
                     setInitialSettings(currentSettings);
                 }
-            } catch (error) {
+            } catch {
                 toast.error("Fehler beim Laden der Einstellungen.");
             }
         })();

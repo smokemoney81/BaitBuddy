@@ -26,7 +26,7 @@ export default function AdminTracking() {
         ]);
         setEvents(evts || []);
         setSessions(sess || []);
-      } catch (e) {
+      } catch {
         // ignore
       }
       setLoading(false);

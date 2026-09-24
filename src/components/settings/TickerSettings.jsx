@@ -18,7 +18,7 @@ export default function TickerSettings() {
                     setSpeed(user.settings.ticker_speed);
                     setInitialSpeed(user.settings.ticker_speed);
                 }
-            } catch (error) {
+            } catch {
                 toast.error("Fehler beim Laden der Ticker-Einstellungen.");
             }
         })();

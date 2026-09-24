@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 
 export default function EventsWidget() {
   const [activeEvent, setActiveEvent] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [_currentMonth, _setCurrentMonth] = useState(new Date());
   const [monthlyRank, setMonthlyRank] = useState(null);
   const [loading, setLoading] = useState(true);
 

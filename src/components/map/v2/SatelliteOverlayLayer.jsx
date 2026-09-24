@@ -11,7 +11,7 @@ import L from 'leaflet';
 function SatelliteOverlayLayer({ visible = false, opacity = 0.6, source = 'usgs' }) {
   const map = useMap();
   const [layer, setLayer] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
     if (!map || !visible) {

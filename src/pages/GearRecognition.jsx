@@ -82,7 +82,7 @@ function GearRecognitionInner() {
 
   const [stream, setStream] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
-  const [photo, setPhoto] = useState(null); // base64
+  const [_photo, setPhoto] = useState(null); // base64
   const [photoPreview, setPhotoPreview] = useState(null);
 
   const [loading, setLoading] = useState(false);
@@ -109,7 +109,7 @@ function GearRecognitionInner() {
       setStream(s);
       setCameraActive(true);
       if (videoRef.current) videoRef.current.srcObject = s;
-    } catch (e) {
+    } catch {
       setError("Kamerazugriff verweigert. Bitte Kamera-Permission erteilen oder ein Foto hochladen.");
     }
   };

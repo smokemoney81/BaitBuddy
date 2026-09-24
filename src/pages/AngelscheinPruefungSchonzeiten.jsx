@@ -21,7 +21,7 @@ export default function AngelscheinPruefungSchonzeiten() {
   const [timeLeft, setTimeLeft] = useState(3600);
   const [showGame, setShowGame] = useState(false);
   const [rules, setRules] = useState([]);
-  const [user, setUser] = useState(null);
+  const [_user, setUser] = useState(null);
   const [revealedExplanations, setRevealedExplanations] = useState({});
 
   const bundeslaender = [
@@ -428,7 +428,7 @@ export default function AngelscheinPruefungSchonzeiten() {
                       { label: "Gesetzeskunde", key: "gesetzeskunde" }
                     ].map(category => {
                       const categoryQuestions = questions.filter(q => q.category === category.key);
-                      const categoryCorrect = categoryQuestions.filter((q, i) => {
+                      const categoryCorrect = categoryQuestions.filter((q, _i) => {
                         const questionIndex = questions.indexOf(q);
                         return userAnswers[questionIndex] === q.correct_answer_index;
                       }).length;
@@ -575,7 +575,7 @@ export default function AngelscheinPruefungSchonzeiten() {
                   {question.answers.map((answer, index) => {
                     const isSelected = userAnswers[currentQuestion] === index;
                     const isCorrect = question.correct_answer_index === index;
-                    const showCorrect = showResults || userAnswers[currentQuestion] !== null;
+                    const _showCorrect = showResults || userAnswers[currentQuestion] !== null;
 
                     return (
                       <button type="button"

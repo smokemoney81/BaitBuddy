@@ -21,7 +21,7 @@ export default function ChatWidget({ topic = "Allgemein" }) {
       try {
         const currentUser = await auth.me();
         setUser(currentUser);
-      } catch (e) {
+      } catch {
         console.log("Benutzer nicht authentifiziert");
       }
     };

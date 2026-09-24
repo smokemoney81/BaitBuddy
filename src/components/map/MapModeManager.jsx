@@ -15,7 +15,7 @@ function MapModeManager({
   const [showTour, setShowTour] = useState(isFirstTime);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
-  const [showModeSelector, setShowModeSelector] = useState(false);
+  const [_showModeSelector, _setShowModeSelector] = useState(false);
 
   const guidedTour = [
     {

@@ -15,7 +15,7 @@ export default function PremiumComparisonSection() {
       try {
         const u = await User.me();
         setUser(u);
-      } catch (error) {
+      } catch {
         // Not logged in
       }
     })();

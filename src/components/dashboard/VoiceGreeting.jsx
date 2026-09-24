@@ -3,7 +3,7 @@ import { useElevenLabsVoice } from '@/hooks/useElevenLabsVoice';
 import { getPersonalizedGreeting, getMotivationalGreeting } from '@/components/utils/greetings';
 
 export function VoiceGreeting({ user, fullGreeting = false }) {
-  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [_isAutoPlaying, setIsAutoPlaying] = useState(false);
   const { speak, isSpeaking, stop } = useElevenLabsVoice();
 
   const greeting = fullGreeting

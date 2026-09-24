@@ -1078,7 +1078,7 @@ export function LanguageProvider({ children }) {
             setLanguage(savedLang);
           }
         }
-      } catch (error) {
+      } catch {
         const savedLang = localStorage.getItem('app_language');
         if (savedLang && translations[savedLang]) {
           setLanguage(savedLang);
@@ -1100,7 +1100,7 @@ export function LanguageProvider({ children }) {
           language: newLang 
         } 
       });
-    } catch (error) {
+    } catch {
       console.log('Language saved to localStorage only (user not logged in)');
     }
   };

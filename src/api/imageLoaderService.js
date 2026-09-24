@@ -100,7 +100,7 @@ export async function fetchWikimediaImage(query, markerType = 'landscape') {
   }
 }
 
-export function generateOSMStaticMap(lat, lng, zoom = 13, width = 400, height = 250) {
+export function generateOSMStaticMap(lat, lng, zoom = 13, _width = 400, _height = 250) {
   if (!lat || !lng) return null;
 
   // Using OSM Static Map service or fallback to tile

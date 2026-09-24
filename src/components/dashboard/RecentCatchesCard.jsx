@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
-export default function RecentCatchesCard({ catches, lastCatch }) {
+export default function RecentCatchesCard({ catches, lastCatch: _lastCatch }) {
     const recentCatches = catches?.slice(0, 3) || [];
 
     const formatDate = (dateString) => {

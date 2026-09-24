@@ -407,7 +407,7 @@ class TileLODManager {
 export default function ARWater3D() {
   const mountRef = useRef(null);
   const [status, setStatus] = useState('Initialisiere...');
-  const [cameraActive, setCameraActive] = useState(false);
+  const [_cameraActive, setCameraActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [heightScale, setHeightScale] = useState(0.5);
   const [showControls, setShowControls] = useState(false);
