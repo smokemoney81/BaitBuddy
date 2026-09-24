@@ -59,7 +59,7 @@ async function getAggregatedDataFallback(userEmail) {
     species: c.species,
     weight: c.weight_kg,
     length: c.length_cm,
-    location: c.spot_name || c.spot_id || 'Unknown',
+    location: c.spot_id || 'Unknown',
     caught_at: c.catch_time,
     photo_urls: c.photo_url ? [c.photo_url] : [],
     bait_type: c.bait_used,
