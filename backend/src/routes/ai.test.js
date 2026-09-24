@@ -669,3 +669,98 @@ describe('POST /api/ai/chat — Tarif-Staffelung', () => {
     expect(prompt).toContain('2 bis 4 Sätze');
   });
 });
+
+describe('POST /api/ai/fishing-conditions', () => {
+  const WEATHER_RESPONSE = {
+    current: {
+      temperature_2m: 15,
+      wind_speed_10m: 12,
+      wind_direction_10m: 180,
+      surface_pressure: 1015,
+      relative_humidity_2m: 65,
+      weather_code: 2,
+    },
+  };
+
+  const AI_CONDITIONS_RESPONSE = JSON.stringify({
+    rating: 'Gut',
+    assessment: 'Gute Angelbedingungen heute.',
+    reason: 'Stabiler Luftdruck, moderater Wind.',
+    recommendation: 'Jig-Köder an Strukturen.',
+    warning: null,
+    baitSuggestions: ['Jig', 'Wobbler', 'Spinner'],
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('lehnt Zugriff ohne Token ab (401)', async () => {
+    const res = await request(app).post('/api/ai/fishing-conditions').send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('liefert Angelbedingungen mit Wetter und Regelinfo (Hecht NRW)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (String(url).includes('open-meteo')) {
+        return { ok: true, json: async () => WEATHER_RESPONSE };
+      }
+      return { ok: false, status: 500 };
+    }));
+    llmMock.invokeLLM = vi.fn().mockResolvedValue(AI_CONDITIONS_RESPONSE);
+
+    const res = await request(app)
+      .post('/api/ai/fishing-conditions')
+      .set('Authorization', 'Bearer tok')
+      .send({ latitude: 51.5, longitude: 7.5, targetSpecies: 'Hecht', state: 'NRW' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.data.rating).toBe('Gut');
+    expect(res.body.data.weather).not.toBeNull();
+    expect(res.body.data.rule).not.toBeNull();
+    expect(res.body.data.rule.species).toBe('Hecht');
+    expect(res.body.data.rule.minSizeCm).toBe(60);
+    expect(Array.isArray(res.body.data.baitSuggestions)).toBe(true);
+  });
+
+  it('funktioniert ohne Koordinaten (kein Wetter)', async () => {
+    llmMock.invokeLLM = vi.fn().mockResolvedValue(AI_CONDITIONS_RESPONSE);
+
+    const res = await request(app)
+      .post('/api/ai/fishing-conditions')
+      .set('Authorization', 'Bearer tok')
+      .send({ targetSpecies: 'Zander', state: 'NRW' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.weather).toBeNull();
+    expect(res.body.data.rule.species).toBe('Zander');
+  });
+
+  it('liefert Schonzeit-Info im rule-Objekt (Hecht NRW)', async () => {
+    llmMock.invokeLLM = vi.fn().mockResolvedValue(AI_CONDITIONS_RESPONSE);
+
+    const res = await request(app)
+      .post('/api/ai/fishing-conditions')
+      .set('Authorization', 'Bearer tok')
+      .send({ targetSpecies: 'Hecht', state: 'NRW' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.rule.closedFrom).toBe('02-01');
+    expect(res.body.data.rule.closedTo).toBe('05-15');
+    expect(res.body.data.rule.minSizeCm).toBe(60);
+    // closedNow ist boolean (kann true oder false sein je nach Testdatum)
+    expect(typeof res.body.data.rule.closedNow).toBe('boolean');
+  });
+
+  it('gibt 502 zurück wenn KI keine auswertbare Antwort liefert', async () => {
+    llmMock.invokeLLM = vi.fn().mockResolvedValue('Keine JSON hier');
+
+    const res = await request(app)
+      .post('/api/ai/fishing-conditions')
+      .set('Authorization', 'Bearer tok')
+      .send({ targetSpecies: 'Hecht', state: 'NRW' });
+
+    expect(res.status).toBe(502);
+  });
+});

@@ -79,3 +79,96 @@ export function pickTopInsight(catches) {
   const list = computeInsights(catches);
   return list.length ? list[0] : null;
 }
+
+// ── Erweiterte Musteranalyse ──────────────────────────────────────────────────
+
+// Bester Monat (1-12) nach Fanganzahl. Mindestens 2 verschiedene Monate und
+// 4 Fänge gesamt nötig, sonst null.
+function bestMonthPattern(msList, minTotal = 4, minMonths = 2) {
+  const months = msList.filter((ms) => ms != null).map((ms) => new Date(ms).getMonth() + 1);
+  if (months.length < minTotal) return null;
+  const unique = new Set(months);
+  if (unique.size < minMonths) return null;
+  const hist = new Array(13).fill(0);
+  months.forEach((m) => { hist[m] += 1; });
+  let bestM = 0; let bestN = -1;
+  for (let m = 1; m <= 12; m++) {
+    if (hist[m] > bestN) { bestN = hist[m]; bestM = m; }
+  }
+  if (bestN < 2) return null;
+  return { month: bestM, count: bestN };
+}
+
+const MONTH_NAMES_DE = [
+  '', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+];
+
+// Durchschnittliche Länge der letzten N Fänge vs. der N davor.
+// Gibt { trend: 'up'|'down'|'flat', avgRecent, avgPrev } zurück oder null.
+function lengthTrend(catches, window = 10, minEach = 3) {
+  if (!Array.isArray(catches)) return null;
+  const withLen = catches
+    .filter((c) => typeof c?.length_cm === 'number' && c.length_cm > 0)
+    .sort((a, b) => (toMs(b) || 0) - (toMs(a) || 0));
+  if (withLen.length < window + minEach) return null;
+  const recent = withLen.slice(0, window);
+  const prev = withLen.slice(window, window * 2);
+  if (recent.length < minEach || prev.length < minEach) return null;
+  const avg = (arr) => arr.reduce((s, c) => s + c.length_cm, 0) / arr.length;
+  const avgRecent = Math.round(avg(recent) * 10) / 10;
+  const avgPrev = Math.round(avg(prev) * 10) / 10;
+  const diff = avgRecent - avgPrev;
+  const trend = diff > 1 ? 'up' : diff < -1 ? 'down' : 'flat';
+  return { trend, avgRecent, avgPrev };
+}
+
+/**
+ * Liefert alle verfügbaren erweiterten Muster als Insight-Liste.
+ * Ergänzt computeInsights() um Monat und Längen-Trend.
+ *
+ * @param {any[]} catches
+ * @returns {{ id: string, text: string, priority: number }[]}
+ */
+export function computeExtendedInsights(catches) {
+  const base = computeInsights(catches);
+
+  if (!Array.isArray(catches)) return base;
+  const msList = catches.map(toMs);
+
+  const extras = [];
+
+  const month = bestMonthPattern(msList);
+  if (month) {
+    extras.push({
+      id: 'month',
+      priority: 2,
+      text: `Dein erfolgreichster Monat ist der ${MONTH_NAMES_DE[month.month]} (${month.count} Fänge).`,
+    });
+  }
+
+  const lt = lengthTrend(catches);
+  if (lt && lt.trend !== 'flat') {
+    const direction = lt.trend === 'up' ? 'größer' : 'kleiner';
+    extras.push({
+      id: 'length_trend',
+      priority: 1,
+      text: `Deine letzten Fänge werden im Schnitt ${direction}: ${lt.avgRecent} cm vs. ${lt.avgPrev} cm zuvor.`,
+    });
+  }
+
+  return [...base, ...extras].sort((a, b) => b.priority - a.priority);
+}
+
+/**
+ * Kompakte Zusammenfassung für den KI-Buddy-Kontext.
+ * Gibt einen einzeiligen String zurück oder null.
+ *
+ * @param {any[]} catches
+ * @returns {string|null}
+ */
+export function buildBuddyContextSummary(catches) {
+  const insights = computeExtendedInsights(catches);
+  if (!insights.length) return null;
+  return insights.map((i) => i.text).join(' ');
+}

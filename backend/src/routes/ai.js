@@ -22,6 +22,7 @@ import { personalizationContext } from '../lib/personalizationEngine.js';
 import { buildActionPromptSection } from '../lib/buddyActionCatalog.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
+import { getRulesForSpeciesAndState, getSpeciesListForState } from '../lib/fishingRules.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -411,7 +412,17 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, async (req, res)
     const msg = e && typeof e.message === 'string' ? e.message : String(e);
     console.error('[AI Chat Stream Error]', msg);
     // Header sind schon raus → Fehler als SSE-Event, nicht als HTTP-Status.
-    send('error', { ok: false, error: 'Verbindungsproblem beim Streaming' });
+    // Nutzer-freundliche Nachricht statt internes Detail, aber der Client
+    // kann auf ai.chat zurückfallen und die echte Antwort liefern.
+    let userError = 'Entschuldige, ich habe gerade Verbindungsprobleme. Versuch es gleich nochmal!';
+    if (msg.includes('429') || msg.includes('rate limit')) {
+      userError = 'Ich bin gerade überlastet. Versuch es in ein paar Sekunden nochmal!';
+    } else if (msg.includes('timeout') || msg.includes('Timeout')) {
+      userError = 'Die Anfrage hat zu lange gedauert. Versuch es nochmal!';
+    } else if (msg.includes('ANTHROPIC_API_KEY') || msg.includes('KI-Service nicht verfügbar')) {
+      userError = 'Meine KI-Services sind gerade nicht erreichbar. Der Admin muss das fixen.';
+    }
+    send('error', { ok: false, error: userError });
     res.end();
   }
 });
@@ -1228,6 +1239,179 @@ Antworte NUR mit dem JSON-Objekt.`;
     });
   } catch (e) {
     return sendDbError(res, e);
+  }
+});
+
+// WMO-Wettercodes (Kurzform, für Angelbedingungen-Prompt)
+const WMO_SHORT = {
+  0: 'Klar', 1: 'Überwiegend klar', 2: 'Teilbewölkt', 3: 'Bedeckt',
+  45: 'Nebel', 48: 'Raureif-Nebel',
+  51: 'Leichter Nieselregen', 53: 'Nieselregen', 55: 'Starker Nieselregen',
+  61: 'Leichter Regen', 63: 'Regen', 65: 'Starker Regen',
+  71: 'Leichter Schneefall', 73: 'Schneefall', 75: 'Starker Schneefall',
+  80: 'Leichte Regenschauer', 81: 'Regenschauer', 82: 'Starke Regenschauer',
+  95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'Starkes Gewitter mit Hagel',
+};
+
+// Tageszeit aus lokaler Stunde ableiten.
+function timeOfDay(hour) {
+  if (hour >= 4 && hour < 9) return 'Frühmorgens';
+  if (hour >= 9 && hour < 12) return 'Vormittag';
+  if (hour >= 12 && hour < 15) return 'Mittagszeit';
+  if (hour >= 15 && hour < 18) return 'Nachmittag';
+  if (hour >= 18 && hour < 21) return 'Abend';
+  if (hour >= 21 || hour < 4) return 'Nacht';
+  return 'Unbekannt';
+}
+
+// Druckbeurteilung: steigend / fallend / stabil ist für Fische entscheidend.
+// Wir haben nur einen Momentanwert, also beurteilen wir nach absolutem Wert.
+function pressureDesc(hPa) {
+  if (!hPa) return 'unbekannt';
+  if (hPa > 1020) return 'hoch (gute Bedingungen)';
+  if (hPa > 1010) return 'normal';
+  if (hPa > 995) return 'leicht niedrig (Fische werden aktiver)';
+  return 'tief (schlechte Bedingungen, Fische passiv)';
+}
+
+/**
+ * POST /api/ai/fishing-conditions
+ * Kombiniert Wetterdaten, Schonzeiten und eine KI-Empfehlung.
+ * Verfügbar für alle Nutzer (kein Premium-Gate).
+ *
+ * Body: { latitude, longitude, targetSpecies?, state? }
+ * Response: { ok, data: { rating, assessment, reason, recommendation, warning,
+ *   weather, rule, baitSuggestions, conditions } }
+ */
+router.post('/ai/fishing-conditions', requireAuth, async (req, res) => {
+  try {
+    const { targetSpecies = null, state = 'NRW' } = req.body;
+    const coords = parseOptionalCoordinates(req.body?.latitude, req.body?.longitude);
+    const { latitude: lat, longitude: lon } = coords || {};
+
+    // Wetter parallel holen (optional — Fehler blockiert nicht)
+    const weather = await (async () => {
+      if (!lat || !lon) return null;
+      try {
+        const w = await fetchWithTimeout(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+          `&current=temperature_2m,wind_speed_10m,weather_code,surface_pressure,` +
+          `relative_humidity_2m,wind_direction_10m&timezone=auto&forecast_days=1`,
+          {},
+          WEATHER_TIMEOUT_MS,
+        ).then((r) => r.json());
+        if (!w?.current) return null;
+        return {
+          temperature: w.current.temperature_2m,
+          wind: w.current.wind_speed_10m,
+          windDir: w.current.wind_direction_10m,
+          pressure: w.current.surface_pressure,
+          humidity: w.current.relative_humidity_2m,
+          condition: WMO_SHORT[w.current.weather_code] ?? 'unbekannt',
+          weatherCode: w.current.weather_code,
+        };
+      } catch {
+        return null;
+      }
+    })();
+
+    // Schonzeit + Mindestmaß aus Regelmodul
+    const rule = targetSpecies
+      ? getRulesForSpeciesAndState(targetSpecies, state)
+      : { found: false, species: null, state, closedFrom: null, closedTo: null, minSizeCm: null, notes: null };
+
+    const now = new Date();
+    const closedNow = rule.found && rule.closedFrom
+      ? isInClosedSeason(rule.closedFrom, rule.closedTo, now)
+      : false;
+
+    const localHour = now.getHours();
+    const tod = timeOfDay(localHour);
+
+    // Kurze Wetterzusammenfassung für den Prompt
+    const weatherLine = weather
+      ? `Temperatur ${weather.temperature}°C, Wind ${weather.wind} km/h, ` +
+        `Luftdruck ${weather.pressure} hPa (${pressureDesc(weather.pressure)}), ` +
+        `Wetter: ${weather.condition}`
+      : 'Wetterdaten nicht verfügbar';
+
+    const speciesLine = targetSpecies ? `Zielfisch: ${rule.species || targetSpecies}` : 'Kein Zielfisch angegeben';
+    const ruleLine = rule.found
+      ? `Schonzeit: ${rule.closedFrom ? `${rule.closedFrom} – ${rule.closedTo}` : 'keine'}, ` +
+        `Mindestmaß: ${rule.minSizeCm ? rule.minSizeCm + ' cm' : 'k. A.'}` +
+        (closedNow ? ' — AKTUELL IN DER SCHONZEIT' : '')
+      : 'Keine Regelinfos verfügbar';
+
+    const prompt = `Du bist ein erfahrener Angelberater. Bewerte die aktuellen Angelbedingungen auf Basis dieser Daten.
+
+STANDORT: ${state} (Bundesland)
+TAGESZEIT: ${tod} (${localHour}:00 Uhr)
+WETTER: ${weatherLine}
+${speciesLine}
+REGELINFO: ${ruleLine}
+
+Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown:
+{
+  "rating": "Gut" | "Mittel" | "Schlecht",
+  "assessment": "1-2 Sätze Gesamteinschätzung",
+  "reason": "Wichtigste Begründung (Druck, Wind, Temperatur, Tageszeit)",
+  "recommendation": "Konkrete Empfehlung: was tun, wo positionieren, welcher Köder",
+  "warning": "Wichtigster Hinweis oder Risiko (Schonzeit, Unwetter, etc.) oder null",
+  "baitSuggestions": ["Köder 1", "Köder 2", "Köder 3"]
+}`;
+
+    const raw = await invokeLLM({ prompt });
+
+    let aiResult;
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      aiResult = match ? JSON.parse(match[0]) : null;
+    } catch {
+      aiResult = null;
+    }
+
+    if (!aiResult || typeof aiResult.assessment !== 'string') {
+      return res.status(502).json({ ok: false, error: 'KI lieferte keine auswertbare Einschätzung' });
+    }
+
+    // warning: null normalisieren
+    if (aiResult.warning === 'null' || aiResult.warning === '') aiResult.warning = null;
+
+    // Schonzeit-Warnung immer aufnehmen, auch wenn KI sie vergisst
+    if (closedNow && !aiResult.warning) {
+      aiResult.warning = `${rule.species} ist derzeit in der Schonzeit (${rule.closedFrom} – ${rule.closedTo}). Fang und Zurück!`;
+    }
+
+    return res.json({
+      ok: true,
+      data: {
+        rating: aiResult.rating || 'Mittel',
+        assessment: aiResult.assessment,
+        reason: aiResult.reason || null,
+        recommendation: aiResult.recommendation || null,
+        warning: aiResult.warning || null,
+        baitSuggestions: Array.isArray(aiResult.baitSuggestions) ? aiResult.baitSuggestions : [],
+        weather,
+        rule: rule.found ? {
+          species: rule.species,
+          state: rule.state,
+          closedFrom: rule.closedFrom,
+          closedTo: rule.closedTo,
+          minSizeCm: rule.minSizeCm,
+          notes: rule.notes,
+          closedNow,
+        } : null,
+        conditions: {
+          timeOfDay: tod,
+          localHour,
+          pressureDesc: weather ? pressureDesc(weather.pressure) : null,
+        },
+        generatedAt: now.toISOString(),
+      },
+    });
+  } catch (e) {
+    console.error('[Fishing Conditions Error]', e?.message);
+    return res.status(500).json({ ok: false, error: 'Angelbedingungen konnten nicht berechnet werden' });
   }
 });
 

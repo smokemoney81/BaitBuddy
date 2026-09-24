@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeInsights, pickTopInsight } from './fishingInsights';
+import { computeInsights, pickTopInsight, computeExtendedInsights, buildBuddyContextSummary } from './fishingInsights';
 
 // Baut einen Fang mit lokaler Stunde.
 const at = (hour, species = 'Barsch', bait = 'Gummifisch') => ({
@@ -50,5 +50,60 @@ describe('pickTopInsight', () => {
   });
   it('returns null when there is nothing to say', () => {
     expect(pickTopInsight([])).toBeNull();
+  });
+});
+
+// Fang mit Länge und Monat.
+const atM = (month, lengthCm, species = 'Hecht', bait = 'Wobbler') => ({
+  species,
+  bait_used: bait,
+  length_cm: lengthCm,
+  catch_time: new Date(2026, month - 1, 15, 10, 0, 0).toISOString(),
+});
+
+describe('computeExtendedInsights', () => {
+  it('returns base insights when no extra data', () => {
+    const res = computeExtendedInsights([at(7, 'Barsch', 'Dropshot'), at(9, 'Barsch', 'Dropshot')]);
+    expect(res.find((r) => r.id === 'bait')).toBeTruthy();
+  });
+
+  it('detects best month with enough spread', () => {
+    const catches = [
+      atM(5, 55), atM(5, 60), atM(5, 52),
+      atM(7, 40), atM(9, 35),
+    ];
+    const res = computeExtendedInsights(catches);
+    const month = res.find((r) => r.id === 'month');
+    expect(month).toBeTruthy();
+    expect(month.text).toContain('Mai');
+    expect(month.text).toContain('3');
+  });
+
+  it('detects upward length trend', () => {
+    const big = Array.from({ length: 10 }, (_, i) => atM(3, 70 + i));
+    const small = Array.from({ length: 10 }, (_, i) => atM(1, 40 + i));
+    const catches = [...big, ...small];
+    const res = computeExtendedInsights(catches);
+    const lt = res.find((r) => r.id === 'length_trend');
+    expect(lt).toBeTruthy();
+    expect(lt.text).toContain('größer');
+  });
+
+  it('returns empty for insufficient data', () => {
+    expect(computeExtendedInsights([])).toEqual([]);
+    expect(computeExtendedInsights(null)).toEqual([]);
+  });
+});
+
+describe('buildBuddyContextSummary', () => {
+  it('returns null for empty data', () => {
+    expect(buildBuddyContextSummary([])).toBeNull();
+  });
+
+  it('returns a non-empty string when insights exist', () => {
+    const catches = [at(7, 'Barsch', 'Dropshot'), at(8, 'Barsch', 'Dropshot'), at(6), at(7)];
+    const s = buildBuddyContextSummary(catches);
+    expect(typeof s).toBe('string');
+    expect(s.length).toBeGreaterThan(10);
   });
 });

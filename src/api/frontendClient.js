@@ -863,6 +863,15 @@ export const ai = {
   gearMaintenanceTips: (gearItems)  => api.post('/api/ai/gear-maintenance-tips', { gearItems }),
   satelliteAnalysis:   (lat, lng, spot_name = null) =>
     api.post('/api/ai/satellite-analysis', { latitude: lat, longitude: lng, spot_name }),
+  /**
+   * Angelbedingungen NRW Beta: Wetter + Schonzeit + KI-Empfehlung.
+   * @param {number|null} lat
+   * @param {number|null} lng
+   * @param {string|null} targetSpecies  Zielfisch (z. B. "Hecht")
+   * @param {string} [state]             Bundesland (Standard "NRW")
+   */
+  fishingConditions: (lat, lng, targetSpecies = null, state = 'NRW') =>
+    api.post('/api/ai/fishing-conditions', { latitude: lat, longitude: lng, targetSpecies, state }),
 };
 
 export const weather = {

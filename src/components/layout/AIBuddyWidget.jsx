@@ -435,14 +435,17 @@ export default function AIBuddyWidget({ initialOpen = false, initialLastTouch = 
 
       // Ersetzt die streamende Bubble durch die finale, bereinigte Antwort
       // (bzw. legt sie an, falls kein Streaming lief – Fallback-Pfad).
+      const EMPTY_REPLY_FALLBACK = 'Entschuldige, meine Antwort ist nicht vollständig angekommen. Versuch es nochmal!';
+
       const finalizeAssistantBubble = (content) => {
+        const safeContent = content || EMPTY_REPLY_FALLBACK;
         setMessages((prev) => {
           const copy = [...prev];
           const last = copy[copy.length - 1];
           if (last && last.role === 'assistant' && last.streaming) {
-            copy[copy.length - 1] = { role: 'assistant', content };
-          } else if (content) {
-            copy.push({ role: 'assistant', content });
+            copy[copy.length - 1] = { role: 'assistant', content: safeContent };
+          } else if (safeContent) {
+            copy.push({ role: 'assistant', content: safeContent });
           }
           return copy;
         });
