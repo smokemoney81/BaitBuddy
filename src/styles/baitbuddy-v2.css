@@ -1709,3 +1709,96 @@
 .bb-event-row .bb-event-fact { padding: 5px 8px; }
 .bb-event-featured .bb-event-fact { flex-direction: column; align-items: flex-start; gap: 4px; }
 .bb-event-featured .bb-event-fact img { width: 48px; height: 22px; object-position: left center; }
+
+/* ── Onboarding (full screen) ── */
+.bb-onboarding { background: var(--bb-bg) !important; }
+.bb-onboarding-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  height: 360px;
+  object-fit: cover;
+  object-position: 60% 30%;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 30%, transparent 100%);
+  opacity: .8;
+}
+.bb-onboarding-inner {
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 24px);
+  display: grid;
+  gap: 12px;
+}
+.bb-onboarding-brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bb-onboarding-claim { font-size: 14px; color: #b9cbdb; text-align: right; max-width: 120px; line-height: 1.3; }
+.bb-onboarding-progress-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 8px; }
+.bb-onboarding-label { font-size: 22px; font-weight: 700; color: #f4f8fb; }
+.bb-onboarding-count { font-size: 14px !important; color: var(--bb-cyan) !important; }
+.bb-onboarding-dots {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bb-onboarding-dots::before {
+  content: '';
+  position: absolute;
+  left: 8px; right: 8px; top: 50%;
+  border-top: 1px dashed rgba(160,190,215,.35);
+}
+.bb-onboarding-dots li {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: #1a2a3c;
+  border: 1.5px solid rgba(160,190,215,.35);
+  color: #f4f8fb;
+}
+.bb-onboarding-dots li.is-done { width: 20px; height: 20px; background: rgba(34,224,122,.18); border-color: var(--bb-green); color: var(--bb-green); }
+.bb-onboarding-dots li.is-current { width: 28px; height: 28px; background: #0B1324; border: 2px solid #f4f8fb; box-shadow: 0 0 12px rgba(255,255,255,.3); }
+.bb-onboarding-hint { font-size: 14px; color: #b9cbdb; }
+.bb-onboarding-card { padding: 18px 16px; border-color: rgba(0,229,255,.35); }
+.bb-onboarding-title { font-size: 24px !important; font-weight: 800 !important; color: #f7fbfe !important; line-height: 1.2; }
+.bb-onboarding-sub { margin-top: 6px; font-size: 15px; color: #9fd8ea; line-height: 1.4; }
+.bb-buddy-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bb-buddy-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 12px;
+  border-radius: 18px;
+  text-align: center;
+  background: rgba(8, 20, 34, .6);
+  border: 1.5px solid rgba(160,190,215,.25);
+}
+.bb-buddy-pick.is-selected { border: 2px solid var(--bb-green); box-shadow: 0 0 18px rgba(34,224,122,.3); }
+.bb-buddy-pick img { width: 100%; aspect-ratio: 4 / 3.4; object-fit: cover; object-position: top; border-radius: 12px; }
+.bb-buddy-pick-name { font-size: 18px; font-weight: 700; color: #f4f8fb; margin-top: 4px; }
+.bb-buddy-pick-desc { font-size: 13px; color: var(--bb-cyan); line-height: 1.3; }
+.bb-buddy-pick-check {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  color: #04111a;
+  background: var(--bb-green);
+  box-shadow: 0 0 10px rgba(34,224,122,.6);
+  z-index: 1;
+}
+.bb-onboarding-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+.bb-onboarding-btn { min-height: 60px; justify-content: center; font-size: 19px; border-radius: 18px; }
+.bb-onboarding-later { justify-self: center; min-height: 44px; padding: 0 12px; font-size: 16px; color: var(--bb-cyan); }

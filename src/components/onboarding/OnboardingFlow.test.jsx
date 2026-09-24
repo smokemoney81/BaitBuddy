@@ -45,8 +45,8 @@ describe('OnboardingFlow', () => {
     setup();
     render(<OnboardingFlow />);
 
-    expect(screen.getByText('Willkommen')).toBeInTheDocument();
-    expect(screen.getByText(`Schritt 1 von ${ONBOARDING_STEP_COUNT} — du kannst jederzeit abbrechen und später fortsetzen.`)).toBeInTheDocument();
+    expect(screen.getByText('Willkommen bei BaitBuddy')).toBeInTheDocument();
+    expect(screen.getByText(`Schritt 1 von ${ONBOARDING_STEP_COUNT}`)).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
   });
 
@@ -116,7 +116,7 @@ describe('OnboardingFlow', () => {
     const { saveOnboarding } = setup({ onboarding: { ...DEFAULT_ONBOARDING, stepIndex: 3 } });
     render(<OnboardingFlow />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Später' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Später fortsetzen' }));
 
     await waitFor(() => expect(saveOnboarding).toHaveBeenCalledWith(
       expect.objectContaining({ skipped: true, stepIndex: 3 })

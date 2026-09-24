@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, MapPin, Bell } from 'lucide-react';
+import { Check, ArrowRight, MapPin, Bell } from 'lucide-react';
+import { BrandMark } from '@/components/layout/BrandLogo';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
@@ -45,6 +46,21 @@ const TONE_OPTIONS = [
   { id: 'professional', label: 'Professionell', description: 'Sachlich und klar strukturiert.' },
   { id: 'motivating', label: 'Motivierend', description: 'Ermutigend und praxisnah.' },
 ];
+
+const STEP_HEADLINES = {
+  welcome: 'Willkommen bei BaitBuddy',
+  buddy: 'Wähle deinen Buddy',
+  voice: 'Stimme auswählen',
+  tone: 'Wie soll dein Buddy antworten?',
+  experience: 'Wie würdest du dich einschätzen?',
+};
+
+const STEP_SUBLINES = {
+  buddy: 'Jeder Buddy hat seine eigene Persönlichkeit und Stimme. Du kannst ihn später jederzeit wechseln.',
+  voice: 'Die Stimme, mit der dein Buddy dir antwortet.',
+  tone: 'Der Antwortstil lässt sich in den Einstellungen jederzeit ändern.',
+  experience: 'Damit Tipps weder zu einfach noch zu speziell sind.',
+};
 
 function toggleInList(list, value, max) {
   if (list.includes(value)) return list.filter((item) => item !== value);
@@ -233,24 +249,51 @@ export default function OnboardingFlow() {
 
   return (
     <Dialog open onOpenChange={(next) => { if (!next) handleSkip(); }}>
-      <DialogContent className="bb-app max-h-[85vh] overflow-y-auto max-w-xl border-slate-700">
-        <DialogTitle>{step.title}</DialogTitle>
-        <DialogDescription>
-          Schritt {stepIndex + 1} von {ONBOARDING_STEP_COUNT} — du kannst jederzeit abbrechen und später fortsetzen.
-        </DialogDescription>
+      <DialogContent className="bb-app bb-onboarding left-0 top-0 translate-x-0 translate-y-0 max-w-none w-full h-[100dvh] sm:rounded-none rounded-none border-0 p-0 overflow-y-auto [&>button]:hidden">
+        <img src="/assets/buddy/lake-hero.png" alt="" className="bb-onboarding-bg" aria-hidden="true" />
+        <div className="bb-onboarding-inner">
+          <div className="bb-onboarding-brand">
+            <span className="bb-brand bb-brand-md" aria-hidden="true">
+              <BrandMark size={40} />
+              <span className="bb-brand-text">
+                <span className="bb-brand-word">Bait<span className="bb-title-accent">Buddy</span></span>
+                <span className="bb-brand-tagline">Mehr als Angeln</span>
+              </span>
+            </span>
+            <span className="bb-onboarding-claim">Dein KI-Partner am Wasser.</span>
+          </div>
 
-        <div
-          className="h-1.5 rounded-full bg-white/10 overflow-hidden"
-          role="progressbar"
-          aria-valuenow={percent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Onboarding-Fortschritt"
-        >
-          <div className="h-full bg-cyan-400 transition-all duration-300" style={{ width: `${percent}%` }} />
-        </div>
+          <div className="bb-onboarding-progress-head">
+            <span className="bb-onboarding-label">Onboarding</span>
+            <DialogDescription className="bb-onboarding-count">
+              Schritt {stepIndex + 1} von {ONBOARDING_STEP_COUNT}
+            </DialogDescription>
+          </div>
+          <ol
+            className="bb-onboarding-dots"
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Onboarding-Fortschritt"
+          >
+            {ONBOARDING_STEPS.map((item, index) => (
+              <li
+                key={item.id}
+                className={index < stepIndex ? 'is-done' : index === stepIndex ? 'is-current' : ''}
+                title={item.title}
+              >
+                {index < stepIndex ? <Check size={12} aria-hidden="true" /> : index === stepIndex ? index + 1 : null}
+              </li>
+            ))}
+          </ol>
+          <p className="bb-onboarding-hint">Nur noch ein paar Schritte zu deinem perfekten Angel-Assistenten.</p>
 
-        <div className="py-2 space-y-4">
+          <section className="bb-card bb-onboarding-card">
+            <DialogTitle className="bb-onboarding-title">{STEP_HEADLINES[step.id] || step.title}</DialogTitle>
+            {STEP_SUBLINES[step.id] && <p className="bb-onboarding-sub">{STEP_SUBLINES[step.id]}</p>}
+
+        <div className="space-y-4 mt-4">
           {step.id === 'welcome' && (
             <div className="space-y-3">
               <p>
@@ -265,28 +308,27 @@ export default function OnboardingFlow() {
           )}
 
           {step.id === 'buddy' && (
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(BUDDIES).map(([id, option]) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={draft.buddy.avatarId === id}
-                  onClick={() => setDraftSection('buddy', { ...draft.buddy, gender: option.gender, avatarId: id })}
-                  className={`text-left rounded-2xl overflow-hidden ${
-                    draft.buddy.avatarId === id ? 'ring-2 ring-cyan-300 bg-cyan-400/10' : 'bg-white/5'
-                  }`}
-                >
-                  <img
-                    src={option.portrait}
-                    alt={`${option.name}, ${option.gender === 'female' ? 'weiblicher' : 'männlicher'} KI-Buddy`}
-                    className="w-full aspect-[4/3] object-cover object-top"
-                  />
-                  <div className="p-3">
-                    <span className="font-semibold">{option.name}</span>
-                    <span className="text-xs text-slate-300 block mt-1">{option.description}</span>
-                  </div>
-                </button>
-              ))}
+            <div className="bb-buddy-picks">
+              {Object.entries(BUDDIES).map(([id, option]) => {
+                const selected = draft.buddy.avatarId === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setDraftSection('buddy', { ...draft.buddy, gender: option.gender, avatarId: id })}
+                    className={`bb-buddy-pick${selected ? ' is-selected' : ''}`}
+                  >
+                    {selected && <span className="bb-buddy-pick-check"><Check size={16} aria-hidden="true" /></span>}
+                    <img
+                      src={option.portrait}
+                      alt={`${option.name}, ${option.gender === 'female' ? 'weiblicher' : 'männlicher'} KI-Buddy`}
+                    />
+                    <span className="bb-buddy-pick-name">{option.name}</span>
+                    <span className="bb-buddy-pick-desc">{option.description}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -507,20 +549,24 @@ export default function OnboardingFlow() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            type="button"
-            className="bb-secondary"
-            onClick={handleBack}
-            disabled={stepIndex === 0 || busy || saving}
-          >
-            <ChevronLeft size={18} aria-hidden="true" /> Zurück
-          </button>
-          <button type="button" className="bb-secondary" onClick={handleSkip} disabled={busy || saving}>
-            Später
-          </button>
-          <button type="button" className="bb-action ml-auto" onClick={handleNext} disabled={busy || saving}>
-            {busy || saving ? 'Wird gespeichert …' : isLast ? 'Fertig' : 'Weiter'}
+        </section>
+
+          <div className="bb-onboarding-actions">
+            <button
+              type="button"
+              className="bb-secondary bb-onboarding-btn"
+              onClick={handleBack}
+              disabled={stepIndex === 0 || busy || saving}
+            >
+              Zurück
+            </button>
+            <button type="button" className="bb-action bb-onboarding-btn" onClick={handleNext} disabled={busy || saving}>
+              {busy || saving ? 'Wird gespeichert …' : isLast ? 'Fertig' : 'Weiter'}
+              {!(busy || saving) && <ArrowRight size={20} aria-hidden="true" />}
+            </button>
+          </div>
+          <button type="button" className="bb-onboarding-later" onClick={handleSkip} disabled={busy || saving}>
+            Später fortsetzen
           </button>
         </div>
       </DialogContent>
