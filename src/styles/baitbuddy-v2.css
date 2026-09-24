@@ -1291,8 +1291,17 @@
   margin: auto;
   padding: 16px 16px calc(110px + env(safe-area-inset-bottom));
   display: grid;
+  /* Explizite Spalte: Die implizite Grid-Spalte wächst sonst auf die volle
+     Inhaltsbreite — eine einzeilige Zeile (truncate/nowrap, Chip-Leiste)
+     drückte die ganze Seite über den Bildschirmrand, und body schneidet den
+     Rest nur ab. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
 }
+.bb-page > * { min-width: 0; }
+/* Ein Grid-Kind mit margin:auto (Tailwind mx-auto) streckt sich nicht, sondern
+   nimmt seine Inhaltsbreite an — dann greift die Spaltenbreite nicht. */
+.bb-page > .mx-auto { width: 100%; }
 
 /* ── Stat cards (3-col) ─────────────────────────── */
 .bb-stat-row {
