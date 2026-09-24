@@ -142,8 +142,15 @@ class ApiClient {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.token) {
-            this.setToken(null);
-            this.setRefreshToken(null);
+            // Nur eine echte Ablehnung (Refresh-Token ungültig/abgelaufen)
+            // beendet die Sitzung. Bei 429 (Auth-Rate-Limit teilen sich z. B.
+            // alle Nutzer hinter einer Mobilfunk-NAT-IP) oder 5xx bleiben die
+            // Tokens erhalten — sonst würde eine kurze Server-Störung jeden
+            // Nutzer ausloggen, obwohl sein Refresh-Token gültig ist.
+            if (res.status === 400 || res.status === 401 || res.status === 403) {
+              this.setToken(null);
+              this.setRefreshToken(null);
+            }
             return false;
           }
           this.setToken(data.token);

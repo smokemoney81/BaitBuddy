@@ -126,3 +126,91 @@ describe('POST /api/events — visibility-Gate', () => {
     expect(inserted.visibility).toBe('friends');
   });
 });
+
+describe('POST /api/events/:id/invite', () => {
+  const invite = (emails) => request(app)
+    .post('/api/events/e1/invite')
+    .set('Authorization', 'Bearer tok')
+    .send({ invitee_emails: emails });
+
+  function mockWith({ participant = { id: 'p1' }, event = { id: 'e1', is_active: true } } = {}) {
+    supabaseMock.current = createSupabaseMock({
+      authUser: ME,
+      fromResults: {
+        events: { data: event, error: null },
+        event_participants: { data: participant, error: null },
+        event_invitations: { data: { id: 'inv1', invitee_id: 'freund@test.de' }, error: null },
+      },
+    });
+  }
+
+  // Regression: Die Route hängte .catch() an den Supabase-Query-Builder, der
+  // nur thenable ist — jeder Aufruf warf einen TypeError und endete mit 500.
+  it('legt Einladungen an und liefert 201', async () => {
+    mockWith();
+    await buildApp();
+    const res = await invite(['Freund@Test.de', 'freund@test.de']);
+    expect(res.status).toBe(201);
+    expect(res.body.invitations).toHaveLength(1);
+    expect(supabaseMock.current.__builders.event_invitations.insert).toHaveBeenCalledTimes(1);
+    expect(supabaseMock.current.__builders.event_invitations.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ invitee_id: 'freund@test.de', inviter_id: ME.email }),
+    );
+  });
+
+  it('verweigert Einladungen von Nicht-Teilnehmern', async () => {
+    mockWith({ participant: null });
+    await buildApp();
+    const res = await invite(['freund@test.de']);
+    expect(res.status).toBe(403);
+  });
+
+  it('lehnt ungültige Adressen ab', async () => {
+    mockWith();
+    await buildApp();
+    const res = await invite(['kein-mail', 42]);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/events/:id/submit', () => {
+  const past = new Date(Date.now() - 86400000).toISOString();
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const submit = (body) => request(app)
+    .post('/api/events/e1/submit')
+    .set('Authorization', 'Bearer tok')
+    .send(body);
+
+  function mockEvent(event) {
+    supabaseMock.current = createSupabaseMock({
+      authUser: ME,
+      fromResults: {
+        events: { data: event, error: null },
+        event_submissions: { data: [{ id: 'sub1', calculated_points: 100 }], error: null },
+        event_point_configs: { data: null, error: null },
+        event_participants: { data: [], error: null },
+      },
+    });
+  }
+
+  it('lehnt Einreichungen für beendete Events ab', async () => {
+    mockEvent({ id: 'e1', status: 'ended', is_active: true, start_date: past, end_date: past });
+    await buildApp();
+    const res = await submit({ species: 'Hecht', length_cm: 80 });
+    expect(res.status).toBe(409);
+  });
+
+  it('lehnt unplausible Längen ab', async () => {
+    mockEvent({ id: 'e1', status: 'active', is_active: true, start_date: past, end_date: future });
+    await buildApp();
+    const res = await submit({ species: 'Hecht', length_cm: 999999 });
+    expect(res.status).toBe(400);
+  });
+
+  it('nimmt gültige Einreichungen in laufenden Events an', async () => {
+    mockEvent({ id: 'e1', status: 'active', is_active: true, start_date: past, end_date: future });
+    await buildApp();
+    const res = await submit({ species: 'Hecht', length_cm: 80 });
+    expect(res.status).toBe(201);
+  });
+});

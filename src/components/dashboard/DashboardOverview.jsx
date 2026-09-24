@@ -237,8 +237,8 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
         <div className="grid gap-5">
           {/* Spots */}
           <section className="bb-card">
-            <h2 className="text-lg font-semibold mb-4">Top-Spots in deiner Naehe</h2>
-            <p className="text-xs text-slate-400 mb-3">Deine gespeicherten Spots, nach Entfernung sortiert.</p>
+            <h2 className="text-lg font-semibold mb-4">Deine Top-Spots</h2>
+            <p className="text-xs text-slate-400 mb-3">Deine meistbefischten Spots der letzten 30 Tage.</p>
             {nearestSpots.length ? (
               nearestSpots.map(spot => (
                 <Link to={`/Map?spot=${encodeURIComponent(spot.id)}`} className="bb-spot-row" key={spot.id}>
@@ -246,7 +246,11 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold truncate">{spot.name}</h3>
                     <p className="text-xs text-slate-400">
-                      {spot.water_type}{spot.distance != null ? ` · ${spot.distance.toFixed(1)} km` : ''}
+                      {[
+                        spot.water_type,
+                        spot.usage_count ? `${spot.usage_count} ${spot.usage_count === 1 ? 'Fang' : 'Fänge'}` : null,
+                        spot.distance != null ? `${spot.distance.toFixed(1)} km` : null,
+                      ].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <ArrowRight size={17} />
@@ -254,7 +258,7 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
               ))
             ) : (
               <p className="bb-muted">
-                Noch keine Spots in deiner Naehe geladen. Entdecke Gewaesser auf der Karte und speichere deine Favoriten.
+                Noch keine Fänge an gespeicherten Spots in den letzten 30 Tagen. Entdecke Gewaesser auf der Karte und ordne deine Fänge einem Spot zu.
               </p>
             )}
             <Link to="/Map" className="bb-secondary mt-3">Karte entdecken <ArrowRight size={16} /></Link>

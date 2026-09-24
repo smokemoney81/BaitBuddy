@@ -24,8 +24,14 @@ router.get('/spots', requireAuth, async (req, res) => {
   return res.json(data || []);
 });
 
+// Ohne Anmeldung erreichbar — deshalb strikt nur Spots, die als öffentlich
+// markiert sind. Vorher lieferte der Endpunkt jeden Spot aller Nutzer samt
+// exakter Koordinaten aus, also auch private Angelplätze (is_public=false).
 router.get('/spots/public', async (req, res) => {
-  const { data, error } = await supabase.from('spots').select('id,name,latitude,longitude,water_type').limit(100);
+  const { data, error } = await supabase.from('spots')
+    .select('id,name,latitude,longitude,water_type')
+    .eq('is_public', true)
+    .limit(100);
   if (error) return sendDbError(res, error);
   return res.json(data);
 });

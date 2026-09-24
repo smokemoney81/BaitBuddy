@@ -285,3 +285,22 @@ describe('GET /api/auth/me', () => {
     expect(res.body.is_admin).toBe(false);
   });
 });
+
+describe('Start ohne CRON_SECRET', () => {
+  it('bringt nicht das ganze Backend zu Fall und sperrt nur die Cron-Route', async () => {
+    const saved = process.env.CRON_SECRET;
+    delete process.env.CRON_SECRET;
+    try {
+      vi.resetModules();
+      const { default: freshApp } = await import('../server.js');
+      const health = await request(freshApp).get('/api/health');
+      expect(health.status).toBe(200);
+      const cron = await request(freshApp)
+        .get('/api/admin/premium/check-expiry')
+        .set('x-cron-secret', 'irgendwas');
+      expect(cron.status).toBe(500);
+    } finally {
+      process.env.CRON_SECRET = saved;
+    }
+  });
+});

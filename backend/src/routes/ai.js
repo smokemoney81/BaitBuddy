@@ -652,8 +652,9 @@ const DEFAULT_VOICE_ID = 'onwK4e9ZLuTAKqWW03F9';
 const FEMALE_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX';
 
 router.post('/ai/tts', requireAuth, async (req, res) => {
-  const { text, voice } = req.body;
-  if (!text || text.trim().length === 0) {
+  const { text, voice } = req.body || {};
+  // Typ prüfen: Ein Nicht-String (z. B. eine Zahl) ließ .trim() werfen → 500.
+  if (typeof text !== 'string' || text.trim().length === 0) {
     return res.status(400).json({ error: 'Text is required' });
   }
 

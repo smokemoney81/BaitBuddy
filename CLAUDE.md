@@ -208,6 +208,13 @@ ausschließlich serverseitig (`CHECKOUT_PLANS`); der Client sendet nur die
   (`STRIPE_SECRET_KEY` / `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`). Fehlt das Secret,
   sperrt die UI den Kauf-Button — sonst zahlt der Nutzer erst und bekommt danach
   einen 501. Schlägt die Abfrage fehl, wird **nicht** gesperrt (fail-open).
+- **Replay-Schutz über alle Zahlungen:** Webhook und `/premium/activate` führen
+  `premium_processed_transactions` (letzte 50 Session-IDs/Play-Tokens). Eine
+  bereits verbuchte Transaktion ist ein No-op — außer Play bestätigt ein
+  späteres Ablaufdatum (`extendsRuntime`). Beide Wege haben dieselben
+  Nebenwirkungen (Referral-Rabatt verbrauchen, Basic-Belohnung, `premium_trial=false`).
+- **Checkout-Mindestpreis (9,99 €) begrenzt nur den Referral-Rabatt**, er ist
+  kein Preisaufschlag für günstigere Pläne.
 - **Plan-Rangfolge an zwei Stellen spiegeln:** `backend/src/lib/planResolver.js`
   (`PLAN_RANK`) und `src/components/premium/planHierarchy.jsx`
   (`PLAN_HIERARCHY`). Laufen sie auseinander, schaltet der Server etwas frei,
@@ -236,10 +243,18 @@ erfolgreich eingeladenem Freund**. Das Popup rotiert alle 72h (localStorage
   einmalig ein. Der eingeladene Nutzer bekommt `referred_by` in seinen
   Metadaten gesetzt (verhindert Doppel-Einlösung); die `referrals`-Tabelle
   hat zusätzlich `UNIQUE(referred_user_id)` als strukturelle Absicherung.
-- **Belohnung (Anmeldung)**: 7 Tage werden an die bestehende Ultimate-Laufzeit
-  angehängt (oder ab jetzt +7 Tage, falls kein aktiver Ultimate-Plan). Ein bereits
-  höherer Plan (`friends`) wird **nicht** herabgestuft. Der Server pflegt
-  `referral_reward_count` in den Metadaten des Referrers.
+- **Belohnung (Anmeldung)**: 7 Tage Ultimate als **Pass** in `app_metadata`
+  (`premium_pass_expires_at`, von `resolvePlan` ausgewertet). Angehängt wird an
+  eine laufende bezahlte Ultimate-Laufzeit bzw. einen laufenden Pass, sonst ab
+  jetzt. Das eigentliche Abo (Basic/Pro inkl. Play-Ablaufdatum) bleibt dabei
+  unangetastet, ein höherer Plan (`friends`) wird **nicht** herabgestuft. Der
+  Server pflegt `referral_reward_count` in `app_metadata` des Referrers.
+  ⚠️ Plan-Felder **nie** in `user_metadata` schreiben — die ist clientseitig
+  beschreibbar und wird von `resolvePlan` ignoriert (so war die Belohnung
+  früher wirkungslos).
+- **Code-Vergabe nur serverseitig** (`GET /api/referrals/me`). `referral_code`
+  ist nicht über `PATCH /auth/me` setzbar; ein Code, der im Lookup schon einem
+  anderen Nutzer gehört, wird nie umgeschrieben.
 - **Belohnung (Basic-Kauf des Freundes)**: Aktiviert ein eingeladener Nutzer
   erstmals den **Basic**-Plan, bekommt sein Referrer **10 € Rabatt auf den
   nächsten Ultimate-Kauf** gutgeschrieben — gedeckelt bei 3 Freunden (30 €).
@@ -441,6 +456,25 @@ Deshalb sprechen `POST /api/auth/login` und `POST /api/auth/register` GoTrue
 **direkt per `fetchWithTimeout`** an (`passwordGrant()` in `routes/auth.js`),
 genau wie `POST /api/auth/refresh`. `supabase.auth.admin.*` und
 `supabase.auth.getUser(token)` sind unbedenklich — die setzen keine Session.
+
+#### Weitere Backend-Regeln
+
+- **Supabase-Query-Builder haben kein `.catch()`** — sie sind nur *thenable*.
+  `supabase.from(…).insert(…).catch(…)` wirft einen TypeError (so waren
+  Event-Einladungen und die Ad-Belohnung dauerhaft 500). Fehler über
+  `{ error }` auswerten oder `Promise.resolve(builder).catch(…)` nutzen.
+- **Metadaten-Read-Modify-Write immer auf frischem Stand:** `req.user` kommt aus
+  dem Token-Cache (`middleware/auth.js`, bis 60 s alt). Vor jedem Merge in
+  `user_metadata`/`app_metadata` `getFreshUser(req.user)` nutzen und nach dem
+  Schreiben `invalidateCachedUser(id)` aufrufen — sonst sieht der Nutzer den
+  gekauften Plan bis zu einer Minute nicht bzw. ein Merge dreht Änderungen zurück.
+- **`req.protocol` nie zuweisen** (Getter; im Strict Mode TypeError → jede
+  Anfrage hinter Nginx/Cloudflare 500). `trust proxy` liefert den Wert bereits.
+- **Öffentliche Endpunkte liefern nur öffentliche Daten:** `/spots/public` und
+  `/fishing/hotspots` filtern `is_public=true`; `publicRead`-Entities in
+  `userEntities.js` entfernen fremde `user_email`/`created_by`.
+- **Uploads** (`/api/files/upload`) nur mit erlaubten Medientypen; CSV/GPX
+  werden als `text/plain` abgelegt (öffentlicher Bucket → kein HTML/SVG).
 
 #### Storage-URLs beim Self-Hosting: `SUPABASE_PUBLIC_URL`
 

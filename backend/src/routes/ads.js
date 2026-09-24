@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, invalidateCachedUser } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
 import { resolvePlan } from '../lib/planResolver.js';
 
@@ -142,11 +142,16 @@ router.post('/reward/complete', requireAuth, async (req, res) => {
   }
 
   // Analytics-Event (fire-and-forget)
-  supabase.from('ad_events').insert({
+  invalidateCachedUser(user.id);
+
+  // Analytics best-effort im Hintergrund. Supabase-Query-Builder sind nur
+  // thenable und haben KEIN .catch() — der frühere .catch()-Aufruf warf einen
+  // TypeError, und der Nutzer bekam trotz gespeicherter Belohnung einen 500er.
+  Promise.resolve(supabase.from('ad_events').insert({
     event: 'reward_granted',
     ts: new Date().toISOString(),
     meta: { reward_type, user_id: user.id, plan: plan.effectiveId },
-  }).catch(() => {});
+  })).catch(() => {});
 
   return res.json({ granted: true, reward_type, updated_meta: updatedMeta });
 });

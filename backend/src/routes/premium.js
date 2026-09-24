@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, getFreshUser, invalidateCachedUser } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
 import { verifyGooglePlayPurchase, verifyStripePayment, createStripeCheckoutSession, constructStripeWebhookEvent } from '../lib/purchaseVerification.js';
 import { sendDbError } from '../lib/errorResponse.js';
@@ -58,6 +58,35 @@ function verifiedExpiryFrom(verification) {
   return new Date(ms).toISOString();
 }
 
+// Ein Ultimate-Pass (24h-Kauf, Referral-Bonus) verlängert eine noch laufende
+// Pass-Laufzeit, statt sie zu überschreiben — sonst verfielen bereits
+// erworbene Bonus-Tage mit dem nächsten Kauf.
+function extendPassExpiry(current, durationMs, nowMs = Date.now()) {
+  const existing = current?.premium_pass_expires_at
+    ? new Date(current.premium_pass_expires_at).getTime()
+    : 0;
+  const base = Number.isFinite(existing) && existing > nowMs ? existing : nowMs;
+  return new Date(base + durationMs).toISOString();
+}
+
+// Replay-Schutz über ALLE bisher verbuchten Zahlungen, nicht nur die letzte:
+// Wurde nur `premium_transaction_id` verglichen, ließ sich eine ältere, bereits
+// verbuchte Stripe-Session nach einem neueren Kauf erneut einreichen und
+// verlängerte die Laufzeit ein weiteres Mal. Die Liste ist gedeckelt, damit
+// app_metadata (Teil jedes JWT) klein bleibt.
+const PROCESSED_TRANSACTIONS_LIMIT = 50;
+
+function processedTransactions(meta = {}) {
+  const list = Array.isArray(meta.premium_processed_transactions) ? meta.premium_processed_transactions : [];
+  return new Set([...list, meta.premium_transaction_id, meta.premium_purchase_token].filter(Boolean));
+}
+
+function rememberTransaction(meta = {}, id) {
+  const list = Array.isArray(meta.premium_processed_transactions) ? meta.premium_processed_transactions : [];
+  if (!id) return list;
+  return [...list.filter((x) => x !== id), id].slice(-PROCESSED_TRANSACTIONS_LIMIT);
+}
+
 function readDiscountCents(user) {
   const raw = Number(user?.app_metadata?.ultimate_discount_cents);
   if (!Number.isFinite(raw) || raw <= 0) return 0;
@@ -91,6 +120,7 @@ async function grantReferralBasicReward(referredUser) {
       app_metadata: { ...refMeta, ultimate_discount_cents: next },
     });
     if (updErr) return;
+    invalidateCachedUser(row.referrer_user_id);
 
     await supabase.from('referrals').update({ basic_reward_granted: true }).eq('id', row.id);
   } catch (e) {
@@ -241,27 +271,42 @@ export async function stripeWebhookHandler(req, res) {
 
   const { data: userResult, error: userError } = await supabase.auth.admin.getUserById(userId);
   if (userError || !userResult?.user) throw new Error('BaitBuddy user not found for Stripe session');
-  const current = userResult.user.app_metadata || {};
-  if (current.premium_transaction_id === session.id) {
+  const fulfilledUser = userResult.user;
+  const current = fulfilledUser.app_metadata || {};
+  if (processedTransactions(current).has(session.id)) {
     return res.status(200).json({ received: true, duplicate: true });
   }
 
-  const expiresAt = checkoutPlan.durationHours
-    ? new Date(Date.now() + checkoutPlan.durationHours * 60 * 60 * 1000).toISOString()
-    : new Date(Date.now() + (PLAN_DURATION_DAYS[planId] ?? DEFAULT_PLAN_DURATION_DAYS) * 24 * 60 * 60 * 1000).toISOString();
   const isPremiumPass = planId === 'premium_24h';
+  const expiresAt = isPremiumPass
+    ? extendPassExpiry(current, checkoutPlan.durationHours * 60 * 60 * 1000)
+    : new Date(Date.now() + (PLAN_DURATION_DAYS[planId] ?? DEFAULT_PLAN_DURATION_DAYS) * 24 * 60 * 60 * 1000).toISOString();
+  const storedPlanId = checkoutPlan.grantsPlan || planId;
+  // Webhook und /premium/activate müssen dieselben Nebenwirkungen haben: Der
+  // Webhook kommt in der Regel zuerst, danach ist /activate ein Replay-No-op.
+  // Ohne diese Felder blieb der Referral-Rabatt nach einem Ultimate-Kauf
+  // bestehen und war beliebig oft einlösbar.
+  const isUltimateTier = !isPremiumPass && (PLAN_RANK[storedPlanId] ?? 0) >= PLAN_RANK.elite;
   const merged = {
     ...current,
-    premium_plan_id: isPremiumPass ? current.premium_plan_id || 'free' : (checkoutPlan.grantsPlan || planId),
+    premium_plan_id: isPremiumPass ? current.premium_plan_id || 'free' : storedPlanId,
     premium_expires_at: isPremiumPass ? current.premium_expires_at || null : expiresAt,
     ...(isPremiumPass ? { premium_pass_started_at: new Date().toISOString(), premium_pass_expires_at: expiresAt } : {}),
+    ...(isPremiumPass ? {} : { premium_trial: false }),
     premium_payment_method: 'stripe',
     premium_transaction_id: session.id,
+    premium_processed_transactions: rememberTransaction(current, session.id),
     premium_activated_at: new Date().toISOString(),
     premium_activation_version: (current.premium_activation_version || 0) + 1,
+    ...(isUltimateTier ? { ultimate_discount_cents: 0 } : {}),
   };
   const { error } = await supabase.auth.admin.updateUserById(userId, { app_metadata: merged });
   if (error) throw error;
+  invalidateCachedUser(userId);
+
+  if (planId === 'basic') {
+    await grantReferralBasicReward({ ...fulfilledUser, app_metadata: merged });
+  }
   return res.status(200).json({ received: true, fulfilled: true });
 }
 
@@ -285,9 +330,14 @@ router.post('/premium/checkout', requireAuth, async (req, res) => {
 
   // Referral-Rabatt nur auf den Ultimate-Plan anwenden (elite). Betrag wird auf
   // einen Mindestpreis begrenzt und beim Aktivieren verbraucht.
+  // Der Mindestpreis begrenzt nur den RABATT — er ist kein Preisaufschlag.
+  // Vorher galt Math.max(…, 999) für jeden Plan, wodurch Basic (8,99 €) und
+  // der 24h-Pass (4,99 €) mit 9,99 € abgerechnet wurden.
   const isUltimate = plan_id === 'elite' || plan_id === 'ultimate';
-  const discountCents = isUltimate ? readDiscountCents(req.user) : 0;
-  const amountCents = Math.max(plan.amountCents - discountCents, ULTIMATE_MIN_CHECKOUT_CENTS);
+  const discountCents = isUltimate ? readDiscountCents(await getFreshUser(req.user)) : 0;
+  const amountCents = discountCents > 0
+    ? Math.max(plan.amountCents - discountCents, Math.min(ULTIMATE_MIN_CHECKOUT_CENTS, plan.amountCents))
+    : plan.amountCents;
   const appliedDiscountCents = plan.amountCents - amountCents;
 
   const session = await createStripeCheckoutSession({
@@ -360,7 +410,11 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     }
   }
 
-  const current = req.user.app_metadata || {};
+  // Frischer Stand statt req.user (Token-Cache, bis 60 s alt): Hat der
+  // Stripe-Webhook die Transaktion inzwischen verbucht, muss der Replay-Schutz
+  // das sehen, und ein Merge auf altem Stand würde dessen Felder zurückdrehen.
+  const freshUser = await getFreshUser(req.user);
+  const current = freshUser.app_metadata || {};
 
   // Ablaufdatum: Bei Google-Play-Abos gilt das von Play gelieferte
   // expiryTimeMillis, sonst rechnet der Server die Laufzeit selbst.
@@ -369,7 +423,7 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   const durationDays = PLAN_DURATION_DAYS[plan_id] ?? DEFAULT_PLAN_DURATION_DAYS;
   const expiresAt = verifiedExpiresAt
     || (checkoutPlan.durationHours
-      ? new Date(Date.now() + checkoutPlan.durationHours * 60 * 60 * 1000).toISOString()
+      ? extendPassExpiry(current, checkoutPlan.durationHours * 60 * 60 * 1000)
       : null)
     || new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
 
@@ -387,10 +441,11 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   // Replay-Schutz: Dieselbe Transaktion darf die Laufzeit nicht mehrfach
   // verlängern (z.B. wiederholtes Aufrufen der Stripe-Success-URL oder
   // "Käufe wiederherstellen" mit einem bereits verarbeiteten Play-Token).
-  const alreadyProcessed =
-    (transaction_id && current.premium_transaction_id === transaction_id) ||
-    (purchase_token && current.premium_purchase_token === purchase_token);
-  if (alreadyProcessed && current.premium_plan_id === plan_id && !extendsRuntime) {
+  // Kein Plan-Vergleich mehr: Beim 24h-Pass bleibt premium_plan_id der
+  // Basisplan, der Vergleich schlug also immer fehl — jede Wiederholung
+  // derselben Session hätte erneut Laufzeit gutgeschrieben.
+  const alreadyProcessed = processedTransactions(current).has(transaction_id || purchase_token);
+  if (alreadyProcessed && !extendsRuntime) {
     return res.json({
       ok: true,
       plan_id,
@@ -432,6 +487,7 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     premium_product_id: product_id,
     premium_purchase_token: purchase_token,
     premium_transaction_id: transaction_id,
+    premium_processed_transactions: rememberTransaction(current, transaction_id || purchase_token),
     premium_activated_at: new Date().toISOString(),
     premium_activation_version: (current.premium_activation_version || 0) + 1,
     // Angesammelten Referral-Rabatt beim Ultimate-Kauf verbrauchen.
@@ -442,11 +498,12 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     app_metadata: merged,
   });
   if (error) return sendDbError(res, error);
+  invalidateCachedUser(req.user.id);
 
   // Referral-Belohnung: Aktiviert ein eingeladener Nutzer erstmals Basic,
   // bekommt sein Referrer 10 € Ultimate-Rabatt gutgeschrieben (best-effort).
   if (plan_id === 'basic') {
-    await grantReferralBasicReward({ id: req.user.id, user_metadata: req.user.user_metadata || {}, app_metadata: merged });
+    await grantReferralBasicReward({ id: req.user.id, user_metadata: freshUser.user_metadata || {}, app_metadata: merged });
   }
 
   return res.json({

@@ -17,7 +17,7 @@ export default function FunctionRatings() {
     try {
       const user = await auth.me();
 
-      if (user?.role !== 'admin') {
+      if (user?.is_admin !== true) {
         setIsAdmin(false);
         toast.error('Nur Admins können Bewertungen einsehen');
         return;

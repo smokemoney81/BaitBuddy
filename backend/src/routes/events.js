@@ -3,6 +3,7 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
+import { validateCatchPayload } from './catches.js';
 import {
   calculateSubmissionPoints,
   calculateEventFinalRankings,
@@ -334,11 +335,42 @@ router.post('/events/:id/leave', requireAuth, async (req, res) => {
 
 router.post('/events/:id/submit', requireAuth, async (req, res) => {
   try {
-    const { species, length_cm, weight_kg, photo_url, catch_time } = req.body;
+    const { species, length_cm, weight_kg, photo_url, catch_time } = req.body || {};
+
+    // Einreichungen nur für laufende Events: Nach dem Ende hätten nachträgliche
+    // Einreichungen die bereits archivierten Endstände verändert.
+    const { data: event } = await supabase
+      .from('events')
+      .select('id, status, is_active, start_date, end_date')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    const nowMs = Date.now();
+    if (!event || event.is_active === false) {
+      return res.status(404).json({ error: 'Event nicht gefunden' });
+    }
+    if (event.status !== 'active'
+      || (event.start_date && new Date(event.start_date).getTime() > nowMs)
+      || (event.end_date && new Date(event.end_date).getTime() < nowMs)) {
+      return res.status(409).json({ error: 'Das Event läuft derzeit nicht' });
+    }
+
+    // Dieselben Grenzen wie im Fangbuch (catches.js) — Punkte hängen an der
+    // Länge, ungeprüfte Werte wären eine offene Tür für Fantasie-Einreichungen.
+    const validated = validateCatchPayload(
+      { species, length_cm, weight_kg, photo_url },
+      { partial: true }
+    );
+    if (!validated.ok || !validated.value.species) {
+      return res.status(400).json({ error: validated.ok ? 'Fischart (species) erforderlich' : validated.error });
+    }
+    const parsedCatchTime = catch_time ? new Date(catch_time) : new Date(nowMs);
+    if (Number.isNaN(parsedCatchTime.getTime())) {
+      return res.status(400).json({ error: 'catch_time ist kein gültiger Zeitpunkt' });
+    }
 
     // 1. Berechne Punkte
     const pointsResult = await calculateSubmissionPoints(
-      { species, length_cm, community_likes: 0 },
+      { species: validated.value.species, length_cm: validated.value.length_cm, community_likes: 0 },
       req.params.id,
       supabase
     );
@@ -349,11 +381,11 @@ router.post('/events/:id/submit', requireAuth, async (req, res) => {
       .insert({
         event_id: req.params.id,
         user_id: req.user.email,
-        species,
-        length_cm: parseFloat(length_cm) || null,
-        weight_kg: parseFloat(weight_kg) || null,
-        photo_url: photo_url || null,
-        catch_time: catch_time || new Date().toISOString(),
+        species: validated.value.species,
+        length_cm: validated.value.length_cm,
+        weight_kg: validated.value.weight_kg,
+        photo_url: validated.value.photo_url || null,
+        catch_time: parsedCatchTime.toISOString(),
         calculated_points: pointsResult.total,
         points_breakdown: pointsResult.breakdown,
         verified: true
@@ -412,16 +444,54 @@ router.get('/events/:id/leaderboard', optionalAuth, async (req, res) => {
 // EVENT INVITATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const MAX_INVITES_PER_REQUEST = 50;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 router.post('/events/:id/invite', requireAuth, async (req, res) => {
   try {
-    const { invitee_emails } = req.body;
+    const { invitee_emails } = req.body || {};
 
     if (!Array.isArray(invitee_emails) || invitee_emails.length === 0) {
       return res.status(400).json({ error: 'invitee_emails erforderlich' });
     }
 
-    const invitations = await Promise.all(
-      invitee_emails.map(email =>
+    const emails = [...new Set(
+      invitee_emails
+        .filter((e) => typeof e === 'string')
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => EMAIL_PATTERN.test(e) && e !== String(req.user.email).toLowerCase())
+    )];
+    if (emails.length === 0) {
+      return res.status(400).json({ error: 'Keine gültigen E-Mail-Adressen' });
+    }
+    if (emails.length > MAX_INVITES_PER_REQUEST) {
+      return res.status(400).json({ error: `Höchstens ${MAX_INVITES_PER_REQUEST} Einladungen pro Anfrage` });
+    }
+
+    // Einladen darf nur, wer selbst am (aktiven) Event teilnimmt — sonst
+    // könnte jeder für beliebige Events Einladungen an Fremde verschicken.
+    const { data: event } = await supabase
+      .from('events')
+      .select('id, is_active')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (!event || event.is_active === false) {
+      return res.status(404).json({ error: 'Event nicht gefunden' });
+    }
+    const { data: participant } = await supabase
+      .from('event_participants')
+      .select('id')
+      .eq('event_id', req.params.id)
+      .eq('user_id', req.user.email)
+      .maybeSingle();
+    if (!participant) {
+      return res.status(403).json({ error: 'Nur Teilnehmer können einladen' });
+    }
+
+    // Supabase-Query-Builder sind nur thenable und haben kein .catch() — der
+    // frühere .catch()-Aufruf warf einen TypeError, jede Einladung endete mit 500.
+    const results = await Promise.all(
+      emails.map((email) =>
         supabase
           .from('event_invitations')
           .insert({
@@ -432,11 +502,12 @@ router.post('/events/:id/invite', requireAuth, async (req, res) => {
           })
           .select()
           .single()
-          .catch(err => ({ error: err }))
       )
     );
 
-    return res.status(201).json({ invitations: invitations.filter(i => !i.error) });
+    const invitations = results.filter((r) => !r.error && r.data).map((r) => r.data);
+    const failed = results.filter((r) => r.error).length;
+    return res.status(201).json({ invitations, failed });
   } catch (error) {
     console.error('Error sending invitations:', error);
     res.status(500).json({ error: 'Fehler beim Senden von Einladungen' });

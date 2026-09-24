@@ -60,6 +60,34 @@ export async function optionalAuth(req, res, next) {
   next();
 }
 
+// Nach jeder serverseitigen Änderung an den Metadaten eines Nutzers aufrufen.
+// Sonst liefert requireAuth bis zu TOKEN_CACHE_TTL_MS lang das alte
+// Nutzerobjekt aus — etwa einen noch nicht freigeschalteten Plan direkt nach
+// dem Kauf. Wirkt nur auf diese Instanz (wie der Cache selbst).
+export function invalidateCachedUser(userId) {
+  if (!userId) return;
+  for (const [token, entry] of tokenCache) {
+    if (entry.user?.id === userId) tokenCache.delete(token);
+  }
+}
+
+// Liefert den aktuellen Stand eines Nutzers direkt aus GoTrue. Für jedes
+// Read-Modify-Write auf user_metadata/app_metadata Pflicht: req.user kann aus
+// dem Token-Cache stammen und bis zu einer Minute alt sein. Ein Merge auf
+// diesem Stand würde zwischenzeitliche Änderungen (Plan-Aktivierung per
+// Webhook, parallele Einstellungs-Speicherung) still zurückdrehen.
+// Fällt bei einem Lesefehler auf das übergebene Objekt zurück.
+export async function getFreshUser(user) {
+  if (!user?.id) return user;
+  try {
+    const { data, error } = await supabase.auth.admin.getUserById(user.id);
+    if (!error && data?.user) return data.user;
+  } catch {
+    // Fallback unten
+  }
+  return user;
+}
+
 // Nur für Tests: Cache leeren, damit sich Testfälle nicht gegenseitig
 // beeinflussen.
 export function __clearTokenCache() {

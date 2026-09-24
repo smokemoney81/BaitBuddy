@@ -26,11 +26,13 @@ try {
 // POST /api/support/tickets - Neues Support-Ticket erstellen
 router.post('/support/tickets', requireAuth, async (req, res) => {
   try {
-    const { subject, category, message } = req.body;
+    const { subject, category, message } = req.body || {};
     const user_email = req.user.email;
-    const user_name = req.user.user_metadata?.name || 'Nutzer';
+    // Profilname steht in full_name (siehe /auth/register, PATCH /auth/me);
+    // `name` gibt es nur bei manchen OAuth-Anbietern.
+    const user_name = req.user.user_metadata?.full_name || req.user.user_metadata?.name || 'Nutzer';
 
-    if (!subject || !message) {
+    if (typeof subject !== 'string' || typeof message !== 'string' || !subject.trim() || !message.trim()) {
       return res.status(400).json({ error: 'Betreff und Nachricht erforderlich' });
     }
 

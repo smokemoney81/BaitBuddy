@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { supabase, supabaseUrl, supabaseKey } from '../lib/supabase.js';
-import { requireAuth, isAdminEmail } from '../middleware/auth.js';
+import { requireAuth, isAdminEmail, getFreshUser, invalidateCachedUser } from '../middleware/auth.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 
@@ -151,13 +151,19 @@ router.get('/auth/me', requireAuth, (req, res) => {
 // die App-Einstellungen (Theme, Sprache, Audio, Ticker …) — ohne dieses Feld
 // gingen alle Einstellungs-Speicherungen still verloren und jeder Browser
 // zeigte seinen eigenen lokalen Stand.
+// 'referral_code' ist bewusst NICHT enthalten: Den Code vergibt allein
+// GET /referrals/me. War er hier setzbar, konnte ein Nutzer den Code eines
+// anderen eintragen und ihn über den Reverse-Lookup auf sich umbiegen.
 const METADATA_WHITELIST = [
   'full_name', 'nickname', 'profile_image_url', 'profile_picture_url', 'bio',
-  'theme', 'settings', 'referral_code', 'avatar_url', 'profile_complete',
+  'theme', 'settings', 'avatar_url', 'profile_complete',
   'first_open_at', 'feature_usage', 'feature_ratings', 'quiz_points', 'quiz_runs',
 ];
 router.patch('/auth/me', requireAuth, async (req, res) => {
-  const current = req.user.user_metadata || {};
+  // Frischer Stand statt req.user (Token-Cache): Zwei schnell aufeinander
+  // folgende Speicherungen hätten sonst die erste wieder überschrieben.
+  const freshUser = await getFreshUser(req.user);
+  const current = freshUser.user_metadata || {};
   const sanitized = {};
 
   for (const key of METADATA_WHITELIST) {
@@ -178,6 +184,7 @@ router.patch('/auth/me', requireAuth, async (req, res) => {
     user_metadata: merged,
   });
   if (error) return sendDbError(res, error);
+  invalidateCachedUser(req.user.id);
   const u = data.user;
   return res.json({
     id: u.id,
@@ -185,6 +192,7 @@ router.patch('/auth/me', requireAuth, async (req, res) => {
     full_name: u.user_metadata?.full_name || '',
     created_at: u.created_at,
     ...u.user_metadata,
+    is_admin: isAdminEmail(u.email),
   });
 });
 
@@ -199,7 +207,8 @@ router.post('/auth/link-oauth', requireAuth, async (req, res) => {
   }
 
   try {
-    const current = req.user.user_metadata || {};
+    const freshUser = await getFreshUser(req.user);
+    const current = freshUser.user_metadata || {};
     const merged = {
       ...current,
       oauth_linked: true,
@@ -212,6 +221,7 @@ router.post('/auth/link-oauth', requireAuth, async (req, res) => {
     });
 
     if (error) return sendDbError(res, error);
+    invalidateCachedUser(req.user.id);
 
     const u = data.user;
     return res.json({

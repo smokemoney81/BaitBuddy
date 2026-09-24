@@ -10,6 +10,7 @@ const { supabaseMock, purchaseVerificationMock } = vi.hoisted(() => ({
     verifyGooglePlayPurchase: vi.fn(),
     verifyStripePayment: vi.fn(),
     createStripeCheckoutSession: vi.fn(),
+    constructStripeWebhookEvent: vi.fn(),
   },
 }));
 vi.mock('../lib/supabase.js', () => ({
@@ -379,6 +380,80 @@ describe('POST /api/premium/activate (Stripe-Härtung)', () => {
   });
 });
 
+describe('POST /api/premium/activate – Replay-Schutz über alle Transaktionen', () => {
+  async function stripeUserApp(appMetadata) {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    supabaseMock.current = createSupabaseMock({
+      authUser: { ...TEST_USER, app_metadata: appMetadata },
+      adminUsers: [{ ...TEST_USER, app_metadata: appMetadata }],
+    });
+    vi.resetModules();
+    return (await import('../server.js')).default;
+  }
+
+  it('schreibt einen bereits verbuchten 24h-Pass nicht erneut gut', async () => {
+    const passEnd = new Date(Date.now() + 20 * 3600 * 1000).toISOString();
+    const configuredApp = await stripeUserApp({
+      premium_plan_id: 'free',
+      premium_pass_expires_at: passEnd,
+      premium_transaction_id: 'cs_pass',
+    });
+    purchaseVerificationMock.verifyStripePayment.mockResolvedValue({
+      valid: true,
+      raw: { client_reference_id: 'user-1', metadata: { plan_id: 'premium_24h' } },
+    });
+
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'premium_24h', transaction_id: 'cs_pass' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(false);
+    expect(supabaseMock.current.__adminUsers[0].app_metadata.premium_pass_expires_at).toBe(passEnd);
+  });
+
+  it('ignoriert eine ältere, bereits verbuchte Session nach einem neueren Kauf', async () => {
+    const expiresAt = new Date(Date.now() + 25 * 24 * 3600 * 1000).toISOString();
+    const configuredApp = await stripeUserApp({
+      premium_plan_id: 'elite',
+      premium_expires_at: expiresAt,
+      premium_transaction_id: 'cs_new',
+      premium_processed_transactions: ['cs_old', 'cs_new'],
+    });
+    purchaseVerificationMock.verifyStripePayment.mockResolvedValue({
+      valid: true,
+      raw: { client_reference_id: 'user-1', metadata: { plan_id: 'elite' } },
+    });
+
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'elite', transaction_id: 'cs_old' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(false);
+    expect(supabaseMock.current.__adminUsers[0].app_metadata.premium_expires_at).toBe(expiresAt);
+  });
+
+  it('merkt sich neue Transaktionen für spätere Prüfungen', async () => {
+    const configuredApp = await stripeUserApp({ premium_processed_transactions: ['cs_a'] });
+    purchaseVerificationMock.verifyStripePayment.mockResolvedValue({
+      valid: true,
+      raw: { client_reference_id: 'user-1', metadata: { plan_id: 'pro' } },
+    });
+
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'pro', transaction_id: 'cs_b' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(true);
+    expect(supabaseMock.current.__adminUsers[0].app_metadata.premium_processed_transactions).toEqual(['cs_a', 'cs_b']);
+  });
+});
+
 describe('Referral: 10-EUR-Ultimate-Rabatt', () => {
   it('zieht den Referral-Rabatt beim Ultimate-Checkout ab (elite)', async () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_123';
@@ -437,7 +512,14 @@ describe('Referral: 10-EUR-Ultimate-Rabatt', () => {
     });
     supabaseMock.current.auth.admin = {
       updateUserById: vi.fn(async () => ({ data: {}, error: null })),
-      getUserById: vi.fn(async () => ({ data: { user: { id: 'user-2', user_metadata: {}, app_metadata: {} } }, error: null })),
+      getUserById: vi.fn(async (id) => ({
+        data: {
+          user: id === 'user-2'
+            ? { id: 'user-2', user_metadata: {}, app_metadata: {} }
+            : { ...TEST_USER, user_metadata: { referred_by: 'ABC12345' } },
+        },
+        error: null,
+      })),
     };
     vi.resetModules();
     const configuredApp = (await import('../server.js')).default;
@@ -528,5 +610,89 @@ describe('GET /api/premium/status', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.plan.id).toBe('free');
+  });
+});
+
+// Der Mindestpreis von 9,99 € galt früher für JEDEN Plan statt nur als
+// Rabatt-Untergrenze: Basic (8,99 €) und der 24h-Pass (4,99 €) wurden mit
+// 9,99 € abgerechnet.
+describe('POST /api/premium/checkout – Preise ohne Rabatt', () => {
+  it.each([
+    ['basic', 899],
+    ['premium_24h', 499],
+    ['pro', 1800],
+    ['elite', 3600],
+  ])('berechnet %s mit dem Listenpreis (%i Cent)', async (planId, cents) => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    purchaseVerificationMock.createStripeCheckoutSession.mockResolvedValue({
+      ok: true, id: 'cs_x', url: 'https://checkout.stripe.com/pay/cs_x',
+    });
+
+    const res = await request(configuredApp)
+      .post('/api/premium/checkout')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: planId });
+
+    expect(res.status).toBe(200);
+    expect(purchaseVerificationMock.createStripeCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ planId, amountCents: cents })
+    );
+  });
+});
+
+describe('POST /api/premium/stripe/webhook', () => {
+  const paidSession = (planId) => ({
+    type: 'checkout.session.completed',
+    data: {
+      object: {
+        id: `cs_${planId}`,
+        payment_status: 'paid',
+        client_reference_id: 'user-1',
+        metadata: { plan_id: planId },
+      },
+    },
+  });
+
+  it('verbraucht den Referral-Rabatt bei einem Ultimate-Kauf', async () => {
+    supabaseMock.current = createSupabaseMock({
+      adminUsers: [{ ...TEST_USER, app_metadata: { ultimate_discount_cents: 2000, premium_trial: true } }],
+    });
+    purchaseVerificationMock.constructStripeWebhookEvent.mockReturnValue(paidSession('elite'));
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+
+    const res = await request(configuredApp)
+      .post('/api/premium/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .send('{}');
+
+    expect(res.status).toBe(200);
+    expect(res.body.fulfilled).toBe(true);
+    const stored = supabaseMock.current.__adminUsers[0].app_metadata;
+    expect(stored.premium_plan_id).toBe('elite');
+    expect(stored.ultimate_discount_cents).toBe(0);
+    expect(stored.premium_trial).toBe(false);
+  });
+
+  it('verlängert einen laufenden Pass beim 24h-Kauf statt ihn zu überschreiben', async () => {
+    const passEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    supabaseMock.current = createSupabaseMock({
+      adminUsers: [{ ...TEST_USER, app_metadata: { premium_pass_expires_at: passEnd } }],
+    });
+    purchaseVerificationMock.constructStripeWebhookEvent.mockReturnValue(paidSession('premium_24h'));
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+
+    const res = await request(configuredApp)
+      .post('/api/premium/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .send('{}');
+
+    expect(res.status).toBe(200);
+    const stored = supabaseMock.current.__adminUsers[0].app_metadata;
+    expect(new Date(stored.premium_pass_expires_at).getTime())
+      .toBe(new Date(passEnd).getTime() + 24 * 60 * 60 * 1000);
   });
 });
