@@ -2174,6 +2174,92 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   .bb-voice-controls { display: none; }
 }
 
+/* ── Live-Gespräch (VoiceChat) ──
+   Nutzt die Höhenlogik von .bb-voice (useFitToViewport, kein Seiten-Scroll).
+   Kopf, Buddy-Bühne und Bedienleiste sind fix, nur .bb-live-chat scrollt.
+   Die Bedienleiste liegt IN der Seite über der Bottom-Nav statt fixed darunter. */
+.bb-live { gap: 10px; }
+.bb-live-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 4px; }
+.bb-live-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bb-live-title h1 { margin: 0; font-size: 20px; font-weight: 800; color: #f4f8fb; white-space: nowrap; }
+.bb-live-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #9fb3c6; background: rgba(8, 20, 34, .6); border: 1px solid rgba(160,190,215,.25);
+}
+.bb-live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #5b6b7c; }
+.bb-live-badge.is-on { color: var(--bb-green); border-color: rgba(34,224,122,.45); }
+.bb-live-badge.is-on i { background: var(--bb-green); box-shadow: 0 0 8px var(--bb-green); animation: bb-pulse-green 1.6s ease-in-out infinite; }
+.bb-live-close {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; color: #dce8f2;
+  background: rgba(8, 20, 34, .6); border: 1px solid rgba(160,190,215,.25);
+}
+.bb-live-stage {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; border-radius: 22px;
+  background: var(--bb-surface-grad); border: 1px solid var(--bb-border);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.bb-live-orb { position: relative; width: 96px; height: 96px; flex-shrink: 0; display: grid; place-items: center; }
+.bb-live-orb img {
+  position: relative; z-index: 1; width: 96px; height: 96px; border-radius: 50%;
+  object-fit: cover; object-position: center 25%;
+  border: 3px solid rgba(160,190,215,.35); transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+.bb-live-orb-loading {
+  position: relative; z-index: 1; width: 96px; height: 96px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--bb-cyan); background: #0d1a2a; border: 3px solid var(--bb-border);
+}
+.bb-live-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; opacity: 0; pointer-events: none; }
+.bb-live-stage.is-listening .bb-live-orb img { border-color: var(--bb-green); box-shadow: 0 0 22px rgba(34,224,122,.5); }
+.bb-live-stage.is-speaking .bb-live-orb img,
+.bb-live-stage.is-thinking .bb-live-orb img { border-color: var(--bb-cyan); box-shadow: 0 0 22px rgba(0,229,255,.5); }
+.bb-live-stage.is-listening .bb-live-ring { border-color: var(--bb-green); animation: bb-live-ripple 1.8s ease-out infinite; }
+.bb-live-stage.is-speaking .bb-live-ring { border-color: var(--bb-cyan); animation: bb-live-ripple 1.8s ease-out infinite; }
+.bb-live-ring.is-delayed { animation-delay: .9s !important; }
+@keyframes bb-live-ripple { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.45); opacity: 0; } }
+.bb-live-status { min-width: 0; display: grid; gap: 8px; }
+.bb-live-status p { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.3; color: #eef5fa; }
+.bb-live-status p.is-error { color: #ff7a8c; font-weight: 500; font-size: 14px; }
+.bb-live-bars { display: flex; align-items: flex-end; gap: 4px; height: 22px; }
+.bb-live-bars i { width: 5px; height: 5px; border-radius: 3px; background: linear-gradient(180deg, var(--bb-cyan), var(--bb-green)); opacity: .45; }
+.bb-live-bars.is-on i { opacity: .9; animation: bb-live-bar 1s ease-in-out infinite; }
+.bb-live-bars.is-on i:nth-child(2) { animation-delay: .15s; }
+.bb-live-bars.is-on i:nth-child(3) { animation-delay: .3s; }
+.bb-live-bars.is-on i:nth-child(4) { animation-delay: .45s; }
+.bb-live-bars.is-on i:nth-child(5) { animation-delay: .6s; }
+@keyframes bb-live-bar { 0%, 100% { height: 5px; } 50% { height: 22px; } }
+.bb-live > .bb-live-chat { padding: 4px 2px; }
+.bb-live-hint { margin: auto 8px; text-align: center; font-size: 14px; line-height: 1.5; color: #9fb3c6; }
+.bb-live-controls { display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 2px; }
+.bb-live-call {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 28px; border-radius: 999px;
+  font-size: 16px; font-weight: 700; border: none;
+}
+.bb-live-call.is-start { flex: 1; max-width: 340px; color: #04111a; background: var(--bb-cta-grad); box-shadow: 0 8px 24px rgba(0,229,255,.3); }
+.bb-live-call.is-end { color: #fff; background: linear-gradient(180deg, #ff5a70, #e0324b); box-shadow: 0 8px 24px rgba(255,69,96,.3); }
+.bb-live-round {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; color: #dce8f2;
+  background: rgba(8, 20, 34, .7); border: 1.5px solid rgba(160,190,215,.35);
+}
+.bb-live-round.is-muted { color: #ff7a8c; border-color: rgba(255,69,96,.6); }
+.bb-live-round:disabled { opacity: .45; }
+@media (prefers-reduced-motion: reduce) {
+  .bb-live-ring, .bb-live-bars.is-on i, .bb-live-badge.is-on i { animation: none !important; }
+}
+/* Wenig Höhe: Buddy-Bühne schrumpft, zuletzt nur noch die Statuszeile. */
+@media (max-height: 680px) {
+  .bb-live-orb, .bb-live-orb img, .bb-live-orb-loading { width: 60px; height: 60px; }
+  .bb-live-stage { padding: 8px 12px; }
+}
+@media (max-height: 560px) {
+  .bb-live-orb, .bb-live-bars { display: none; }
+}
+
 /* ── KI-Bisserkennung ── */
 .bb-bite { display: grid; gap: 12px; }
 .bb-bite-head { text-align: center; }
