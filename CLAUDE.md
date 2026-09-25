@@ -320,6 +320,8 @@ Start via `POST /api/events`). Sie ist **nicht** mehr in der Community-Sektion
 der Kopfzeile mit Event-Name + Restzeit bis `end_date` des laufenden Events, das
 als nächstes endet (`GET /api/events/user/active-event`, nur sichtbare Events).
 Die Restzeit wird jede Sekunde aus `end_date` berechnet, nicht hochgezählt.
+Auf dem Voice Buddy (`KiBuddyBeta`) ist die Zeile ausgeblendet
+(`hideEventTimer` in `pageTopBars.jsx`), damit die nicht scrollbare Seite Platz hat.
 
 ## 🗄️ Datenbank-Migrationen (automatisierter Deploy)
 

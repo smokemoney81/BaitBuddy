@@ -54,8 +54,9 @@ export function TopBarAvatar({ user, onClick }) {
 // Hauptseiten: Logo links, Glocke + Avatar rechts.
 // Unterseiten: runde Zurück-Taste links, Logo mittig, Avatar rechts.
 // `title` ersetzt auf Unterseiten das Logo durch den Seitentitel, `action`
-// ergänzt rechts eine Seitenaktion (siehe pageTopBars.jsx).
-export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, title = null, action = null }) {
+// ergänzt rechts eine Seitenaktion, `hideEventTimer` blendet die
+// Event-Countdown-Zeile aus (siehe pageTopBars.jsx).
+export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, title = null, action = null, hideEventTimer = false }) {
   const navigate = useNavigate();
   const { triggerHaptic } = useHaptic();
   const { playSound } = useSound();
@@ -103,7 +104,7 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, t
       </button>
       {title ? <h1 className="bb-topbar-title">{title}</h1> : <BrandLogo size="md" align="center" />}
       {right}
-      <EventTimer />
+      {!hideEventTimer && <EventTimer />}
     </header>
   );
 }
