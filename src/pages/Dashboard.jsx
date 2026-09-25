@@ -19,6 +19,7 @@ import WeatherWarningBanner from "@/components/weather/WeatherWarningBanner";
 import SuspenseWithErrorBoundary from "@/components/utils/SuspenseWithErrorBoundary";
 import ReferralInvitePopup from "@/components/referral/ReferralInvitePopup";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { useLocation as useGeoLocation } from "@/components/location/LocationManager";
 
 export default function Dashboard() {
   const { buddy } = useBuddyPreferences();
@@ -77,23 +78,14 @@ export default function Dashboard() {
     };
   }, []);
 
+  const { ensureLocation } = useGeoLocation();
+
   const handleAiAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      const savedLocation = localStorage.getItem("fm_current_location");
-      let location = null;
-      
-      if (savedLocation) {
-        try {
-          location = JSON.parse(savedLocation);
-        } catch (e) {
-          console.warn('Dashboard: gespeicherter Standort ist ungültig:', e);
-        }
-      }
-
-      if (!location || !location.lat || !location.lon) {
-        toast.error("Kein Standort verfuegbar. Bitte Standort aktivieren.");
-        setIsAnalyzing(false);
+      const location = await ensureLocation();
+      if (location?.lat == null || location?.lon == null) {
+        // requestGpsLocation hat den Grund (verweigert/Timeout) bereits gemeldet.
         return;
       }
 
@@ -144,8 +136,12 @@ Antworte auf Deutsch, direkt und praxisnah, in max 6 Sätzen.`;
 
       const response = await integrations.Core.InvokeLLM({ prompt });
       const analysisText = typeof response === 'string'
-        ? response
-        : response?.reply || response?.message || response || 'Keine Analyse verfügbar.';
+        ? response.trim()
+        : String(response?.reply || response?.message || '').trim();
+      if (!analysisText) {
+        // Leere Antwort sonst als "abgeschlossen" gemeldet, aber nichts angezeigt.
+        throw new Error('Leere KI-Antwort');
+      }
 
       setAiAnalysis(analysisText);
       setShowAnalysis(true);

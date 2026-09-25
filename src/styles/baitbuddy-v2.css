@@ -759,6 +759,56 @@
   pointer-events: none;
 }
 
+/* Quick-action sheet (Schnellaktionen der Bottom-Nav).
+   Eigene Klasse statt .bb-app: .bb-app erzwingt min-height:100dvh, wodurch das
+   Blatt die ganze Bildschirmhoehe fuellte, und liess den Hintergrund vom
+   Theme abhaengen. Farben hier fest im App-Design (#0B1324 + Cyan). */
+.bb-quick-sheet {
+  background: linear-gradient(180deg, #13243a 0%, #0B1324 100%) !important;
+  color: #eef5fa;
+  border: 0 !important;
+  border-top: 1px solid var(--bb-border) !important;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, .6), 0 -1px 18px rgba(0, 229, 255, .12);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom)) !important;
+}
+.bb-quick-sheet-handle {
+  width: 44px;
+  height: 5px;
+  margin: 0 auto 12px;
+  border-radius: 999px;
+  background: rgba(0, 229, 255, .35);
+}
+/* Schliessen-Taste der Sheet-Komponente an die App anpassen (44px Touch-Ziel) */
+.bb-quick-sheet > button {
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06) !important;
+  border: 1px solid var(--bb-border);
+  color: #eef5fa;
+  opacity: 1;
+}
+.bb-quick-sheet > button:focus-visible {
+  outline: 2px solid var(--bb-cyan);
+  outline-offset: 2px;
+}
+.bb-quick-sheet .bb-quick-action-card {
+  background: var(--bb-surface-grad);
+  min-height: 112px;
+  justify-content: center;
+}
+.bb-quick-sheet .bb-quick-action-card:active {
+  transform: scale(.97);
+  border-color: var(--bb-border-hover);
+}
+
 /* Quick-action sheet cards */
 .bb-quick-action-card {
   display: flex;

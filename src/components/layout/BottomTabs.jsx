@@ -175,9 +175,10 @@ export default function BottomTabs() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="bottom"
-          className="bb-app rounded-t-3xl border-0 pb-[calc(24px+env(safe-area-inset-bottom))] [&>button]:h-11 [&>button]:w-11"
+          className="bb-quick-sheet"
         >
-          <SheetHeader>
+          <div className="bb-quick-sheet-handle" aria-hidden="true" />
+          <SheetHeader className="text-center sm:text-center">
             <SheetTitle className="text-white text-lg">
               Was möchtest du machen?
             </SheetTitle>

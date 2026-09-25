@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { getFishingRecommendation } from "@/functions/getFishingRecommendation";
 import { toast } from "sonner";
 import SpeakButton from "@/components/ai/SpeakButton";
+import { useLocation as useGeoLocation } from "@/components/location/LocationManager";
 
 export default function FishingRecommendationCard() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
+  const { ensureLocation } = useGeoLocation();
 
   const ratingColor = {
     "Gut": "text-emerald-700",
@@ -14,20 +16,13 @@ export default function FishingRecommendationCard() {
   };
 
   const analyze = async () => {
-    const saved = localStorage.getItem("fm_current_location");
-    if (!saved) {
-      toast.error("Kein Standort verfuegbar. Bitte Standort aktivieren.");
-      return;
-    }
-    let loc;
-    try { loc = JSON.parse(saved); } catch { return; }
-    if (!loc?.lat || !loc?.lon) {
-      toast.error("Standort ungueltig.");
-      return;
-    }
-
     setLoading(true);
     try {
+      // Holt bei fehlendem gespeichertem Standort einmal GPS; bei Ablehnung
+      // meldet requestGpsLocation den Grund bereits selbst.
+      const loc = await ensureLocation();
+      if (loc?.lat == null || loc?.lon == null) return;
+
       const res = await getFishingRecommendation({ latitude: loc.lat, longitude: loc.lon });
       if (res?.data?.recommendation) {
         setData(res.data);
@@ -37,7 +32,11 @@ export default function FishingRecommendationCard() {
       }
     } catch (e) {
       console.error(e);
-      toast.error("Fehler bei der Analyse");
+      toast.error(e?.status === 401
+        ? "Bitte melde dich an, um die Empfehlung zu nutzen."
+        : e?.status === 429
+          ? "Tageslimit erreicht. Bitte spaeter erneut versuchen."
+          : "Fehler bei der Analyse. Bitte spaeter erneut versuchen.");
     } finally {
       setLoading(false);
     }
