@@ -45,6 +45,8 @@ const LazyFallback = () => null;
 
 // Vollflächige Seiten ohne Seefoto-Hintergrund
 const NO_BACKDROP_PAGES = new Set(['Map', 'MapPage', 'ARView', 'ARKnotenAssistent', 'CatchCam']);
+// Seiten mit eigener Kopfzeile (Zurück, Titel, Einstellungen) wie in der Vorlage.
+const OWN_HEADER_PAGES = new Set(['AnglerMode']);
 
 // Wrapper component to prevent lazy-loaded components from blocking rendering
 const SuspenseWithErrorBoundary = ({ children }) => (
@@ -455,12 +457,14 @@ function LayoutContent({ children, currentPageName }) {
                   <CommandCenter isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentPageName={currentPageName} user={user} />
                 </SuspenseWithErrorBoundary>
 
-                <AppTopBar
-                  isRoot={ROOT_SEGMENTS.has(currentPageName)}
-                  user={user}
-                  isDemo={isDemo}
-                  onOpenCommandCenter={() => setIsSidebarOpen(true)}
-                />
+                {!OWN_HEADER_PAGES.has(currentPageName) && (
+                  <AppTopBar
+                    isRoot={ROOT_SEGMENTS.has(currentPageName)}
+                    user={user}
+                    isDemo={isDemo}
+                    onOpenCommandCenter={() => setIsSidebarOpen(true)}
+                  />
+                )}
 
                 <div className="w-full min-h-screen px-0 sm:px-0">
                   <SwipeToRefresh onRefresh={() => queryClient.invalidateQueries()}>

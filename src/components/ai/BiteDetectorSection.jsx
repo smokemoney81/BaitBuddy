@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import { recordTripEvent } from '@/lib/tripLog';
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User } from "@/entities/User";
-import { Activity } from "lucide-react";
+import { Activity, BrainCircuit, Crosshair, BellRing, Clock, Fish, ChevronRight } from "lucide-react";
 import { useSound } from "@/components/utils/SoundManager";
 import { useHaptic } from "@/components/utils/HapticFeedback";
 import BiteDetectorControls from "./BiteDetectorControls";
@@ -27,6 +27,7 @@ function BiteDetectorSectionInner() {
   const [tipScore, setTipScore] = useState(0);
   const [debugInfo, setDebugInfo] = useState("");
   const [error, setError] = useState(null); // New state for error messages
+  const [biteEvents, setBiteEvents] = useState([]);
 
   // Premium Metering (Temporarily disabled)
   const [_sessionId, _setSessionId] = useState(null);
@@ -334,6 +335,16 @@ function BiteDetectorSectionInner() {
     
     if (armed && trig) {
       state.lastAlarm = performance.now();
+      const lineHit = state.roiLine && Math.abs(zL) > kLine;
+      const biteEvent = {
+        id: Date.now(),
+        time: Date.now(),
+        source: lineHit ? 'Schnur' : 'Rutenspitze',
+        strength: Math.max(Math.abs(zL) / kLine, Math.abs(zT) / kTip),
+      };
+      setBiteEvents(prev => [biteEvent, ...prev].slice(0, 20));
+      // Für die Live-Timeline des Anglermodus merken.
+      recordTripEvent('bite', { source: biteEvent.source, strength: biteEvent.strength }, biteEvent.time);
       setAlarmActive(true);
       beep();
       setTimeout(() => setAlarmActive(false), 600);
@@ -644,108 +655,131 @@ function BiteDetectorSectionInner() {
     overlay.addEventListener('mouseleave', handleEnd);
   };
 
-  // Premium-Check temporär deaktiviert - alle Features frei
+  const lineLevel = Math.min(100, Math.round((lineScore / kLine) * 100));
+  const tipLevel = Math.min(100, Math.round((tipScore / kTip) * 100));
+
   return (
-    <Card className="glass-morphism border-border rounded-2xl">
-      <CardHeader>
-        <CardTitle className="text-primary drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]">
-          KI-Bisserkennung
-        </CardTitle>
-        {error && (
-          <p className="text-sm text-destructive mt-2" role="alert" aria-live="assertive">{error}</p>
-        )}
-        {/* Premium-Guthabenanzeige temporär deaktiviert
-          {sessionId && user && !user.is_demo_user && (
-              <div className="flex items-center gap-1 mt-2 px-2 py-1 bg-gray-800/50 rounded-lg max-w-fit">
-                <Coins className="w-3 h-3 text-emerald-400" />
-                <span className="text-xs font-mono text-emerald-400">
-                  {remainingCredits >= 1000 ? `${(remainingCredits / 1000).toFixed(1)}K` : remainingCredits}
-                </span>
-              </div>
-            )}
-        */}
-      </CardHeader>
-      <CardContent>
-        {/* Premium-Check temporär deaktiviert - alle Features frei. PremiumGuard Wrapper entfernt. */}
-          <div className="space-y-6">
-            {/* Video Display */}
-            <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-contain"
-                style={{ willChange: 'contents', WebkitAccelerated: 'true' }}
-                playsInline
-                autoPlay
-                muted
-                aria-label="Live Kamera-Stream fuer Bissanzeiger"
-              />
-              <canvas
-                ref={overlayRef}
-                className="absolute inset-0 w-full h-full"
-                style={{ 
-                  pointerEvents: 'auto',
-                  willChange: 'transform',
-                  WebkitAccelerated: 'true'
-                }}
-                role="img"
-                aria-label="Interaktive Ruten-Erkennungsflaeche: Tuerkis umrahmtes Gebiet ist die Angelschnur-Region; Gelbes umrahmtes Gebiet ist die Rutenspitze-Region. Klicken und ziehen zum Zeichnen der Regions of Interest fuer Bissanzeige."
-              />
-              <canvas
-                ref={procCanvasRef}
-                className="hidden"
-                role="presentation"
-                aria-hidden="true"
-                style={{ willChange: 'auto' }}
-              />
-              
-              {/* Screenreader-Statusbereich: kündigt Alarm und Betriebszustand an */}
-              <div
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-                className="sr-only"
-              >
-                {running
-                  ? alarmActive
-                    ? 'Biss erkannt!'
-                    : 'Bisserkennung laeuft'
-                  : 'Bisserkennung gestoppt'}
-              </div>
+    <section className="bb-bite" aria-labelledby="bite-title">
+      <header className="bb-bite-head">
+        <h2 id="bite-title" className="bb-bite-title"><BrainCircuit size={30} aria-hidden="true" />KI-Bisserkennung</h2>
+        <p className="bb-bite-eyebrow">Deine Rute im Blick. Kein Biss mehr verpassen.</p>
+        {error && <p className="text-sm text-red-300 mt-2" role="alert" aria-live="assertive">{error}</p>}
+      </header>
 
-              {!running && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Kamera ist aus</p>
-                  </div>
-                </div>
-              )}
+      <div className={`bb-bite-video${alarmActive ? ' is-alarm' : ''}`}>
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          playsInline
+          autoPlay
+          muted
+          aria-label="Live Kamera-Stream fuer Bissanzeiger"
+        />
+        <canvas
+          ref={overlayRef}
+          className="absolute inset-0 w-full h-full"
+          style={{ pointerEvents: 'auto' }}
+          role="img"
+          aria-label="Interaktive Ruten-Erkennungsflaeche: Tuerkis umrahmtes Gebiet ist die Angelschnur-Region; Gelbes umrahmtes Gebiet ist die Rutenspitze-Region. Klicken und ziehen zum Zeichnen der Regions of Interest fuer Bissanzeige."
+        />
+        <canvas ref={procCanvasRef} className="hidden" role="presentation" aria-hidden="true" />
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {running ? (alarmActive ? 'Biss erkannt!' : 'Bisserkennung laeuft') : 'Bisserkennung gestoppt'}
+        </div>
+        {running && <span className="bb-bite-live"><i aria-hidden="true" />LIVE</span>}
+        {!running && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center text-slate-300">
+              <Activity className="w-12 h-12 mx-auto mb-2 opacity-60" aria-hidden="true" />
+              <p>Kamera ist aus</p>
             </div>
-
-            {/* Controls */}
-            <BiteDetectorControls
-              running={running}
-              kLine={kLine}
-              kTip={kTip}
-              lockTime={lockTime}
-              onStartStop={running ? () => stopDetection(true) : startDetection}
-              onRoiDraw={enableRoiDraw}
-              onLineChange={setKLine}
-              onTipChange={setKTip}
-              onLockTimeChange={setLockTime}
-            />
-
-            {/* Metrics & Instructions */}
-            <BiteDetectorMetrics
-              running={running}
-              lineScore={lineScore}
-              tipScore={tipScore}
-              debugInfo={debugInfo}
-            />
-
-            <BiteDetectorInstructions />
           </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+
+      <div className="bb-bite-tiles">
+        <div className={`bb-bite-tile${running ? ' is-green' : ''}`}>
+          <Crosshair size={30} aria-hidden="true" />
+          <strong>{running ? 'Aktiv' : 'Gestoppt'}</strong>
+          <small>{running ? 'Kamera läuft' : 'Kamera starten'}</small>
+        </div>
+        <div className="bb-bite-tile">
+          <BiteGauge value={lineLevel} />
+          <strong>Schnur</strong>
+          <small>Signal zur Schwelle</small>
+        </div>
+        <div className="bb-bite-tile">
+          <BiteGauge value={tipLevel} />
+          <strong>Rutenspitze</strong>
+          <small>Signal zur Schwelle</small>
+        </div>
+        <div className={`bb-bite-tile${alarmActive ? ' is-alarm' : ''}`}>
+          <BellRing size={30} aria-hidden="true" />
+          <strong>{biteEvents.length}</strong>
+          <small>Bisse erkannt</small>
+        </div>
+      </div>
+
+      <div className="bb-card">
+        <BiteDetectorControls
+          running={running}
+          kLine={kLine}
+          kTip={kTip}
+          lockTime={lockTime}
+          onStartStop={running ? () => stopDetection(true) : startDetection}
+          onRoiDraw={enableRoiDraw}
+          onLineChange={setKLine}
+          onTipChange={setKTip}
+          onLockTimeChange={setLockTime}
+        />
+      </div>
+
+      <section className="bb-card" aria-labelledby="bite-events-title">
+        <div className="bb-section-head">
+          <h3 id="bite-events-title" className="bb-section-title"><Clock size={22} aria-hidden="true" />Ereignisse heute</h3>
+        </div>
+        {biteEvents.length === 0 ? (
+          <p className="bb-muted text-sm">Noch kein Biss erkannt. Starte die Kamera und markiere Schnur und Rutenspitze.</p>
+        ) : (
+          <ol className="bb-timeline">
+            {biteEvents.map(event => (
+              <li key={event.id} className={event.strength >= 1.5 ? 'is-red' : 'is-orange'}>
+                <span className="bb-timeline-time">{new Date(event.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                <span className="bb-timeline-icon"><Activity size={20} aria-hidden="true" /></span>
+                <span className="min-w-0">
+                  <strong>{event.strength >= 1.5 ? 'Deutlicher Biss' : 'Möglicher Biss'}</strong>
+                  <small>Bewegung an der {event.source} · {event.strength.toFixed(1)}× Schwelle</small>
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <button type="button" className="bb-action bb-action-block" onClick={() => window.dispatchEvent(new CustomEvent('openCatchDialog'))}>
+        <Fish size={20} aria-hidden="true" className="bb-action-icon" />
+        <span>Fangdialog öffnen</span>
+        <ChevronRight size={20} aria-hidden="true" className="bb-action-arrow" />
+      </button>
+
+      <BiteDetectorMetrics running={running} lineScore={lineScore} tipScore={tipScore} debugInfo={debugInfo} />
+      <BiteDetectorInstructions />
+    </section>
+  );
+}
+function BiteGauge({ value }) {
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(100, value || 0));
+  const color = v >= 100 ? 'var(--bb-red)' : v >= 60 ? 'var(--bb-orange)' : 'var(--bb-green)';
+  return (
+    <span className="bb-bite-gauge">
+      <svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true">
+        <circle cx="28" cy="28" r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="6" />
+        <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c - (v / 100) * c} transform="rotate(-90 28 28)" />
+      </svg>
+      <span>{v}%</span>
+    </span>
   );
 }

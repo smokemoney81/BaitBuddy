@@ -912,6 +912,22 @@ export const fishing = {
   hotspots:    ()          => api.get('/api/fishing/hotspots'),
 };
 
+// Vereinsprofile (gepflegte Profile zu Verzeichnis-Vereinen)
+export const clubs = {
+  search:    (q)            => api.get(`/api/clubs${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  following: ()             => api.get('/api/clubs/following/me'),
+  get:       (key)          => api.get(`/api/clubs/${encodeURIComponent(key)}`),
+  create:    (data)         => api.post('/api/clubs', data),
+  update:    (id, data)     => api.patch(`/api/clubs/${id}`, data),
+  follow:    (key, data)    => api.post(`/api/clubs/${encodeURIComponent(key)}/follow`, data || {}),
+  unfollow:  (id)           => api.del(`/api/clubs/${id}/follow`),
+};
+
+// Level & Rewards: XP, Level und Abzeichen, serverseitig aus echten Daten berechnet.
+export const progress = {
+  me: () => api.get('/api/progress/me'),
+};
+
 export const events = {
   // Event Management
   list:              ()                => api.get('/api/events'),
@@ -932,6 +948,14 @@ export const events = {
 
   // Submissions
   submit:            (id, data)        => api.post(`/api/events/${id}/submit`, data),
+
+  // Wettbewerb: Wertung, eigene Einreichungen, Prüfung durch den Veranstalter, Einsprüche
+  standings:         (id, metric)      => api.get(`/api/events/${id}/standings?metric=${encodeURIComponent(metric)}`),
+  mySubmissions:     (id)              => api.get(`/api/events/${id}/my-submissions`),
+  reviewQueue:       (id)              => api.get(`/api/events/${id}/review`),
+  reviewSubmission:  (id, sid, decision, note) => api.post(`/api/events/${id}/submissions/${sid}/review`, { decision, note }),
+  dispute:           (id, sid, reason) => api.post(`/api/events/${id}/submissions/${sid}/dispute`, { reason }),
+  resolveDispute:    (id, did, decision, resolution) => api.post(`/api/events/${id}/disputes/${did}/resolve`, { decision, resolution }),
 
   // Invitations
   invite:            (id, emails)      => api.post(`/api/events/${id}/invite`, { invitee_emails: emails }),

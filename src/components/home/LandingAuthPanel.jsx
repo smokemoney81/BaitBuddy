@@ -7,8 +7,9 @@ import { isOnline } from '@/utils/networkStatus';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { maybeShowEventPopup, EVENT_POPUP_DWELL_MS } from '@/lib/loginEventPopup';
 import { Browser } from '@capacitor/browser';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail, UserRound, Compass, ChevronRight, ChevronLeft, CloudUpload } from 'lucide-react';
 import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
+import { postLoginPath } from '@/lib/guestStore';
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
 // Aus src/pages/Home.jsx extrahiert: acht zusammenhaengende State-Felder und
@@ -17,9 +18,10 @@ import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
 // Tutorial-Modal) gerendert und getestet werden kann.
 
 const INPUT_CLASS =
-  'w-full bg-gray-800/90 border border-gray-600 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-400 outline-none focus:border-cyan-400 focus:bg-gray-800 focus:ring-2 focus:ring-cyan-400/30 transition-all';
+  'w-full min-h-[50px] bg-[#071526]/85 border border-cyan-400/35 rounded-2xl px-4 text-white text-base placeholder-slate-400 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/30 transition-all';
 
-// Nach erfolgreichem Login/Registrierung ins Dashboard. Ein voller
+// Nach erfolgreichem Login/Registrierung ins Dashboard — oder zur
+// Gastdaten-Übernahme, falls noch lokale Gastdaten auf dem Gerät liegen. Ein voller
 // Seitenwechsel (statt React-Router-Navigation) ist hier gewollt: er baut den
 // App-Zustand mit der frischen Sitzung neu auf.
 async function goToDashboard() {
@@ -27,7 +29,7 @@ async function goToDashboard() {
   if (popupShown) {
     await new Promise((resolve) => setTimeout(resolve, EVENT_POPUP_DWELL_MS));
   }
-  window.location.href = createPageUrl('Dashboard');
+  window.location.href = postLoginPath();
 }
 
 // Oeffnet die OAuth-URL im externen System-Browser. Bevorzugt das
@@ -55,7 +57,14 @@ async function openOAuthUrl(url) {
 }
 
 export default function LandingAuthPanel() {
-  const [loginMode, setLoginMode] = useState('login');
+  // ?auth=register (z. B. aus "Gastdaten übernehmen") öffnet direkt die Registrierung.
+  const [loginMode, setLoginMode] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('auth') === 'register' ? 'register' : 'login';
+    } catch {
+      return 'login';
+    }
+  });
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginName, setLoginName] = useState('');
@@ -64,6 +73,14 @@ export default function LandingAuthPanel() {
   const [loginInfo, setLoginInfo] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
+  // 'choice' = Auswahl wie im Startbildschirm-Entwurf, 'email' = Formular.
+  const [view, setView] = useState(() => (loginMode === 'register' ? 'email' : 'choice'));
+  const openEmail = (mode) => {
+    setLoginMode(mode);
+    setLoginError('');
+    setLoginInfo('');
+    setView('email');
+  };
   const [loggedInUser, setLoggedInUser] = useState(null);
 
   useEffect(() => {
@@ -196,125 +213,115 @@ export default function LandingAuthPanel() {
           }}
         />
       )}
-      <div className="w-full max-w-[320px] bg-black/75 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-2xl pointer-events-auto order-1 lg:order-1">
-      <h2 className="text-center text-base font-bold text-white mb-4">
-        {loginMode === 'login' ? 'Willkommen bei BaitBuddy' : 'Konto erstellen'}
-      </h2>
-
-      <div className="flex flex-col gap-2">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => handleSocialLogin('google')}
-            disabled={loginLoading}
-            className="flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-xl bg-white/10 text-white font-medium text-sm border border-white/20 hover:bg-white/20 hover:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0" aria-hidden="true">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/>
-            </svg>
-            Mit Google fortfahren
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-white/15" />
-        <span className="text-xs text-gray-500">oder</span>
-        <div className="flex-1 h-px bg-white/15" />
-      </div>
-
-      <form onSubmit={handleEmailAuth} className="flex flex-col gap-2">
-        {loginMode === 'register' && (
-          <input
-            type="text"
-            value={loginName}
-            onChange={(e) => setLoginName(e.target.value)}
-            placeholder="Vollständiger Name"
-            required
-            className={INPUT_CLASS}
-          />
+      <div className="bb-landing-auth">
+        {view === 'choice' ? (
+          <>
+            <button type="button" onClick={() => handleSocialLogin('google')} disabled={loginLoading} className="bb-landing-btn is-google">
+              <svg viewBox="0 0 24 24" className="bb-landing-btn-icon" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              <span>Mit Google fortfahren</span>
+            </button>
+            <button type="button" onClick={() => openEmail('register')} className="bb-landing-btn is-dark">
+              <Mail className="bb-landing-btn-icon text-cyan-300" aria-hidden="true" />
+              <span>Mit E-Mail anmelden</span>
+            </button>
+            <div className="bb-landing-or"><span>oder</span></div>
+            <button type="button" onClick={() => openEmail('login')} className="bb-landing-btn is-outline">
+              <UserRound className="bb-landing-btn-icon" aria-hidden="true" />
+              <span>Vorhandenes Konto</span>
+            </button>
+            <button type="button" onClick={handleGuestLogin} className="bb-landing-btn is-guest">
+              <Compass className="bb-landing-btn-icon" aria-hidden="true" />
+              <span>Als Gast ausprobieren</span>
+              <ChevronRight className="bb-landing-btn-arrow" aria-hidden="true" />
+            </button>
+            {loginError && <p role="alert" className="bb-landing-msg is-error">{loginError}</p>}
+            {loginInfo && <p role="status" className="bb-landing-msg is-info">{loginInfo}</p>}
+            <a href="/GastdatenUebernehmen" className="bb-landing-later">
+              <CloudUpload className="w-5 h-5" aria-hidden="true" />
+              Gastdaten später übernehmen
+            </a>
+          </>
+        ) : (
+          <div className="bb-landing-form">
+            <div className="bb-landing-form-head">
+              <button type="button" onClick={() => { setView('choice'); setLoginError(''); setLoginInfo(''); }} className="bb-landing-back" aria-label="Zurück zur Auswahl">
+                <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+              </button>
+              <h2>{loginMode === 'login' ? 'Willkommen zurück' : 'Konto erstellen'}</h2>
+            </div>
+            <form onSubmit={handleEmailAuth} className="flex flex-col gap-2.5">
+              {loginMode === 'register' && (
+                <input
+                  type="text"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
+                  placeholder="Vollständiger Name"
+                  required
+                  className={INPUT_CLASS}
+                />
+              )}
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="E-Mail Adresse"
+                required
+                className={INPUT_CLASS}
+              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Passwort"
+                  required
+                  className={`${INPUT_CLASS} pr-11`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {loginMode === 'login' && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loginLoading}
+                  className="self-end text-sm text-cyan-300 hover:text-cyan-200 disabled:opacity-50 transition-colors"
+                >
+                  Passwort vergessen?
+                </button>
+              )}
+              {loginError && <p role="alert" className="bb-landing-msg is-error">{loginError}</p>}
+              {loginInfo && <p role="status" className="bb-landing-msg is-info">{loginInfo}</p>}
+              <button type="submit" disabled={loginLoading} className="bb-landing-btn is-primary">
+                <span>{loginLoading ? 'Bitte warten...' : loginMode === 'login' ? 'Anmelden' : 'Registrieren'}</span>
+              </button>
+            </form>
+            <p className="bb-landing-switch">
+              {loginMode === 'login' ? 'Noch kein Konto?' : 'Bereits ein Konto?'}{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMode((m) => (m === 'login' ? 'register' : 'login'));
+                  setLoginError('');
+                }}
+              >
+                {loginMode === 'login' ? 'Registrieren' : 'Anmelden'}
+              </button>
+            </p>
+          </div>
         )}
-        <input
-          type="email"
-          value={loginEmail}
-          onChange={(e) => setLoginEmail(e.target.value)}
-          placeholder="E-Mail Adresse"
-          required
-          className={INPUT_CLASS}
-        />
-        <div className="relative">
-          <input
-            type={showPassword ? 'text' : 'password'}
-            value={loginPassword}
-            onChange={(e) => setLoginPassword(e.target.value)}
-            placeholder="Passwort"
-            required
-            className="w-full bg-gray-800/90 border border-gray-600 rounded-xl pl-4 pr-11 py-2.5 text-white text-sm placeholder-gray-400 outline-none focus:border-cyan-400 focus:bg-gray-800 focus:ring-2 focus:ring-cyan-400/30 transition-all"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((s) => !s)}
-            aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-          >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
-        {loginMode === 'login' && (
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            disabled={loginLoading}
-            className="self-end text-xs text-cyan-400 hover:text-cyan-300 disabled:opacity-50 transition-colors"
-          >
-            Passwort vergessen?
-          </button>
-        )}
-        {loginError && <p role="alert" className="text-red-400 text-xs text-center">{loginError}</p>}
-        {loginInfo && <p role="status" className="text-emerald-400 text-xs text-center">{loginInfo}</p>}
-        <button
-          type="submit"
-          disabled={loginLoading}
-          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold text-sm hover:from-cyan-400 hover:to-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-0.5"
-        >
-          {loginLoading ? 'Bitte warten...' : loginMode === 'login' ? 'Anmelden' : 'Registrieren'}
-        </button>
-      </form>
-
-      <p className="text-center text-xs text-gray-500 mt-3">
-        {loginMode === 'login' ? 'Noch kein Konto?' : 'Bereits ein Konto?'}{' '}
-        <button
-          type="button"
-          onClick={() => {
-            setLoginMode((m) => (m === 'login' ? 'register' : 'login'));
-            setLoginError('');
-          }}
-          className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
-        >
-          {loginMode === 'login' ? 'Registrieren' : 'Anmelden'}
-        </button>
-      </p>
-
-      <div className="flex items-center gap-3 mt-4">
-        <div className="flex-1 h-px bg-white/10" />
-        <span className="text-xs text-gray-600">oder</span>
-        <div className="flex-1 h-px bg-white/10" />
       </div>
-
-      <button
-        type="button"
-        onClick={handleGuestLogin}
-        className="w-full mt-3 py-2.5 rounded-xl bg-transparent text-gray-400 text-sm font-medium border border-white/10 hover:border-white/20 hover:text-gray-300 transition-all"
-      >
-        Als Gast fortfahren
-      </button>
-      <p className="text-center text-[10px] text-gray-600 mt-1.5">
-        Eingeschränkte Funktionen · Keine Registrierung nötig
-      </p>
-    </div>
     </>
   );
 }

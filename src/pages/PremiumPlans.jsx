@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle } from "lucide-react";
+import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle, ChevronRight, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { functions, premium } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
@@ -11,6 +11,11 @@ import {
 } from "@/components/premium/googlePlayBilling";
 import WebCheckoutButton from "@/components/premium/WebCheckoutButton";
 import PageTitle from "@/components/layout/PageTitle";
+import { useBuddyPreferences } from "@/lib/BuddyPreferencesContext";
+import { DETAIL_OPTIONS } from "@/lib/buddyPreferences";
+import { useTool } from "@/hooks/useTool";
+import { getPlanLevel } from "@/components/premium/planHierarchy";
+import { PLAN_TIERS, capabilityRows } from "@/lib/planAiCapabilities";
 
 // Offener Stripe-Kauf, dessen Aktivierung noch nicht bestätigt ist. Zwischen
 // "bei Stripe bezahlt" und "serverseitig freigeschaltet" liegt ein API-Aufruf;
@@ -66,6 +71,9 @@ export default function PremiumPlans() {
   const [restoring, setRestoring] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedPlanId, setSelectedPlanId] = useState('pro');
+  const { buddy, saveBuddy } = useBuddyPreferences();
+  const { getTool } = useTool();
 
   useEffect(() => {
     loadData();
@@ -242,9 +250,10 @@ export default function PremiumPlans() {
   const plans = [
     {
       id: 'free',
+      tagline: 'Einfach testen',
       name: 'Free',
       price: 0,
-      icon: Check,
+      icon: UserIcon,
       color: 'from-gray-600 to-gray-700',
       description: 'Kostenlos mit Werbung - zum Reinschnuppern',
       features: [
@@ -261,6 +270,7 @@ export default function PremiumPlans() {
     },
     {
       id: 'basic',
+      tagline: 'Solide Basis',
       name: 'Basic',
       price: 8.99,
       icon: Zap,
@@ -281,6 +291,7 @@ export default function PremiumPlans() {
     },
     {
       id: 'pro',
+      tagline: 'Für ambitionierte Angler',
       name: 'Pro',
       price: 18,
       icon: Star,
@@ -303,6 +314,7 @@ export default function PremiumPlans() {
     },
     {
       id: 'elite',
+      tagline: 'Maximale Power',
       name: 'Ultimate',
       price: 36,
       icon: Crown,
@@ -360,12 +372,40 @@ export default function PremiumPlans() {
     ? true
     : Boolean(billingAvailable ? paymentMethods.google_play : paymentMethods.stripe);
 
+  const tierPlans = PLAN_TIERS.map(({ planId }) => plans.find(plan => plan.id === planId));
+  const friendsPlan = plans.find(plan => plan.id === 'friends');
+  const currentId = currentPlan?.id || 'free';
+  const selected = plans.find(plan => plan.id === selectedPlanId) || tierPlans[2];
+  const voiceTool = getTool('voice-buddy');
+  const rows = capabilityRows({ voiceRequiredPlanRank: getPlanLevel(voiceTool?.requires || 'basic') });
+  const isUltimateActive = getPlanLevel(currentId) >= getPlanLevel('elite');
+
+  const selectPlan = (planId) => {
+    setSelectedPlanId(planId);
+    requestAnimationFrame(() => {
+      document.getElementById('plan-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const formatPrice = (price) => price === 0
+    ? '0 €'
+    : `${Number(price).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+  // Referral-Rabatt (10 € je eingeladenem Freund, der Basic kauft) gilt nur für
+  // den Ultimate-Plan und nur beim Web-Checkout. Betrag kommt aus dem
+  // Plan-Status (ultimate_discount_cents).
+  const discountEuro = Math.min((currentPlan?.ultimate_discount_cents || 0) / 100, 30);
+  const showUltimateDiscount = selected.id === 'elite' && !billingAvailable && discountEuro > 0;
+  const selectedPrice = showUltimateDiscount ? Math.max(selected.price - discountEuro, 9.99) : selected.price;
+  const isProcessing = processingPlan === selected.id;
+  const isSelectedCurrent = currentId === selected.id;
+
   if (loading) {
     return (
-      <div className="bb-page flex items-center justify-center" style={{ minHeight: '100vh' }}>
+      <div className="bb-page flex items-center justify-center" style={{ minHeight: '60vh' }}>
         <div className="flex items-center gap-3" style={{ color: 'var(--bb-cyan)' }}>
           <Loader2 size={24} className="animate-spin" />
-          <span>Lädt...</span>
+          <span>Lädt …</span>
         </div>
       </div>
     );
@@ -373,48 +413,135 @@ export default function PremiumPlans() {
 
   return (
     <div className="bb-page">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <PageTitle
-            title="Tarif & KI-Zugriff"
-            subtitle="Wähle den passenden Plan für dein Angelerlebnis. Mehr Möglichkeiten. Mehr Fänge."
-            script="Bessere Entscheidungen. Mehr Fische."
-          />
-          {currentPlan && currentPlan.id !== 'free' && (
-            <div className="mt-4">
-              <span className="bb-pill-info" style={{ background: '#059669', color: '#fff' }}>
-                Aktueller Plan: {currentPlan.name}
-                {currentPlan.remaining_days && ` - Noch ${currentPlan.remaining_days} Tage`}
-              </span>
-            </div>
-          )}
+      <div className="max-w-5xl mx-auto w-full min-w-0 grid gap-5">
+        <PageTitle
+          title="Tarif & KI-Zugriff"
+          subtitle="Wähle den passenden Plan für dein Angelerlebnis. Mehr Möglichkeiten. Mehr Fänge."
+          script="Bessere Entscheidungen. Mehr Fische."
+        />
 
-          {billingAvailable && (
-            <div className="mt-6">
-              <button
-                onClick={handleRestorePurchases}
-                disabled={restoring}
-                className="bb-secondary"
+        {/* Plan-Kacheln */}
+        <div className="bb-plan-tiles" role="list" aria-label="Tarife">
+          {tierPlans.map((plan, index) => {
+            const tierLabel = PLAN_TIERS[index].label;
+            const Icon = plan.icon;
+            const isCurrent = currentId === plan.id;
+            const recommended = plan.id === 'pro';
+            const isUltimate = plan.id === 'elite';
+            return (
+              <div
+                key={plan.id}
+                role="listitem"
+                className={`bb-plan-tile${recommended ? ' is-recommended' : ''}${isUltimate ? ' is-ultimate' : ''}${selected.id === plan.id ? ' is-selected' : ''}`}
               >
-                {restoring ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />
-                    Wird wiederhergestellt...
-                  </>
+                {recommended && <span className="bb-plan-badge">Empfohlen</span>}
+                <Icon size={30} aria-hidden="true" className="bb-plan-tile-icon" />
+                <strong className="bb-plan-tile-name">{tierLabel}</strong>
+                <span className="bb-plan-tile-desc">{plan.tagline}</span>
+                <span className="bb-plan-tile-price">{formatPrice(plan.price)}</span>
+                <span className="bb-plan-tile-period">{plan.price === 0 ? 'Für Einsteiger' : '/ Monat'}</span>
+                {isCurrent ? (
+                  <span className="bb-plan-tile-btn is-current">Aktuell</span>
+                ) : plan.price === 0 ? (
+                  <span className="bb-plan-tile-btn is-current">Kostenlos</span>
                 ) : (
-                  <>
-                    <RefreshCw size={16} className="mr-2" />
-                    Käufe wiederherstellen
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => selectPlan(plan.id)}
+                    className={`bb-plan-tile-btn${recommended ? ' is-primary' : ''}`}
+                  >
+                    {recommended ? 'Upgraden' : 'Upgrade'}
+                  </button>
                 )}
-              </button>
-            </div>
-          )}
+              </div>
+            );
+          })}
         </div>
 
+        {/* KI-Funktionen je Tarif */}
+        <section className="bb-card bb-ai-table-card" aria-labelledby="ai-table-title">
+          <div className="bb-ai-table-scroll">
+            <table className="bb-ai-table">
+              <caption id="ai-table-title" className="sr-only">KI-Funktionen je Tarif</caption>
+              <colgroup>
+                <col className="bb-ai-col-label" />
+                {PLAN_TIERS.map(({ planId }) => <col key={planId} />)}
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">KI-Funktion</th>
+                  {PLAN_TIERS.map(({ planId, label }) => (
+                    <th key={planId} scope="col" className={`is-${planId}`}>{label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(row => (
+                  <tr key={row.id}>
+                    <th scope="row" title={row.hint}>{row.label}</th>
+                    {row.cells.map((cell, i) => (
+                      <td key={PLAN_TIERS[i].planId}>
+                        <span className={`bb-ai-dots level-${cell.level}`} aria-hidden="true">
+                          {cell.level === 3 ? <><i /><i /><i /></> : <i />}
+                        </span>
+                        <span>{cell.text}</span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Antwortlaenge (gespeichert in den Buddy-Einstellungen) */}
+        {user && (
+          <section className="bb-card bb-detail-card" aria-labelledby="detail-title">
+            <div className="bb-detail-row">
+              <h2 id="detail-title" className="bb-detail-title">Antwortlänge</h2>
+              <div className="bb-segment" role="radiogroup" aria-labelledby="detail-title">
+                {DETAIL_OPTIONS.map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={buddy.detail === option.id}
+                    className={buddy.detail === option.id ? 'is-active' : ''}
+                    onClick={() => saveBuddy({ ...buddy, detail: option.id })}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="bb-detail-hint">Legt die Länge und Detailtiefe der KI-Antworten fest. Der Umfang pro Stufe hängt von deinem Tarif ab.</p>
+          </section>
+        )}
+
+        {/* Ultimate-Hinweis */}
+        {isUltimateActive ? (
+          <section className="bb-ultimate-banner" aria-label="Ultimate aktiv">
+            <Crown size={40} aria-hidden="true" className="bb-ultimate-crown" />
+            <span className="flex-1 min-w-0">
+              <strong>Ultimate: Premium-KI-Tools aktiv</strong>
+              <span>Du hast Zugriff auf alle KI-Funktionen, Analysen und den Voice-Buddy.</span>
+            </span>
+          </section>
+        ) : (
+          <button type="button" className="bb-ultimate-banner" onClick={() => selectPlan('elite')}>
+            <Crown size={40} aria-hidden="true" className="bb-ultimate-crown" />
+            <span className="flex-1 min-w-0 text-left">
+              <strong>Ultimate: alle Premium-KI-Tools</strong>
+              <span>Maximale Kontexttiefe, proaktive Tipps und jede Funktion ohne Limit.</span>
+            </span>
+            <ChevronRight size={26} aria-hidden="true" />
+          </button>
+        )}
+
+        {/* Hinweise zum Zahlungsweg */}
         {!purchasesEnabled && (
-          <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-amber-700/50 bg-amber-900/20 flex items-start gap-3">
-            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="bb-card bb-card-warn flex items-start gap-3" role="alert">
+            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="text-sm text-amber-100">
               <strong className="block mb-1">Kauf derzeit nicht moeglich</strong>
               {billingAvailable
@@ -423,10 +550,9 @@ export default function PremiumPlans() {
             </div>
           </div>
         )}
-
         {!billingAvailable && purchasesEnabled && (
-          <div className="max-w-3xl mx-auto mb-8 p-4 rounded-xl border border-cyan-700/50 bg-cyan-900/20 flex items-start gap-3">
-            <Smartphone size={20} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+          <div className="bb-card flex items-start gap-3">
+            <Smartphone size={20} className="text-cyan-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="text-sm text-cyan-100">
               <strong className="block mb-1">Bezahlung im Browser</strong>
               Du kannst Premium-Plaene direkt hier mit Kreditkarte (Visa, Mastercard, Amex), Google Pay oder Apple Pay bezahlen.
@@ -435,155 +561,97 @@ export default function PremiumPlans() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const isCurrentPlan = currentPlan?.id === plan.id;
-            const isProcessing = processingPlan === plan.id;
-
-            // Referral-Rabatt (10€ je eingeladenem Freund, der Basic kauft) gilt
-            // nur für den Ultimate-Plan und nur beim Web-Checkout. Betrag kommt
-            // aus dem Plan-Status (ultimate_discount_cents).
-            const discountEuro = Math.min(
-              (currentPlan?.ultimate_discount_cents || 0) / 100,
-              30
-            );
-            const showUltimateDiscount = plan.id === 'elite' && !billingAvailable && discountEuro > 0;
-            const discountedPrice = showUltimateDiscount
-              ? Math.max(plan.price - discountEuro, 9.99).toFixed(2)
-              : null;
-
-            return (
-              <div
-                key={plan.id}
-                className={`bb-card relative overflow-hidden ${
-                  isCurrentPlan ? 'border-emerald-500 border-2' : ''
-                } ${plan.popular ? 'ring-2 ring-purple-500' : ''}`}
-              >
-                {plan.popular && (
-                  <div className="absolute top-4 right-4">
-                    <span className="bb-pill-info" style={{ background: '#9333ea', color: '#fff', display: 'inline-flex', alignItems: 'center' }}>
-                      <Sparkles size={12} className="mr-1" />
-                      Beliebt
-                    </span>
-                  </div>
-                )}
-
-                <div className="p-6 pb-0">
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4`}>
-                    <Icon size={24} className="text-white" />
-                  </div>
-                  <div className="text-lg font-bold" style={{ color: 'var(--bb-cyan)' }}>
-                    {plan.name}
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: 'var(--bb-muted)' }}>{plan.description}</p>
-                  <div>
-                    <div className="text-3xl font-bold text-white mt-2">
-                      {plan.price === 0 ? 'Gratis' : (
-                        <>
-                          {showUltimateDiscount && (
-                            <span className="text-lg line-through mr-2 font-normal" style={{ color: 'var(--bb-muted)' }}>
-                              {plan.price}€
-                            </span>
-                          )}
-                          {`${showUltimateDiscount ? discountedPrice : plan.price}€`}
-                        </>
-                      )}
-                      {plan.price > 0 && (
-                        <span className="text-sm font-normal" style={{ color: 'var(--bb-muted)' }}>
-                          {plan.yearly ? '/Jahr' : '/Monat'}
-                        </span>
-                      )}
-                    </div>
-                    {showUltimateDiscount && (
-                      <div className="mt-2 text-sm text-emerald-400 font-semibold">
-                        Freundschafts-Rabatt: {discountEuro.toFixed(2)}€ gespart
-                      </div>
-                    )}
-                    {plan.yearly && (
-                      <div className="mt-1">
-                        <span className="bb-pill-info" style={{ background: '#047857', color: '#fff', fontSize: '0.75rem' }}>Jahresplan</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid gap-4 p-6 pt-4">
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
-                        <Check size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {isCurrentPlan ? (
-                    <span className="bb-pill-info w-full py-2" style={{ background: '#059669', color: '#fff', display: 'flex', justifyContent: 'center' }}>
-                      Aktiver Plan
-                    </span>
-                  ) : plan.price === 0 ? (
-                    <span className="bb-pill-info w-full py-2" style={{ display: 'flex', justifyContent: 'center' }}>
-                      Kostenlos verfügbar
-                    </span>
-                  ) : (
-                    <div className="space-y-2">
-                      {billingAvailable && (
-                        <button
-                          onClick={() => handlePlayStorePurchase(plan.id)}
-                          disabled={isProcessing || !purchasesEnabled}
-                          className={`bb-action w-full bg-gradient-to-r ${plan.color} hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50`}
-                        >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 size={16} className="animate-spin" />
-                              Kauf wird gestartet...
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingBag size={16} />
-                              Im Play Store kaufen
-                            </>
-                          )}
-                        </button>
-                      )}
-                      {!billingAvailable && (
-                        <WebCheckoutButton planId={plan.id} disabled={isProcessing || !purchasesEnabled} />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-12 text-center space-y-4">
-          <div className="p-6 rounded-xl max-w-2xl mx-auto" style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}>
-            <h3 className="text-xl font-semibold text-white mb-2 flex items-center justify-center gap-2">
-              <Mail size={20} style={{ color: 'var(--bb-cyan)' }} />
-              Fragen zu Premium?
-            </h3>
-            <p className="mb-4" style={{ color: 'var(--bb-muted)' }}>
-              Kontaktiere uns per E-Mail bei Fragen zu den Premium-Plänen oder zum Google Play Kauf.
-            </p>
-            <button
-              onClick={() => {
-                window.location.href = `mailto:support@catchgbt.app?subject=Premium Anfrage&body=Hallo,%0D%0A%0D%0AIch interessiere mich für einen Premium-Plan.%0D%0A%0D%0AMeine E-Mail: ${user?.email || ''}`;
-              }}
-              className="bb-secondary"
-            >
-              <Mail size={16} className="mr-2" />
-              Support kontaktieren
-            </button>
+        {/* Details + Kauf des gewaehlten Plans */}
+        <section id="plan-detail" className={`bb-card bb-plan-detail${selected.id === 'elite' ? ' is-ultimate' : ''}`} aria-labelledby="plan-detail-title">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="plan-detail-title" className="bb-plan-detail-name">{selected.id === 'free' ? 'Gast' : selected.name}</h2>
+              <p className="bb-plan-detail-desc">{selected.description}</p>
+            </div>
+            <div className="text-right shrink-0">
+              {showUltimateDiscount && (
+                <span className="block text-sm line-through" style={{ color: 'var(--bb-muted)' }}>{formatPrice(selected.price)}</span>
+              )}
+              <strong className="bb-plan-detail-price">{formatPrice(selectedPrice)}</strong>
+              {selected.price > 0 && <span className="block text-xs" style={{ color: 'var(--bb-muted)' }}>{selected.yearly ? 'pro Jahr' : 'pro Monat'}</span>}
+            </div>
           </div>
+          {showUltimateDiscount && (
+            <p className="mt-2 text-sm font-semibold text-emerald-400">Freundschafts-Rabatt: {formatPrice(discountEuro)} gespart</p>
+          )}
+          <ul className="bb-plan-features">
+            {selected.features.map(feature => (
+              <li key={feature}><Check size={16} aria-hidden="true" />{feature}</li>
+            ))}
+          </ul>
+          {isSelectedCurrent ? (
+            <span className="bb-pill-success">Aktiver Plan{currentPlan?.remaining_days ? ` – noch ${currentPlan.remaining_days} Tage` : ''}</span>
+          ) : selected.price > 0 && (
+            <div className="grid gap-2">
+              {billingAvailable ? (
+                <button
+                  type="button"
+                  onClick={() => handlePlayStorePurchase(selected.id)}
+                  disabled={isProcessing || !purchasesEnabled}
+                  className="bb-action bb-action-block"
+                >
+                  {isProcessing ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <ShoppingBag size={18} aria-hidden="true" />}
+                  {isProcessing ? 'Kauf wird gestartet …' : 'Im Play Store kaufen'}
+                </button>
+              ) : (
+                <WebCheckoutButton planId={selected.id} disabled={isProcessing || !purchasesEnabled} />
+              )}
+            </div>
+          )}
+        </section>
 
+        {/* Jahresabo */}
+        {friendsPlan && (
+          <button
+            type="button"
+            className={`bb-card bb-dash-row text-left${selected.id === 'friends' ? ' is-selected' : ''}`}
+            onClick={() => selectPlan('friends')}
+          >
+            <span className="bb-dash-row-media"><Sparkles size={28} aria-hidden="true" /></span>
+            <span className="flex-1 min-w-0">
+              <span className="bb-dash-row-label">Jahresabo mit Einladungen</span>
+              <strong className="bb-dash-row-title">{friendsPlan.name}</strong>
+              <span className="bb-dash-row-meta">{formatPrice(friendsPlan.price)} pro Jahr · {friendsPlan.description}</span>
+            </span>
+            <ChevronRight size={22} aria-hidden="true" />
+          </button>
+        )}
+
+        {billingAvailable && (
+          <button onClick={handleRestorePurchases} disabled={restoring} className="bb-secondary justify-center">
+            {restoring ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
+            {restoring ? 'Wird wiederhergestellt …' : 'Käufe wiederherstellen'}
+          </button>
+        )}
+
+        <section className="bb-card text-center grid gap-3">
+          <h2 className="text-lg font-semibold text-white flex items-center justify-center gap-2">
+            <Mail size={20} aria-hidden="true" style={{ color: 'var(--bb-cyan)' }} />
+            Fragen zu Premium?
+          </h2>
           <p className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+            Kontaktiere uns per E-Mail bei Fragen zu den Premium-Plänen oder zum Google Play Kauf.
+          </p>
+          <button
+            onClick={() => {
+              window.location.href = `mailto:support@catchgbt.app?subject=Premium Anfrage&body=Hallo,%0D%0A%0D%0AIch interessiere mich für einen Premium-Plan.%0D%0A%0D%0AMeine E-Mail: ${user?.email || ''}`;
+            }}
+            className="bb-secondary justify-self-center"
+          >
+            <Mail size={16} aria-hidden="true" />
+            Support kontaktieren
+          </button>
+          <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
             {billingAvailable
               ? 'Alle Kaeufe erfolgen ueber deinen Google Play Account. Verwaltung & Kuendigung in den Play Store Einstellungen.'
               : 'Bezahlung per Kreditkarte, Google Pay oder Apple Pay laeuft sicher ueber Stripe.'}
           </p>
-        </div>
+        </section>
       </div>
     </div>
   );

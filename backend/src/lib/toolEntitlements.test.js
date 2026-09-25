@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('./supabase.js', () => ({ supabase: mocks.supabase }));
-vi.mock('./planResolver.js', () => ({ resolvePlan: mocks.resolvePlan }));
+vi.mock('./planResolver.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  resolvePlan: mocks.resolvePlan,
+}));
 
 import { resolveServerToolAccess } from './toolEntitlements.js';
 
@@ -44,7 +47,7 @@ describe('resolveServerToolAccess', () => {
   it('allows an active Premium user when no permanent unlock exists', async () => {
     const chain = unlockQuery({ data: null, error: null });
     mocks.supabase.from.mockReturnValue(chain);
-    mocks.resolvePlan.mockReturnValue({ isActive: true });
+    mocks.resolvePlan.mockReturnValue({ isActive: true, effectiveId: 'basic' });
 
     await expect(resolveServerToolAccess({
       user: { id: '00000000-0000-0000-0000-000000000001' },
@@ -67,7 +70,7 @@ describe('resolveServerToolAccess', () => {
     // Regression (§39): a ledger read error must not hard-lock an Ultimate user.
     const chain = unlockQuery({ data: null, error: { message: 'ledger unavailable' } });
     mocks.supabase.from.mockReturnValue(chain);
-    mocks.resolvePlan.mockReturnValue({ isActive: true });
+    mocks.resolvePlan.mockReturnValue({ isActive: true, effectiveId: 'basic' });
 
     await expect(resolveServerToolAccess({
       user: { id: '00000000-0000-0000-0000-000000000001' },
@@ -84,6 +87,30 @@ describe('resolveServerToolAccess', () => {
       user: { id: '00000000-0000-0000-0000-000000000001' },
       toolId: 'premium_voice',
     })).resolves.toMatchObject({ allowed: false, entitled: false });
+  });
+
+  it('treats a lower plan as not entitled when the tool requires a higher tier', async () => {
+    const chain = unlockQuery({ data: null, error: null });
+    mocks.supabase.from.mockReturnValue(chain);
+    mocks.resolvePlan.mockReturnValue({ isActive: true, effectiveId: 'pro' });
+
+    await expect(resolveServerToolAccess({
+      user: { id: '00000000-0000-0000-0000-000000000001' },
+      toolId: 'premium_voice',
+      requiredPlanRank: 3,
+    })).resolves.toMatchObject({ allowed: false, entitled: false });
+  });
+
+  it('allows the required tier itself', async () => {
+    const chain = unlockQuery({ data: null, error: null });
+    mocks.supabase.from.mockReturnValue(chain);
+    mocks.resolvePlan.mockReturnValue({ isActive: true, effectiveId: 'elite' });
+
+    await expect(resolveServerToolAccess({
+      user: { id: '00000000-0000-0000-0000-000000000001' },
+      toolId: 'premium_voice',
+      requiredPlanRank: 3,
+    })).resolves.toMatchObject({ allowed: true, source: 'premium' });
   });
 
   it('rejects malformed tool identifiers before querying the database', async () => {

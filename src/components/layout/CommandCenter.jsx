@@ -19,17 +19,17 @@ import { AvatarCircle } from '@/components/layout/AppTopBar';
 // Hauptbereiche der Vorlage. Bereiche mit mehreren Zielen klappen auf,
 // damit jede bisherige Funktion aus dem alten Menü erreichbar bleibt.
 const AREAS = [
-  { name: 'KI-Buddy', icon: Bot, items: [['KI-Buddy Chat', 'KiBuddyBeta'], ['Voice-Buddy', 'VoiceChat'], ['BaitBuddy kennt dich', 'BuddyKnowsYou']] },
+  { name: 'KI-Buddy', icon: Bot, items: [['KI-Buddy Chat', 'KiBuddyBeta'], ['Hands-free Buddy', 'HandsFreeBuddy'], ['Voice-Buddy', 'VoiceChat'], ['BaitBuddy kennt dich', 'BuddyKnowsYou']] },
   { name: 'KI-Tools', icon: Wrench, items: [['Fischbestimmung & Biss', 'AI'], ['Fang-Analyse', 'Analysis'], ['Gewässeranalyse', 'WaterAnalysis'], ['Satellitenanalyse', 'SatelliteAnalysis'], ['Köderempfehlung', 'BaitMixer'], ['3D-Köderführung', 'Koeder3D'], ['AR-Gewässer', 'ARView'], ['AR Knoten AI', 'ARKnotenAssistent'], ['Ausrüstung erkennen', 'GearRecognition'], ['Fischrezepte', 'FishRecipes']] },
   { name: 'Karte & Gewässer', icon: MapIcon, items: [['Karte, Gewässer & Favoriten', 'Map'], ['Tiefenkarten', 'BathymetricCrowdsourcing'], ['Offline-Paket', 'OfflineFishingPack']] },
-  { name: 'Community', icon: Users, items: [['Feed, Gruppen & Freunde', 'Community'], ['Ranglisten', 'Rank']] },
+  { name: 'Community', icon: Users, items: [['Feed, Gruppen & Freunde', 'Community'], ['Ranglisten', 'Rank'], ['Angelvereine', 'Vereinsprofil'], ['Level & Rewards', 'LevelRewards']] },
   { name: 'Trips & Planung', icon: CalendarDays, items: [['Ausflüge & Touren', 'TripPlanner'], ['Neuer Ausflug', 'TripPlanner?new=1'], ['Anglermodus', 'AnglerMode'], ['Live-Trip', 'LiveTrip']] },
   { name: 'Events', icon: Trophy, items: [['Events & Wettbewerbe', 'Events']] },
   { name: 'Wetter & Prognosen', icon: CloudSun, items: [['Wetter, Bissprognose & Solunar', 'Weather']] },
   { name: 'Fangbuch', icon: Fish, items: [['Meine Fänge', 'Logbook'], ['Statistiken & Rekorde', 'CatchStats']] },
   { name: 'Ausrüstung', icon: Backpack, items: [['Equipment, Sets & Köder', 'Gear'], ['Wartung', 'GearMaintenance'], ['Meine Geräte', 'MyDevices'], ['Shop', 'Shop'], ['Gebrauchte Ausrüstung', 'UsedGear']] },
   { name: 'Lernen', icon: GraduationCap, items: [['Prüfung & Schonzeiten', 'AngelscheinPruefungSchonzeiten'], ['Regel-Assistent', 'RuleAssistant'], ['Quiz', 'Quiz'], ['Anleitungen', 'Tutorials'], ['Lizenzen', 'Licenses']] },
-  { name: 'Einstellungen', icon: Settings, items: [['Profil', 'Profile'], ['KI-Buddy', 'Settings?tab=buddy'], ['Navigation', 'Settings?tab=navigation'], ['Benachrichtigungen', 'Settings?tab=notifications'], ['Audio & Stimme', 'Settings?tab=voice'], ['Akku, Datenschutz & Konto', 'Settings'], ['Tarif & KI-Zugriff', 'PremiumPlans']] },
+  { name: 'Einstellungen', icon: Settings, items: [['Profil', 'Profile'], ['KI-Buddy', 'Settings?tab=buddy'], ['Navigation', 'Settings?tab=navigation'], ['Benachrichtigungen', 'Settings?tab=notifications'], ['Audio & Stimme', 'Settings?tab=voice'], ['Privatsphäre & Berechtigungen', 'Privatsphaere'], ['Gastdaten übernehmen', 'GastdatenUebernehmen'], ['Akku & Konto', 'Settings'], ['Tarif & KI-Zugriff', 'PremiumPlans']] },
   { name: 'Hilfe & Rechtliches', icon: LifeBuoy, items: [['Hilfe, FAQ & Support', 'Help'], ['Datenschutz', 'Datenschutz'], ['Impressum', 'Impressum'], ['AGB', 'AGB']] },
 ];
 
@@ -112,7 +112,7 @@ export default function CommandCenter({ isOpen, setIsOpen, currentPageName, user
 
           {/* Profil + Tarif */}
           <section className="bb-card bb-cc-profile">
-            <Link to={user ? '/Profile' : '/Home'} onClick={close} className="bb-cc-profile-row">
+            <Link to={user ? '/Profile' : '/GastdatenUebernehmen'} onClick={close} className="bb-cc-profile-row">
               <AvatarCircle user={user} />
               <span className="flex-1 min-w-0">
                 <strong className="bb-cc-name">{displayName}</strong>

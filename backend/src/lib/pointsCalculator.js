@@ -55,11 +55,14 @@ export async function recalcParticipantTotals(eventId, userId, supabase) {
   // Truth). Das ist idempotent und vermeidet Lost-Updates bei parallelen
   // Einreichungen/Aktivitaeten (im Gegensatz zu Read-Modify-Write auf
   // total_points).
+  // Nur bestätigte Einreichungen zählen; offene oder abgelehnte (Prüfung durch
+  // den Veranstalter, Einspruch) bleiben außen vor.
   const { data: subs } = await supabase
     .from('event_submissions')
     .select('calculated_points')
     .eq('event_id', eventId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .eq('verified', true);
 
   const total = (subs || []).reduce(
     (sum, s) => sum + (parseFloat(s.calculated_points) || 0),

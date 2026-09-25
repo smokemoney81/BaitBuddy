@@ -421,7 +421,7 @@ function Match3QuestGame() {
                 <div
                   key={`${r}-${c}`}
                   className={`
-                    w-12 h-12 rounded cursor-pointer transition-all duration-200 
+                    w-full aspect-square rounded cursor-pointer transition-all duration-200 
                     flex items-center justify-center text-white text-xs font-bold
                     ${isEmpty ? 'bg-gray-700' : ''}
                     ${isSelected ? 'ring-2 ring-yellow-400 scale-110' : ''}

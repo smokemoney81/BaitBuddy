@@ -404,6 +404,29 @@ describe('POST /api/ai/tts', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('onwK4e9ZLuTAKqWW03F9');
   });
 
+  it('nutzt fuer voice=female mit Pro-Plan die maennliche Standardstimme (nur Ultimate)', async () => {
+    process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => new TextEncoder().encode('MP3DATA').buffer,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await request(app)
+      .post('/api/ai/tts')
+      .set('Authorization', 'Bearer tok')
+      .send({ text: 'Hallo', voice: 'female' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.voice_used).toBe('male');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('onwK4e9ZLuTAKqWW03F9');
+  });
+
   it('nutzt fuer voice=female MIT Ultimate-Plan (elite) die weibliche Stimme', async () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
     supabaseMock.current = createSupabaseMock({

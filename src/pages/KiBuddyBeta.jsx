@@ -1,5 +1,5 @@
-import { Link, useSearchParams } from 'react-router-dom';
-import { Settings2 } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Settings2, AudioLines, Mic, BrainCircuit, Volume2, VolumeX, User as UserIcon, MapPin, Fish, PlusCircle, ChevronRight, Send, Square } from 'lucide-react';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { useState, useRef, useEffect } from "react";
 import { catchgbtChat } from "@/functions/catchgbtChat";
@@ -11,13 +11,16 @@ import { createSpeechQueue } from "@/components/utils/elevenLabsTTS";
 import { stripActionMarker } from "@/lib/streamingReply";
 import { findOfflineBuddyAnswer, getOfflineBuddyFallback } from "@/lib/offlineBuddyQuestions";
 import { buildGreeting } from "@/lib/buddyGreetings";
+import { executeBuddyAction } from "@/utils/buddyActions";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
 
 export default function KiBuddyBeta() {
   return (
-    <PremiumGuard requiredPlan="basic" feature="KI-Buddy Chat">
+    // Gratis-Tarif darf chatten (serverseitig auf 5 Nachrichten/Tag begrenzt,
+    // siehe checkChatRateLimit) — wie in der Tool-Registry (ki-buddy: free).
+    <PremiumGuard requiredPlan="free" feature="KI-Buddy Chat">
       <KiBuddyBetaInner />
     </PremiumGuard>
   );
@@ -26,6 +29,7 @@ export default function KiBuddyBeta() {
 function KiBuddyBetaInner() {
   const { buddy, activeBuddy } = useBuddyPreferences();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   useFeatureTracking("ai_buddy");
   const { trackAIChat } = useEventActivityTracking();
   // Begrüßung variiert bei jedem Öffnen (Tageszeit, Stimmung, gelegentlich ein
@@ -266,6 +270,13 @@ function KiBuddyBetaInner() {
       const ans = result?.reply || result?.message || stripActionMarker(raw) || "Keine Antwort erhalten.";
       retryRef.current = 0;
       finalizeAssistant(ans);
+      // Aktionen aus der Antwort ausführen ("Karpfen ins Fangbuch", "Spot
+      // speichern", Seitenwechsel) — sonst bliebe das Angebot des Buddys leer.
+      if (result?.action) {
+        executeBuddyAction(result.action, { navigate })
+          .then(outcome => { if (outcome?.message) appendMessages({ role: "system", text: outcome.message }); })
+          .catch(() => appendMessages({ role: "system", text: "Die Aktion konnte nicht ausgeführt werden." }));
+      }
       if (activeEventId) {
         trackAIChat(activeEventId);
       }
@@ -440,168 +451,112 @@ function KiBuddyBetaInner() {
     };
   }, [stopVoice]);
 
-  const avatarGlow = isSpeaking
-    ? "0 0 0 3px rgba(34,211,200,0.45)"
-    : status === "listening"
-    ? "0 0 0 3px rgba(124,58,237,0.5)"
-    : "none";
-
-  const statusLabels = {
-    listening: "Ich höre zu...",
-    speaking: "KI-Buddy spricht...",
-    thinking: "Denke nach...",
-    "": "Tippe oder aktiviere das Mikrofon"
-  };
+  const phase = status === "listening" ? "listening" : status === "thinking" ? "thinking" : isSpeaking ? "speaking" : "idle";
+  const quickQuestions = ['Was ist die beste Tiefe jetzt?', 'Zeig mir gute Spots', 'Wetter heute?', 'Welche Köder passen?'];
 
   return (
-    <div className="bb-app bb-voice-page min-h-screen flex items-start justify-center p-4 pb-32">
-      <style>{`@keyframes bbDot { 0%,80%,100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }`}</style>
-      <div className="w-full max-w-2xl">
-        <div style={{ background: "#060d1a", borderRadius: 16, overflow: "hidden", fontFamily: "'Inter',sans-serif", border: "1px solid #1a2a3a", display: "flex", flexDirection: "column" }}>
-
-          {/* Header */}
-          <div className="p-5 flex items-center justify-between"><div><p className="bb-eyebrow">KI-Buddy</p><h1 className="text-2xl font-semibold mt-1">Mit {activeBuddy.name} ans Wasser.</h1><p className="bb-muted">Frag mich alles rund ums Angeln.</p></div><Link className="bb-secondary" to="/Settings?tab=buddy" aria-label="KI-Buddy einstellen"><Settings2 size={20}/></Link></div>
-          <img src={activeBuddy.portrait} alt={activeBuddy.name + ', dein KI-Buddy'} className="w-full h-56 sm:h-72 object-cover object-[center_28%]"/>
-          <div className="p-4 grid sm:grid-cols-2 gap-2">{['Wo finde ich passende Spots und gutes Wetter?', 'Welche Köder passen zu meinen letzten Fängen?', 'Was brauche ich für meinen nächsten Angelausflug?', 'Wann ist heute die beste Angelzeit?'].map(question => <button type="button" key={question} className="bb-secondary text-left text-sm" onClick={() => setInput(question)}>{question}</button>)}</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px", borderBottom: "1px solid #111e2e" }}>
-            <div>
-              <span style={{ fontSize: 16, fontWeight: 600, color: "#22d3c8", letterSpacing: 0.3 }}>KI Voice-Buddy</span>
-              <span style={{ marginLeft: 8, fontSize: 11, color: "#4455aa", fontWeight: 500, background: "#0d1a33", border: "1px solid #1e2f55", borderRadius: 8, padding: "2px 7px" }}>BETA</span>
-            </div>
-            <button type="button"
-              onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: tonAn ? "#22d3c8" : "#0d2020", border: "1px solid #22d3c8", borderRadius: 20, padding: "4px 12px", fontSize: 12, color: tonAn ? "#060d1a" : "#22d3c8", fontWeight: 500, cursor: "pointer" }}
-            >
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: tonAn ? "#060d1a" : "#22d3c8", display: "inline-block" }} />
-              {tonAn ? "Ton an" : "Ton aus"}
-            </button>
-          </div>
-
-          {/* Gesprächssteuerung: starten / beenden */}
-          <div style={{ padding: "12px 16px 8px", background: "#08111f" }}>
-            {!conversationActive ? (
-              <button type="button"
-                onClick={startConversation}
-                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#0891b2", border: "none", borderRadius: 12, padding: "12px 16px", color: "#ffffff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-              >
-                Gespräch starten
-              </button>
-            ) : (
-              <button type="button"
-                onClick={endConversation}
-                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#3a0d14", border: "1px solid #ef4444", borderRadius: 12, padding: "12px 16px", color: "#fca5a5", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-              >
-                Gespräch beenden
-              </button>
-            )}
-          </div>
-
-          {/* Voice control row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px 10px", background: "#08111f" }}>
-            <span style={{ fontSize: 12, color: "#8899aa", maxWidth: 180, lineHeight: 1.4 }}>Einzelne Frage per Mikrofon stellen</span>
-            <button type="button"
-              onClick={toggleMic}
-              disabled={conversationActive}
-              style={{ display: "flex", alignItems: "center", gap: 7, background: recording ? "#22d3c8" : "#0d2a28", border: "1px solid #22d3c8", borderRadius: 10, padding: "8px 14px", color: recording ? "#060d1a" : "#22d3c8", fontSize: 13, fontWeight: 500, cursor: conversationActive ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: conversationActive ? 0.45 : 1 }}
-            >
-              <span>{recording ? "Aktiv" : "Mikrofon"}</span>
-            </button>
-          </div>
-
-          {/* Status hint */}
-          <div style={{ padding: "6px 16px 10px", fontSize: 11, color: "#445566", fontStyle: "italic", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <span role="status" aria-live="polite">{statusLabels[status] || statusLabels[""]}</span>
-            {confidence !== null && (
-              <span style={{ color: "#22d3c8", fontStyle: "normal", fontWeight: 500 }}>Erkennung: {confidence}%</span>
-            )}
-          </div>
-
-          {/* Avatar row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", background: "#0a1624", borderTop: "1px solid #111e2e", borderBottom: "1px solid #111e2e" }}>
-            <BuddyAvatar speaking={isSpeaking} listening={status === "listening"} showHints={false} size={52} style={{ borderRadius: 14, overflow: "hidden", flexShrink: 0, boxShadow: avatarGlow, transition: "box-shadow 0.3s" }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#e0f0ff" }}>KI-Buddy</div>
-              <div style={{ fontSize: 12, color: "#556677", marginTop: 2 }}>Dein Angel-Buddy</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 3, height: 24, opacity: isSpeaking ? 1 : 0, transition: "opacity 0.3s" }}>
-              {waveBars.map((h, i) => (
-                <div key={i} style={{ width: 3, height: h, background: "#22d3c8", borderRadius: 2, transition: "height 0.1s" }} />
-              ))}
-            </div>
-          </div>
-
-          {/* Chat */}
-          <div ref={chatRef} style={{ flex: 1, padding: "12px 14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, minHeight: 160, background: "#060d1a" }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{
-                fontSize: m.role === "system" ? 11 : 13,
-                lineHeight: 1.5,
-                padding: "9px 12px",
-                borderRadius: 12,
-                maxWidth: "88%",
-                alignSelf: m.role === "user" ? "flex-end" : m.role === "system" ? "center" : "flex-start",
-                background: m.role === "user" ? "#131f33" : m.role === "system" ? "transparent" : "#0d1e14",
-                color: m.role === "user" ? "#aabbd0" : m.role === "system" ? "#445566" : "#7adba0",
-                border: m.role === "system" ? "none" : m.role === "user" ? "1px solid #1e2f44" : "1px solid #163025",
-                borderBottomRightRadius: m.role === "user" ? 4 : 12,
-                borderBottomLeftRadius: m.role === "assistant" ? 4 : 12,
-                fontStyle: m.role === "system" ? "italic" : "normal",
-                textAlign: m.role === "system" ? "center" : "left"
-              }}>
-                {m.text}
-              </div>
-            ))}
-            {interimTranscript && (
-              <div style={{ alignSelf: "flex-end", background: "#0e1828", border: "1px dashed #1e2f44", borderRadius: 12, borderBottomRightRadius: 4, padding: "9px 12px", color: "#7788aa", fontSize: 13, fontStyle: "italic", maxWidth: "88%" }}>
-                {interimTranscript}
-              </div>
-            )}
-            {status === "thinking" && (
-              <div style={{ alignSelf: "flex-start", background: "#0d1e14", border: "1px solid #163025", borderRadius: 12, borderBottomLeftRadius: 4, padding: "9px 12px", color: "#7adba0", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ display: "inline-flex", gap: 3 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7adba0", animation: "bbDot 1s infinite", animationDelay: "0s" }} />
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7adba0", animation: "bbDot 1s infinite", animationDelay: "0.2s" }} />
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7adba0", animation: "bbDot 1s infinite", animationDelay: "0.4s" }} />
-                </span>
-                <span>KI-Buddy denkt nach – das kann einen Moment dauern…</span>
-              </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div style={{ display: "flex", gap: 8, padding: "12px 14px 14px", background: "#08111f", borderTop: "1px solid #111e2e" }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && sendText()}
-              placeholder="Frage stellen..."
-              style={{ flex: 1, background: "#0d1a2a", border: "1px solid #1e2f44", borderRadius: 10, padding: "10px 14px", color: "#ccdde8", fontSize: 13, fontFamily: "inherit", outline: "none" }}
-            />
-            <button type="button"
-              onClick={sendText}
-              disabled={!input.trim() || status === "thinking"}
-              style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", borderRadius: 10, padding: "10px 16px", color: "white", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", opacity: !input.trim() || status === "thinking" ? 0.5 : 1 }}
-            >
-              Senden
-            </button>
-            <button type="button"
-              onClick={stopSpeaking}
-              style={{ background: "#0d1a2a", border: "1px solid #1e2f44", borderRadius: 10, padding: "10px 12px", color: "#556677", cursor: "pointer", fontSize: 13 }}
-              title="Stopp"
-            >
-              Stop
-            </button>
-          </div>
-
-          <div style={{ textAlign: "center", fontSize: 10, color: "#4a5a6a", padding: "0 14px 6px", background: "#08111f", lineHeight: 1.4 }}>
-            Hinweis: Nach dem Senden kann es ein paar Sekunden dauern, bis die Antwort kommt.
-          </div>
-
-          <div style={{ textAlign: "center", fontSize: 11, color: "#223344", padding: "0 14px 10px", background: "#08111f", letterSpacing: 0.5, textTransform: "uppercase" }}>
-            {status || "Bereit"}
-          </div>
+    <div className="bb-page bb-voice">
+      <header className="bb-voice-head">
+        <div className="bb-voice-head-text">
+          <h1 className="bb-voice-title"><AudioLines size={28} aria-hidden="true" />Voice <span className="bb-title-accent">Buddy</span></h1>
+          <p className="bb-voice-eyebrow">Sprich mit deinem KI-Angelassistenten</p>
         </div>
+        <Link className="bb-round-btn" to="/Settings?tab=buddy" aria-label="KI-Buddy einstellen"><Settings2 size={22} aria-hidden="true" /></Link>
+      </header>
+
+      <div className={`bb-voice-orb is-${phase}`}>
+        <div className="bb-voice-waves" aria-hidden="true">
+          {waveBars.map((h, i) => <i key={i} style={{ height: Math.max(6, h * 2) }} />)}
+        </div>
+        <img src={activeBuddy.portrait} alt={`${activeBuddy.name}, dein KI-Buddy`} />
+        <p className="bb-script bb-voice-script" aria-hidden="true">„Mehr als nur Antworten.“</p>
       </div>
+
+      <div className="bb-voice-states" role="status" aria-live="polite">
+        <span className={phase === "listening" ? "is-active is-green" : ""}><Mic size={18} aria-hidden="true" />Ich höre …</span>
+        <span className={phase === "thinking" ? "is-active" : ""}><BrainCircuit size={18} aria-hidden="true" />Verarbeite …</span>
+        <span className={phase === "speaking" ? "is-active" : ""}><Volume2 size={18} aria-hidden="true" />Buddy spricht …</span>
+      </div>
+      {confidence !== null && <p className="bb-voice-confidence">Spracherkennung: {confidence}%</p>}
+
+      <div ref={chatRef} className="bb-voice-chat">
+        {messages.map((m, i) => (
+          m.role === "system" ? (
+            <p key={i} className="bb-voice-system">{m.text}</p>
+          ) : m.role === "user" ? (
+            <div key={i} className="bb-voice-row is-user">
+              <span className="bb-voice-bubble is-user">{m.text}</span>
+              <span className="bb-voice-avatar is-user"><UserIcon size={20} aria-hidden="true" /></span>
+            </div>
+          ) : (
+            <div key={i} className="bb-voice-row">
+              <span className="bb-voice-avatar"><BuddyAvatar speaking={false} listening={false} showHints={false} size={40} /></span>
+              <span className="bb-voice-bubble">{m.text}</span>
+            </div>
+          )
+        ))}
+        {interimTranscript && (
+          <div className="bb-voice-row is-user">
+            <span className="bb-voice-bubble is-user is-interim">{interimTranscript}</span>
+          </div>
+        )}
+        {status === "thinking" && (
+          <div className="bb-voice-row">
+            <span className="bb-voice-avatar"><BuddyAvatar speaking={false} listening={false} showHints={false} size={40} /></span>
+            <span className="bb-voice-bubble bb-voice-typing" aria-label="Buddy denkt nach"><i /><i /><i /></span>
+          </div>
+        )}
+      </div>
+
+      <div className="bb-voice-actions">
+        <Link to="/TripPlanner" className="bb-voice-action"><MapPin size={26} aria-hidden="true" /><span><strong>Trip öffnen</strong><small>Planen & starten</small></span><ChevronRight size={18} aria-hidden="true" /></Link>
+        <Link to="/Koeder3D" className="bb-voice-action"><Fish size={26} aria-hidden="true" /><span><strong>Köder wechseln</strong><small>Führung & Setups</small></span><ChevronRight size={18} aria-hidden="true" /></Link>
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('openCatchDialog'))} className="bb-voice-action"><PlusCircle size={26} aria-hidden="true" /><span><strong>Fang eintragen</strong><small>Schnell & einfach</small></span><ChevronRight size={18} aria-hidden="true" /></button>
+      </div>
+
+      <div className="bb-voice-quick">
+        {quickQuestions.map(question => (
+          <button type="button" key={question} onClick={() => setInput(question)}>{question}</button>
+        ))}
+      </div>
+
+      <div className="bb-voice-input">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && sendText()}
+          placeholder="Frage stellen..."
+          aria-label="Frage an den Buddy"
+        />
+        <button type="button" onClick={toggleMic} disabled={conversationActive} className={`bb-voice-icon-btn${recording ? ' is-on' : ''}`} aria-label={recording ? 'Aufnahme beenden' : 'Einzelne Frage einsprechen'}>
+          <Mic size={20} aria-hidden="true" />
+        </button>
+        <button type="button" onClick={sendText} disabled={!input.trim() || status === "thinking"} className="bb-voice-icon-btn is-send" aria-label="Senden">
+          <Send size={20} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="bb-voice-controls">
+        <button type="button" onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-ctrl" aria-pressed={tonAn}>
+          <span className="bb-voice-ctrl-circle">{tonAn ? <Volume2 size={24} aria-hidden="true" /> : <VolumeX size={24} aria-hidden="true" />}</span>
+          <small>Lautsprecher {tonAn ? 'an' : 'aus'}</small>
+        </button>
+        <button
+          type="button"
+          onClick={conversationActive ? endConversation : startConversation}
+          className={`bb-voice-mic${conversationActive ? ' is-active' : ''}`}
+          aria-label={conversationActive ? 'Freisprechen beenden' : 'Freisprechen starten'}
+        >
+          <Mic size={40} aria-hidden="true" />
+        </button>
+        <button type="button" onClick={stopSpeaking} className="bb-voice-ctrl is-stop">
+          <span className="bb-voice-ctrl-circle"><Square size={22} aria-hidden="true" /></span>
+          <small>Buddy stoppen</small>
+        </button>
+      </div>
+      <p className={`bb-voice-mode${conversationActive ? ' is-active' : ''}`}>
+        <i aria-hidden="true" />{conversationActive ? 'Freisprechen aktiv' : 'Tippe aufs Mikrofon für Freisprechen'}
+      </p>
     </div>
   );
 }
