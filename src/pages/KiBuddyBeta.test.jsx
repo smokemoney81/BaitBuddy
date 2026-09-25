@@ -35,10 +35,6 @@ vi.mock('@/api/frontendClient', () => ({
 vi.mock('@/components/utils/elevenLabsTTS', () => ({
   createSpeechQueue: vi.fn(() => ({ push: vi.fn(), flush: vi.fn(), cancel: vi.fn() })),
 }));
-vi.mock('@/lib/offlineBuddyQuestions', () => ({
-  findOfflineBuddyAnswer: vi.fn(() => null),
-  getOfflineBuddyFallback: vi.fn(() => 'OFFLINE'),
-}));
 vi.mock('@/functions/catchgbtChat', () => ({ catchgbtChat: vi.fn() }));
 vi.mock('@/utils/buddyActions', () => ({ executeBuddyAction: vi.fn(async () => ({ success: true, message: 'Fang Karpfen wurde im Fangbuch eingetragen.' })) }));
 
@@ -148,7 +144,8 @@ describe('KiBuddyBeta – Live-Streaming', () => {
     });
 
     renderBuddy();
-    await ask('Wann beißen Hechte?');
+    // Bezug auf "heute" → keine lokale Sofort-Antwort, die Frage geht an die KI.
+    await ask('Wann beißen Hechte heute?');
 
     expect(await screen.findByText('Klar, Hechte beißen früh am Morgen am besten.')).toBeInTheDocument();
     // Im Streaming-Erfolgsfall wird der gepufferte Pfad nicht mehr angefasst.
@@ -167,5 +164,68 @@ describe('KiBuddyBeta – Live-Streaming', () => {
 
     expect(await screen.findByText('Fang Karpfen wurde im Fangbuch eingetragen.')).toBeInTheDocument();
     expect(executeBuddyAction).toHaveBeenCalledWith(action, expect.objectContaining({ navigate: expect.any(Function) }));
+  });
+});
+
+describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
+  let onLineSpy;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ai.chatStream.mockRejectedValue(new Error('kein Stream'));
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    onLineSpy?.mockRestore();
+    onLineSpy = undefined;
+    cleanup();
+  });
+
+  it('beantwortet eine Standardfrage sofort lokal, ohne API-Aufruf', async () => {
+    renderBuddy();
+    await ask('Welcher Köder ist gut für Hecht?');
+
+    expect(await screen.findByText(/Für Hecht haben sich drei Köder bewährt/)).toBeInTheDocument();
+    expect(screen.getByText('Sofort-Antwort aus dem Buddy-Wissen')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Köderführung 3D öffnen' })).toHaveAttribute('href', '/Koeder3D');
+    expect(ai.chatStream).not.toHaveBeenCalled();
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('schickt Fragen zu eigenen Daten weiterhin an die KI', async () => {
+    catchgbtChat.mockResolvedValueOnce({ reply: 'Deine Fänge sagen: Gummifisch.' });
+    renderBuddy();
+    await ask('Welche Köder passen zu meinen letzten Fängen?');
+
+    expect(await screen.findByText('Deine Fänge sagen: Gummifisch.')).toBeInTheDocument();
+    expect(ai.chatStream).toHaveBeenCalledTimes(1);
+  });
+
+  it('antwortet ohne Netz direkt aus der Datenbank, ohne Request und Retries', async () => {
+    onLineSpy = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    renderBuddy();
+    await ask('Schonzeit Hecht Bayern');
+
+    expect(await screen.findByText(/antworte ich nur allgemein/)).toBeInTheDocument();
+    expect(screen.getByText('Offline-Antwort aus dem Buddy-Wissen')).toBeInTheDocument();
+    expect(ai.chatStream).not.toHaveBeenCalled();
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('meldet ohne Netz ehrlich, wenn die Datenbank nichts Passendes kennt', async () => {
+    onLineSpy = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    renderBuddy();
+    await ask('Wie geht die Bundesliga aus?');
+
+    expect(await screen.findByText('Offline-Modus: Keine Internetverbindung.')).toBeInTheDocument();
+    expect(ai.chatStream).not.toHaveBeenCalled();
+  });
+
+  it('fällt bei Verbindungsfehlern auf die lokale Datenbank zurück', async () => {
+    catchgbtChat.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderBuddy();
+    await ask('Schonzeit Hecht Bayern');
+
+    expect(await screen.findByText(/Meine Online-KI ist gerade nicht erreichbar/)).toBeInTheDocument();
+    expect(ai.chatStream).toHaveBeenCalledTimes(1);
   });
 });

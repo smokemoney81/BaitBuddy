@@ -137,6 +137,30 @@ describe('POST /api/ai/chat', () => {
     expect(prompt).toContain('Fangbuch');
   });
 
+  it('bettet nur die zur Frage passenden FAQ-Einträge ein statt der ganzen Liste', async () => {
+    const prompts = [];
+    llmMock.invokeLLM = vi.fn(async (args) => { prompts.push(args.prompt); return 'ok'; });
+
+    const send = (content) => request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content }] });
+
+    expect((await send('Welcher Köder ist gut für Hecht in meinem Vereinssee?')).status).toBe(200);
+    expect((await send('Erzähl mal was Lustiges')).status).toBe(200);
+
+    const [withFaq, withoutFaq] = prompts;
+    expect(withFaq).toContain('GEPRÜFTES BUDDY-WISSEN ZUR AKTUELLEN FRAGE');
+    expect(withFaq).toContain('Welcher Köder ist gut für Hecht?');
+    // Keine fremden Einträge und nicht mehr die frühere Komplett-Liste.
+    expect(withFaq).not.toContain('Wie binde ich einen Palomar-Knoten?');
+    expect(withFaq).not.toContain('HÄUFIGE FRAGEN & ANTWORTEN');
+    expect(withoutFaq).not.toContain('GEPRÜFTES BUDDY-WISSEN');
+    // Der Prompt bleibt kompakt (Latenz-Ziel < 2 s): Allein die frühere
+    // Komplett-Liste brachte gut 30 000 Zeichen in jeden Prompt.
+    expect(withFaq.length).toBeLessThan(25000);
+  });
+
   it('kappt überlange Nachrichten-Contents vor dem Prompt-Aufbau', async () => {
     let prompt = '';
     llmMock.invokeLLM = vi.fn(async (args) => { prompt = args.prompt; return 'ok'; });

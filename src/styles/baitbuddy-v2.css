@@ -2003,6 +2003,9 @@
 }
 .bb-voice-bubble.is-user { border-radius: 16px 16px 4px 16px; background: rgba(20, 34, 52, .85); border-color: rgba(160,190,215,.25); }
 .bb-voice-bubble.is-interim { font-style: italic; color: #b9cbdb; border-style: dashed; }
+/* Herkunfts-Hinweis unter lokalen FAQ-Antworten (Sofort-/Offline-Antwort) plus optionaler Seiten-Link. */
+.bb-voice-source { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: #8fb3c9; }
+.bb-voice-source a { color: var(--bb-cyan); text-decoration: underline; }
 .bb-voice-typing { display: inline-flex; gap: 5px; }
 .bb-voice-typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--bb-cyan); animation: bb-pulse-cyan 1s infinite; }
 .bb-voice-typing i:nth-child(2) { animation-delay: .2s; }
