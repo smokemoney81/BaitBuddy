@@ -60,6 +60,10 @@ export default function Datenschutz() {
             <p>
               Für KI-Funktionen werden Nutzereingaben an externe KI-APIs übermittelt. Die Verarbeitung erfolgt ausschließlich zur Beantwortung der Anfrage. Eine Nutzung zu Trainingszwecken findet nicht statt.
             </p>
+            <ul className="list-disc pl-6 space-y-1 mt-2">
+              <li>Texteingaben im KI-Chat: OpenAI (ChatGPT API), ersatzweise Anthropic (Claude API)</li>
+              <li>Fotos zur Bildanalyse (Fang-, Köder- und Ausrüstungserkennung): Google (Gemini API), ersatzweise OpenAI bzw. Anthropic</li>
+            </ul>
           </Section>
 
           <Section number="6" title="Speicherung und Löschung">

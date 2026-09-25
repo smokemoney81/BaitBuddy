@@ -9,3 +9,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test-anthropic-key';
 process.env.ADMIN_EMAILS = process.env.ADMIN_EMAILS || 'admin@baitbuddy.test';
 process.env.CRON_SECRET = process.env.CRON_SECRET || 'test-cron-secret';
+// KI-Anbieter deterministisch halten: Ohne OpenAI-/Gemini-Schlüssel antwortet
+// in den LLM-Tests die Reserve Anthropic; Tests für OpenAI/Gemini setzen ihre
+// Schlüssel selbst. Ein Schlüssel aus der Shell des Entwicklers darf hier
+// keinen echten Upstream-Aufruf auslösen.
+for (const name of ['OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY']) {
+  delete process.env[name];
+}

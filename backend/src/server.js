@@ -36,7 +36,8 @@ import personalizationRoutes from './routes/personalization.js';
 import progressRoutes from './routes/progress.js';
 import clubsRoutes from './routes/clubs.js';
 import { aiRateLimiter, ttsRateLimiter, authRateLimiter } from './middleware/rateLimit.js';
-import { getAnthropicKey } from './lib/llm.js';
+import { hasTextProvider } from './lib/llm.js';
+import { getOpenAIKey } from './lib/aiKeys.js';
 import { getAllowedOrigins } from './lib/allowedOrigins.js';
 
 const app = express();
@@ -65,15 +66,10 @@ app.use(validateOrigin);
 app.use(sanitizeInputs);
 app.use(logSecurityEvents);
 
-// Findet den OpenAI-Key tolerant (OPENAI_API_KEY, Openai_key, …) — nur zur
-// Diagnose, ob Voice serverseitig konfiguriert ist. Gibt KEINEN Wert preis.
-function hasOpenAIKey() {
-  return !!(process.env.OPENAI_API_KEY
-    || Object.entries(process.env).find(([k, v]) => /open.?_?ai/i.test(k) && /key|token|secret/i.test(k) && v)?.[1]);
-}
-// `ai` zeigt an, ob der Claude-Key serverseitig ankommt — erlaubt eine
-// Diagnose des KI-Chats ohne Auth (kein LLM-Call, kein Key-Wert im Response).
-const healthPayload = () => ({ ok: true, app: 'BaitBuddy', version: '1.0.0', voice: hasOpenAIKey(), ai: !!getAnthropicKey() });
+// `voice` zeigt an, ob der OpenAI-Key (Realtime-Voice) serverseitig ankommt,
+// `ai`, ob ein Chat-Anbieter (OpenAI bzw. Reserve Anthropic) konfiguriert ist —
+// Diagnose ohne Auth (kein LLM-Call, kein Key-Wert im Response).
+const healthPayload = () => ({ ok: true, app: 'BaitBuddy', version: '1.0.0', voice: !!getOpenAIKey(), ai: hasTextProvider() });
 app.get('/health', (req, res) => res.json(healthPayload()));
 app.get('/api/health', (req, res) => res.json(healthPayload()));
 

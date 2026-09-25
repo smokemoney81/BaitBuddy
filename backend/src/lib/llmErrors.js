@@ -1,8 +1,9 @@
-// Ordnet Fehler aus invokeLLM/invokeLLMStream einer HTTP-Antwort zu.
+// Ordnet Fehler aus invokeLLM/invokeLLMStream (OpenAI, Gemini, Anthropic) einer
+// HTTP-Antwort zu.
 //
 // Früher landete jeder LLM-Fehler als generisches 500 "Verbindungsprobleme" im
-// Client — auch ein aufgebrauchtes Anthropic-Guthaben (Anthropic antwortet dann
-// mit 400 "credit balance is too low"). Der Client hielt das für ein
+// Client — auch ein aufgebrauchtes Guthaben (Anthropic: 400 "credit balance is
+// too low", OpenAI: 429 "insufficient_quota"). Der Client hielt das für ein
 // Netzproblem, wiederholte die Anfrage mehrfach und zeigte dem Nutzer den
 // Offline-Text "Ohne Verbindung ...", obwohl das Netz funktionierte.
 //
@@ -33,11 +34,11 @@ export function classifyLLMError(e) {
   let status = 500;
   let retryable = true;
 
-  if (/credit balance|billing|Plans & Billing/i.test(msg)) {
+  if (/credit balance|billing|insufficient_quota|exceeded your current quota/i.test(msg)) {
     code = 'llm_billing';
     status = 503;
     retryable = false;
-  } else if (msg.includes('ANTHROPIC_API_KEY') || /Claude-Auth-Fehler|authentication_error|permission_error/i.test(msg)) {
+  } else if (/_API_KEY|-Auth-Fehler|authentication_error|permission_error|invalid_api_key|Incorrect API key|API key not valid/i.test(msg)) {
     code = 'llm_not_configured';
     status = 503;
     retryable = false;
@@ -45,7 +46,7 @@ export function classifyLLMError(e) {
     code = 'llm_rate_limited';
     status = 429;
     retryable = false;
-  } else if (/timeout|timed out|TimeoutError/i.test(msg) || /** @type {any} */ (e)?.name === 'TimeoutError') {
+  } else if (/timeout|timed out|Zeitüberschreitung/i.test(msg) || ['TimeoutError', 'FetchTimeoutError'].includes(/** @type {any} */ (e)?.name)) {
     code = 'llm_timeout';
     status = 504;
   }
@@ -57,9 +58,9 @@ export function classifyLLMError(e) {
 export function logLLMError(label, e, classified) {
   const msg = e && typeof (/** @type {any} */ (e).message) === 'string' ? /** @type {any} */ (e).message : String(e);
   if (classified.code === 'llm_billing') {
-    console.error(`${label} Anthropic-Guthaben aufgebraucht – Credits in der Anthropic Console aufladen (Plans & Billing).`, msg);
+    console.error(`${label} KI-Guthaben/Kontingent aufgebraucht – beim Anbieter (OpenAI, Google AI Studio bzw. Anthropic Console) unter Billing aufladen.`, msg);
   } else if (classified.code === 'llm_not_configured') {
-    console.error(`${label} Anthropic-API-Schlüssel fehlt oder ist ungültig (ANTHROPIC_API_KEY prüfen).`, msg);
+    console.error(`${label} KI-Schlüssel fehlt oder ist ungültig (OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_KEY prüfen).`, msg);
   } else {
     console.error(label, msg, /** @type {any} */ (e)?.stack);
   }

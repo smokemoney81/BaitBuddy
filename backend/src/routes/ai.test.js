@@ -13,7 +13,11 @@ vi.mock('../lib/supabase.js', () => ({
 vi.mock('../lib/llm.js', () => ({
   invokeLLM: (...args) => llmMock.invokeLLM(...args),
   invokeLLMStream: (...args) => llmMock.invokeLLMStream(...args),
-  getAnthropicKey: () => 'test-key',
+  hasTextProvider: () => true,
+  getLLMStatus: () => ({
+    text: { provider: 'OpenAI (ChatGPT)', model: 'test-model' },
+    vision: { provider: 'Google Gemini', model: 'test-model' },
+  }),
 }));
 
 let app;

@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { checkChatRateLimit } from '../middleware/rateLimit.js';
 import { supabase } from '../lib/supabase.js';
-import { invokeLLM, invokeLLMStream, getAnthropicKey } from '../lib/llm.js';
+import { invokeLLM, invokeLLMStream, hasTextProvider, getLLMStatus } from '../lib/llm.js';
+import { getOpenAIKey } from '../lib/aiKeys.js';
 import { classifyLLMError, logLLMError } from '../lib/llmErrors.js';
 import {
   FISHING_KNOWLEDGE,
@@ -116,26 +117,23 @@ function matchBalancedBrace(str, startIdx) {
 }
 
 router.get('/health', (req, res) => {
-  const key = getAnthropicKey();
-  const keyInfo = key
-    ? 'Anthropic API Key gesetzt'
-    : 'Anthropic API Key FEHLT - KI-Chat funktioniert nicht!';
+  const status = getLLMStatus();
+  const ok = !!status.text;
 
   res.json({
-    ok: !!key,
-    status: key ? 'healthy' : 'degraded',
+    ok,
+    status: ok ? 'healthy' : 'degraded',
     ai_service: {
-      provider: 'Anthropic (Claude)',
-      api_key_configured: !!key,
-      api_key_info: keyInfo,
-      model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
+      // Nur Anbieter-/Modellnamen, nie Schlüssel.
+      chat: status.text,
+      vision: status.vision,
     },
     server: {
       node_env: process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
       uptime_seconds: process.uptime?.() || 0,
     },
-    recommendation: key ? 'Alles OK' : 'Admin: Setze ANTHROPIC_API_KEY in Vercel-Umgebungsvariablen'
+    recommendation: ok ? 'Alles OK' : 'Admin: Setze OPENAI_API_KEY (Chat) und GEMINI_API_KEY (Bildanalyse) in den Umgebungsvariablen'
   });
 });
 
@@ -144,16 +142,17 @@ router.get('/health', (req, res) => {
 // ohne LLM-Call gibt es /health bzw. /api/health.
 router.get('/ai/test', requireAuth, async (req, res) => {
   try {
-    if (!getAnthropicKey()) {
+    const status = getLLMStatus();
+    if (!status.text) {
       // Nur serverseitig loggen, welche Env-Variablen-NAMEN in Frage kaemen —
       // im Response landen weder Namen noch Werte (Aufzaehlung provisionierter
       // Secrets ist selbst Info-Disclosure).
-      console.warn('[AI] /ai/test: ANTHROPIC_API_KEY nicht gesetzt. Relevante Env-Variablen:',
-        Object.keys(process.env).filter(k => /open|api|key|claude|anthropic|gro/i.test(k)).sort());
-      return res.json({ ok: false, error: 'ANTHROPIC_API_KEY ist nicht gesetzt', step: 'key_check' });
+      console.warn('[AI] /ai/test: kein KI-Schlüssel gesetzt. Relevante Env-Variablen:',
+        Object.keys(process.env).filter(k => /open|api|key|claude|anthropic|gemini|google/i.test(k)).sort());
+      return res.json({ ok: false, error: 'Kein KI-Schlüssel gesetzt (OPENAI_API_KEY)', step: 'key_check' });
     }
     const reply = await invokeLLM({ prompt: 'Sage nur: Hallo, ich funktioniere!' });
-    return res.json({ ok: true, reply, provider: 'Anthropic (Claude)' });
+    return res.json({ ok: true, reply, provider: status.text.provider });
   } catch (e) {
     console.error('Error in /ai/test:', e);
     return res.status(500).json({ ok: false, error: 'KI-Test fehlgeschlagen', step: 'llm_call' });
@@ -184,9 +183,9 @@ async function buildChatPrompt(req) {
   const { messages = [], userLocation = null } = req.body;
   const userEmail = req.user.email;
 
-  // Pre-Check: Anthropic API Key vorhanden? Fehler sofort, bevor der LLM aufgerufen wird.
+  // Pre-Check: KI-Schlüssel (OpenAI bzw. Reserve Anthropic) vorhanden? Fehler sofort, bevor der LLM aufgerufen wird.
   // Nur in Produktion — Tests mocken den LLM und brauchen diese frühe Prüfung nicht.
-  if (process.env.NODE_ENV !== 'test' && !getAnthropicKey()) {
+  if (process.env.NODE_ENV !== 'test' && !hasTextProvider()) {
     const msg = 'Meine KI-Services sind gerade nicht konfiguriert (fehlender API-Schlüssel). Der Admin muss das fixen.';
     return { ok: false, status: 503, body: { ok: false, error: msg, reply: msg, message: msg, code: 'llm_not_configured', retryable: false } };
   }
@@ -765,11 +764,6 @@ Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt in exakt diesem Format,
 // ausschließlich serverseitig; der Browser baut damit direkt die WebRTC-
 // Verbindung zu OpenAI auf. Der Key wird tolerant auch unter abweichenden
 // Variablennamen gefunden (OPENAI_API_KEY, Openai_key, …).
-function getOpenAIKey() {
-  return process.env.OPENAI_API_KEY
-    || Object.entries(process.env).find(([k, v]) => /open.?_?ai/i.test(k) && /key|token|secret/i.test(k) && v)?.[1]
-    || null;
-}
 
 router.post('/ai/realtime-session', requireAuth, async (req, res) => {
   const apiKey = getOpenAIKey();
@@ -1214,7 +1208,7 @@ Antworte NUR mit dem JSON-Objekt.`;
       },
       trend,
       analysis: parsed,
-      data_source: 'Open-Meteo + Anthropic Claude',
+      data_source: `Open-Meteo + ${getLLMStatus().text?.provider || 'KI'}`,
       fetched_at: new Date().toISOString(),
     });
   } catch (e) {
