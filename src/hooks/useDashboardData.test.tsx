@@ -2,11 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDashboardData, useNextTrip, useRecentCatches, useTopSpots } from './useDashboardData';
-import { dashboard } from '@/api/frontendClient';
+import { api, dashboard } from '@/api/frontendClient';
 import * as AuthContext from '@/lib/AuthContext';
 
 // Mock the API
 vi.mock('@/api/frontendClient', () => ({
+  api: {
+    get: vi.fn(),
+  },
   dashboard: {
     getData: vi.fn(),
     refresh: vi.fn(),
@@ -137,6 +140,60 @@ describe('useDashboardData Hook', () => {
     // TODO: These tests need better mock setup for error cases
     // it('should handle API errors gracefully', async () => { ... });
     // it('should not fetch when user is not authenticated', async () => { ... });
+  });
+
+  describe('Fallback ohne /api/dashboard', () => {
+    const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
+
+    it('setzt die Daten aus den Einzel-Endpunkten zusammen, wenn die Route fehlt (404)', async () => {
+      vi.mocked(dashboard.getData).mockRejectedValue(httpError(404));
+      const recent = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      const upcoming = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      vi.mocked(api.get).mockImplementation(async (path: string) => {
+        if (path.startsWith('/api/catches')) {
+          return [{ id: 'c1', species: 'Hecht', weight_kg: 4, catch_time: recent, spot_id: 's1', is_released: false }];
+        }
+        if (path === '/api/spots') return [{ id: 's1', name: 'Nordufer', latitude: 50, longitude: 7 }];
+        if (path === '/api/fishing/plans') return [{ id: 'p1', title: 'Hechttour', planned_date: upcoming }];
+        throw new Error(`unerwartet: ${path}`);
+      });
+
+      const { result } = renderHookWithQuery(() => useDashboardData());
+
+      await waitFor(() => {
+        expect(result.current.data).toBeDefined();
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.data?.next_trip?.name).toBe('Hechttour');
+      expect(result.current.data?.top_spots[0]).toMatchObject({ id: 's1', name: 'Nordufer', usage_count: 1 });
+      expect(result.current.data?.recent_catches[0]).toMatchObject({ id: 'c1', location: 'Nordufer' });
+    });
+
+    it('meldet den ursprünglichen Fehler, wenn auch die Einzel-Endpunkte scheitern', async () => {
+      vi.mocked(dashboard.getData).mockRejectedValue(httpError(404));
+      vi.mocked(api.get).mockRejectedValue(httpError(503));
+
+      const { result } = renderHookWithQuery(() => useDashboardData());
+
+      await waitFor(() => {
+        expect(result.current.error).not.toBeNull();
+      }, { timeout: 3000 });
+
+      expect(result.current.error?.message).toBe('HTTP 404');
+    });
+
+    it('weicht bei Auth-Fehlern nicht aus', async () => {
+      vi.mocked(dashboard.getData).mockRejectedValue(httpError(401));
+
+      const { result } = renderHookWithQuery(() => useDashboardData());
+
+      await waitFor(() => {
+        expect(result.current.error).not.toBeNull();
+      }, { timeout: 3000 });
+
+      expect(api.get).not.toHaveBeenCalled();
+    });
   });
 
   describe('Caching', () => {
