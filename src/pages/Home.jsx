@@ -1,41 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Fish, BarChart3, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { auth } from "@/api/auth";
 import { createPageUrl } from '@/utils';
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher';
 import { LanguageProvider } from '@/components/i18n/LanguageContext';
 import DeleteAccountSection from '@/components/settings/DeleteAccountSection';
 import LandingAuthPanel from '@/components/home/LandingAuthPanel';
-import BuddyMascot from '@/components/home/BuddyMascot';
-import { BrandMark } from '@/components/layout/BrandLogo';
+import LandingPitch from '@/components/home/LandingPitch';
 import { maybeShowEventPopup, EVENT_POPUP_DWELL_MS } from '@/lib/loginEventPopup';
-
-const FEATURES = [
-    { icon: MapPin, label: 'Top-Spots finden' },
-    { icon: Fish, label: 'Besser fangen' },
-    { icon: BarChart3, label: 'Wetter & Daten nutzen' },
-    { icon: GraduationCap, label: 'Immer dazulernen' },
-];
-
-// Fischbilder aus public/fish als dunkle Silhouetten im Unterwasser-Hintergrund.
-const SWIMMERS = [
-    { src: '/fish/pike.webp', className: 'is-left' },
-    { src: '/fish/zander.webp', className: 'is-right' },
-];
-
-function LandingBackground() {
-    return (
-        <div className="bb-landing-bg" aria-hidden="true">
-            <div className="bb-landing-sky" />
-            <div className="bb-landing-waterline" />
-            <div className="bb-landing-rays" />
-            {SWIMMERS.map(fish => <img key={fish.src} src={fish.src} alt="" className={`bb-landing-swimmer ${fish.className}`} />)}
-            <span className="bb-landing-bubbles" />
-            <div className="bb-landing-floor" />
-        </div>
-    );
-}
 
 function LandingPageContent() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -58,8 +31,8 @@ function LandingPageContent() {
 
         const prevBg = document.body.style.backgroundColor;
         const prevHtmlBg = document.documentElement.style.backgroundColor;
-        document.body.style.backgroundColor = '#031525';
-        document.documentElement.style.backgroundColor = '#031525';
+        document.body.style.backgroundColor = '#081d22';
+        document.documentElement.style.backgroundColor = '#081d22';
         return () => {
             document.body.style.backgroundColor = prevBg;
             document.documentElement.style.backgroundColor = prevHtmlBg;
@@ -86,35 +59,27 @@ function LandingPageContent() {
 
     return (
         <div className="bb-landing">
-            <LandingBackground />
-
             <div className="bb-landing-lang">
                 <LanguageSwitcher />
             </div>
 
             <main className="bb-landing-inner">
-                <header className="bb-landing-brand">
-                    <span className="bb-landing-mark"><BrandMark size={112} /></span>
-                    <h1 className="bb-landing-word">Bait<span>Buddy</span></h1>
-                    <p className="bb-landing-claim">Dein persönlicher Angelbegleiter</p>
-                    <p className="bb-script bb-landing-script" aria-hidden="true">Mehr als Angeln.</p>
+                {/* Hero aus der Design-Vorlage: Unterwasserszene mit Logo, Schriftzug und Hecht. */}
+                <header className="bb-landing-hero">
+                    <h1 className="sr-only">BaitBuddy – Fish smarter</h1>
+                    <img
+                        src="/assets/welcome/welcome-hero.webp"
+                        alt=""
+                        width="704"
+                        height="1019"
+                        decoding="async"
+                    />
                 </header>
-
-                <div className="bb-landing-buddy">
-                    <span className="bb-landing-sonar" aria-hidden="true"><i /><i /><i /></span>
-                    <BuddyMascot size={136} className="bb-landing-mascot" />
-                    <p className="bb-landing-bubble">Hey, ich bin dein <strong>KI-Buddy</strong></p>
-                </div>
-
-                <ul className="bb-landing-features">
-                    {FEATURES.map(({ icon: Icon, label }) => (
-                        <li key={label}><Icon size={30} aria-hidden="true" /><span>{label}</span></li>
-                    ))}
-                </ul>
 
                 {isAuthenticated ? (
                     <div className="bb-landing-auth">
-                        <button type="button" onClick={handleLogin} className="bb-landing-btn is-primary">
+                        <LandingPitch />
+                        <button type="button" onClick={handleLogin} className="bb-landing-btn is-cta">
                             <LayoutDashboard className="bb-landing-btn-icon" aria-hidden="true" />
                             <span>Zum Dashboard</span>
                         </button>

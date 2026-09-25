@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth } from '@/api/auth';
 import { supabase } from '@/api/supabaseClient';
 import { createPageUrl } from '@/utils';
@@ -7,9 +7,10 @@ import { isOnline } from '@/utils/networkStatus';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { maybeShowEventPopup, EVENT_POPUP_DWELL_MS } from '@/lib/loginEventPopup';
 import { Browser } from '@capacitor/browser';
-import { Eye, EyeOff, Mail, UserRound, Compass, ChevronRight, ChevronLeft, CloudUpload } from 'lucide-react';
+import { Eye, EyeOff, Mail, ChevronRight, ChevronLeft, CloudUpload } from 'lucide-react';
 import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
-import { postLoginPath } from '@/lib/guestStore';
+import LandingPitch from '@/components/home/LandingPitch';
+import { postLoginPath, hasGuestData } from '@/lib/guestStore';
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
 // Aus src/pages/Home.jsx extrahiert: acht zusammenhaengende State-Felder und
@@ -73,8 +74,9 @@ export default function LandingAuthPanel() {
   const [loginInfo, setLoginInfo] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
-  // 'choice' = Auswahl wie im Startbildschirm-Entwurf, 'email' = Formular.
-  const [view, setView] = useState(() => (loginMode === 'register' ? 'email' : 'choice'));
+  // 'intro' = Startbildschirm wie in der Vorlage ("Los geht's"),
+  // 'choice' = Auswahl (Google, E-Mail, Gast), 'email' = Formular.
+  const [view, setView] = useState(() => (loginMode === 'register' ? 'email' : 'intro'));
   const openEmail = (mode) => {
     setLoginMode(mode);
     setLoginError('');
@@ -82,10 +84,20 @@ export default function LandingAuthPanel() {
     setView('email');
   };
   const [loggedInUser, setLoggedInUser] = useState(null);
+  const formRef = useRef(null);
+  // Den Hinweis auf die Gastdaten-Übernahme nur zeigen, wenn es auch welche gibt.
+  const [guestDataOnDevice] = useState(hasGuestData);
+
+  // Das Formular liegt unter dem Hero-Bild — beim Öffnen in den Blick holen.
+  useEffect(() => {
+    if (view === 'email') formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, [view]);
 
   useEffect(() => {
-    const onOAuthError = (e) =>
+    const onOAuthError = (e) => {
+      setView('choice');
       setLoginError('Social Login fehlgeschlagen: ' + (e.detail?.message || 'Unbekannter Fehler'));
+    };
     window.addEventListener('baitbuddy:oauth-error', onOAuthError);
     return () => window.removeEventListener('baitbuddy:oauth-error', onOAuthError);
   }, []);
@@ -214,8 +226,17 @@ export default function LandingAuthPanel() {
         />
       )}
       <div className="bb-landing-auth">
-        {view === 'choice' ? (
+        {view === 'intro' && (
           <>
+            <LandingPitch />
+            <button type="button" onClick={() => setView('choice')} className="bb-landing-btn is-cta">
+              <span>Los geht’s</span>
+              <ChevronRight className="bb-landing-btn-arrow" aria-hidden="true" />
+            </button>
+          </>
+        )}
+        {view === 'choice' && (
+          <div className="bb-landing-choice">
             <button type="button" onClick={() => handleSocialLogin('google')} disabled={loginLoading} className="bb-landing-btn is-google">
               <svg viewBox="0 0 24 24" className="bb-landing-btn-icon" aria-hidden="true">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -225,29 +246,30 @@ export default function LandingAuthPanel() {
               </svg>
               <span>Mit Google fortfahren</span>
             </button>
-            <button type="button" onClick={() => openEmail('register')} className="bb-landing-btn is-dark">
+            <button type="button" onClick={() => openEmail('login')} className="bb-landing-btn is-dark">
               <Mail className="bb-landing-btn-icon text-cyan-300" aria-hidden="true" />
               <span>Mit E-Mail anmelden</span>
             </button>
-            <div className="bb-landing-or"><span>oder</span></div>
-            <button type="button" onClick={() => openEmail('login')} className="bb-landing-btn is-outline">
-              <UserRound className="bb-landing-btn-icon" aria-hidden="true" />
-              <span>Vorhandenes Konto</span>
-            </button>
-            <button type="button" onClick={handleGuestLogin} className="bb-landing-btn is-guest">
-              <Compass className="bb-landing-btn-icon" aria-hidden="true" />
-              <span>Als Gast ausprobieren</span>
+            <button type="button" onClick={handleGuestLogin} className="bb-landing-btn is-cta">
+              <span>Als Gast loslegen</span>
               <ChevronRight className="bb-landing-btn-arrow" aria-hidden="true" />
             </button>
             {loginError && <p role="alert" className="bb-landing-msg is-error">{loginError}</p>}
             {loginInfo && <p role="status" className="bb-landing-msg is-info">{loginInfo}</p>}
-            <a href="/GastdatenUebernehmen" className="bb-landing-later">
-              <CloudUpload className="w-5 h-5" aria-hidden="true" />
-              Gastdaten später übernehmen
-            </a>
-          </>
-        ) : (
-          <div className="bb-landing-form">
+            <p className="bb-landing-switch">
+              Neu bei BaitBuddy?{' '}
+              <button type="button" onClick={() => openEmail('register')}>Konto erstellen</button>
+            </p>
+            {guestDataOnDevice && (
+              <a href="/GastdatenUebernehmen" className="bb-landing-later">
+                <CloudUpload className="w-5 h-5" aria-hidden="true" />
+                Gastdaten später übernehmen
+              </a>
+            )}
+          </div>
+        )}
+        {view === 'email' && (
+          <div ref={formRef} className="bb-landing-form">
             <div className="bb-landing-form-head">
               <button type="button" onClick={() => { setView('choice'); setLoginError(''); setLoginInfo(''); }} className="bb-landing-back" aria-label="Zurück zur Auswahl">
                 <ChevronLeft className="w-5 h-5" aria-hidden="true" />
