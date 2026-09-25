@@ -10,6 +10,7 @@ import { Browser } from '@capacitor/browser';
 import { Eye, EyeOff, Mail, ChevronRight, ChevronLeft, CloudUpload } from 'lucide-react';
 import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
 import LandingPitch from '@/components/home/LandingPitch';
+import AndroidInstallButton from '@/components/home/AndroidInstallButton';
 import { postLoginPath, hasGuestData } from '@/lib/guestStore';
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
@@ -260,6 +261,7 @@ export default function LandingAuthPanel() {
               Neu bei BaitBuddy?{' '}
               <button type="button" onClick={() => openEmail('register')}>Konto erstellen</button>
             </p>
+            <AndroidInstallButton />
             {guestDataOnDevice && (
               <a href="/GastdatenUebernehmen" className="bb-landing-later">
                 <CloudUpload className="w-5 h-5" aria-hidden="true" />

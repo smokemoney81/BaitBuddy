@@ -11,6 +11,7 @@ import { clearGuestData } from '@/lib/guestStore';
 const GUEST_BLOCKED_PAGES = [
   'AdminUsers',
   'AdminTracking',
+  'Admin',
 ];
 
 export function isGuestAllowedPage(pageName) {

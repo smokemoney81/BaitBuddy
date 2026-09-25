@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Crown, Mail, ExternalLink, Clock } from 'lucide-react';
+import { SUPPORT_EMAIL } from '@/lib/supportContact';
 
 export default function PayPalButton({ planId, planName, planPrice, onSuccess: _onSuccess }) {
   const features = {
@@ -14,7 +15,7 @@ export default function PayPalButton({ planId, planName, planPrice, onSuccess: _
 
   const mailSubject = encodeURIComponent(`BaitBuddy Premium Upgrade – ${planName} (${planPrice} EUR)`);
   const mailBody = encodeURIComponent(`Hallo BaitBuddy-Team,\n\nichmoechte den ${planName}-Plan fuer ${planPrice} EUR/Monat upgraden.\n\nBitte sendet mir die Zahlungsdetails.\n\nVielen Dank!`);
-  const mailtoLink = `mailto:support@catchgbt.de?subject=${mailSubject}&body=${mailBody}`;
+  const mailtoLink = `mailto:${SUPPORT_EMAIL}?subject=${mailSubject}&body=${mailBody}`;
 
   return (
     <Card className="border border-emerald-600/30 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl overflow-hidden">

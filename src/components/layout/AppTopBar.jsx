@@ -53,7 +53,9 @@ export function TopBarAvatar({ user, onClick }) {
 // Kopfzeile der Vorlage: kein fester Balken, sondern Teil des Hero-Bereichs.
 // Hauptseiten: Logo links, Glocke + Avatar rechts.
 // Unterseiten: runde Zurück-Taste links, Logo mittig, Avatar rechts.
-export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter }) {
+// `title` ersetzt auf Unterseiten das Logo durch den Seitentitel, `action`
+// ergänzt rechts eine Seitenaktion (siehe pageTopBars.jsx).
+export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, title = null, action = null }) {
   const navigate = useNavigate();
   const { triggerHaptic } = useHaptic();
   const { playSound } = useSound();
@@ -73,13 +75,13 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter })
 
   const right = (
     <div className="bb-topbar-right">
-      <EventTimer />
       {isDemo && <span className="bb-header-badge" style={{ '--badge-bg': 'rgba(245,158,11,.20)', '--badge-color': '#fbbf24' }}>DEMO</span>}
       {isRoot && (
         <Link to="/NotificationCenter" className="bb-topbar-icon" aria-label="Benachrichtigungen">
           <Bell size={24} aria-hidden="true" />
         </Link>
       )}
+      {action}
       <TopBarAvatar user={user} onClick={openCommandCenter} />
     </div>
   );
@@ -89,17 +91,19 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter })
       <header className="bb-topbar bb-topbar-root">
         <BrandLogo size="lg" align="left" withMark={false} />
         {right}
+        <EventTimer />
       </header>
     );
   }
 
   return (
-    <header className="bb-topbar">
+    <header className={`bb-topbar${title ? ' bb-topbar-titled' : ''}`}>
       <button type="button" onClick={goBack} className="bb-round-btn" aria-label="Zurück">
         <ChevronLeft size={26} aria-hidden="true" />
       </button>
-      <BrandLogo size="md" align="center" />
+      {title ? <h1 className="bb-topbar-title">{title}</h1> : <BrandLogo size="md" align="center" />}
       {right}
+      <EventTimer />
     </header>
   );
 }

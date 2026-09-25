@@ -100,8 +100,31 @@ export function __clearTokenCache() {
 // Auch von /api/auth/me genutzt, damit die Oberfläche denselben Maßstab
 // anlegt wie das Gate hier. Vorher prüfte AdminUsers.jsx ein `role`-Feld, das
 // es nirgends gibt — die Seite sperrte damit auch echte Admins aus.
+// Superuser: das einzige Konto mit Zugriff auf den Admin-Bereich
+// (/api/superadmin/*, Seite /Admin). Per Env überschreibbar, damit eine andere
+// Installation (Self-Hosting) ihren eigenen Betreiber eintragen kann.
+const DEFAULT_SUPERUSER_EMAIL = 'kaisaschnitt99@gmail.com';
+
+export function superuserEmail() {
+  return String(process.env.SUPERUSER_EMAIL || DEFAULT_SUPERUSER_EMAIL).trim().toLowerCase();
+}
+
+export function isSuperuserEmail(email) {
+  if (!email) return false;
+  return String(email).trim().toLowerCase() === superuserEmail();
+}
+
+export function requireSuperuser(req, res, next) {
+  if (!isSuperuserEmail(req.user?.email)) {
+    return res.status(403).json({ error: 'Nur für den Superuser' });
+  }
+  next();
+}
+
 export function isAdminEmail(email) {
   if (!email) return false;
+  // Der Superuser ist immer auch Admin (Karten-Downloads, Vereins-Verifizierung …).
+  if (isSuperuserEmail(email)) return true;
   const adminEmails = (process.env.ADMIN_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())

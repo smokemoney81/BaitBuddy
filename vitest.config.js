@@ -42,7 +42,7 @@ export default defineConfig({
         test: {
           name: 'backend',
           environment: 'node',
-          include: ['backend/**/*.test.js'],
+          include: ['backend/**/*.test.js', 'cloudflare/**/*.test.js'],
           setupFiles: ['backend/test/setup.js'],
           testTimeout: 60_000,
           hookTimeout: 60_000,

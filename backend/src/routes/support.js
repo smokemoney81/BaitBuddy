@@ -1,27 +1,9 @@
 import express from 'express';
-import nodemailer from 'nodemailer';
 import { supabase } from '../lib/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
+import { getMailTransporter, mailFrom, escapeHtml, supportEmail } from '../lib/mailer.js';
 
 const router = express.Router();
-
-// Email-Transporter (mit Fallback auf Console-Logging)
-let emailTransporter;
-try {
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
-    emailTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_PORT == 465,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
-  }
-} catch (e) {
-  console.warn('Email-Transporter konnte nicht initialisiert werden:', e.message);
-}
 
 // POST /api/support/tickets - Neues Support-Ticket erstellen
 router.post('/support/tickets', requireAuth, async (req, res) => {
@@ -60,12 +42,9 @@ router.post('/support/tickets', requireAuth, async (req, res) => {
     const ticket = data?.[0];
 
     // Email-Versand (Entwickler-Benachrichtigung + Bestätigungsmail an Nutzer)
+    const emailTransporter = getMailTransporter();
     if (emailTransporter) {
-      const developerEmail = process.env.DEVELOPER_EMAIL;
-      const escapeHtml = (str) => {
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return String(str).replace(/[&<>"']/g, (c) => map[c]);
-      };
+      const developerEmail = process.env.DEVELOPER_EMAIL || supportEmail();
 
       const ticketDetailsHtml = `
         <h2>Neues Support-Ticket</h2>
@@ -80,29 +59,23 @@ router.post('/support/tickets', requireAuth, async (req, res) => {
         <p><em>Dieses Ticket wurde am ${new Date().toLocaleString('de-DE')} erstellt.</em></p>
       `;
 
-      // 1. Benachrichtigung an Entwickler
-      if (!developerEmail) {
-        console.warn('DEVELOPER_EMAIL nicht konfiguriert — Entwickler-Benachrichtigung wird nicht versendet');
-      } else {
-        const developerMailOptions = {
-          from: `BaitBuddy Support <${process.env.SMTP_USER}>`,
+      // 1. Benachrichtigung an den Support (DEVELOPER_EMAIL, sonst Support-Adresse)
+      try {
+        await emailTransporter.sendMail({
+          from: mailFrom(),
           to: developerEmail,
-          subject: `[TICKET] ${escapeHtml(subject)}`,
+          subject: `[TICKET] ${subject}`,
           html: ticketDetailsHtml,
           replyTo: user_email,
-        };
-
-        try {
-          await emailTransporter.sendMail(developerMailOptions);
-          console.log('Entwickler-Benachrichtigung versendet für Ticket:', ticket?.id);
-        } catch (emailErr) {
-          console.error('Entwickler-Email-Versand fehlgeschlagen:', emailErr.message);
-        }
+        });
+        console.log('Support-Benachrichtigung versendet für Ticket:', ticket?.id);
+      } catch (emailErr) {
+        console.error('Support-Email-Versand fehlgeschlagen:', emailErr.message);
       }
 
       // 2. Bestätigungsmail an Nutzer
       const confirmationMailOptions = {
-        from: `BaitBuddy Support <${process.env.SMTP_USER}>`,
+        from: mailFrom(),
         to: user_email,
         subject: 'Ticket-Bestätigung – Wir haben deine Anfrage erhalten',
         html: `
@@ -127,7 +100,7 @@ router.post('/support/tickets', requireAuth, async (req, res) => {
         console.error('Bestätigungsmail-Versand fehlgeschlagen:', emailErr.message);
       }
     } else {
-      console.warn('SMTP nicht konfiguriert — Emails werden nicht versendet. Benoetigte Env-Vars: SMTP_HOST, SMTP_USER, SMTP_PASSWORD, DEVELOPER_EMAIL');
+      console.warn('SMTP nicht konfiguriert — Emails werden nicht versendet. Benoetigte Env-Vars: SMTP_HOST, SMTP_USER, SMTP_PASSWORD');
     }
 
     // Erfolgreiche Antwort an Client

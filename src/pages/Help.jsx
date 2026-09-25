@@ -9,6 +9,8 @@ import { auth } from "@/api/auth";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import PageTitle from "@/components/layout/PageTitle";
+import { resolveLocalAnswer, getOfflineFallback } from "@/lib/buddyFaq";
+import { SUPPORT_EMAIL } from "@/lib/supportContact";
 
 export default function Help() {
   const [user, setUser] = useState(null);
@@ -23,6 +25,9 @@ export default function Help() {
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiAnswer, setAiAnswer] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiSource, setAiSource] = useState(null);
+  const [tab, setTab] = useState("ticket");
 
   useEffect(() => {
     loadUser();
@@ -84,23 +89,69 @@ export default function Help() {
     setSubmitting(false);
   };
 
+  // KI-Hilfe: erst die lokale FAQ (sofort, ohne Tageslimit, auch offline),
+  // dann die KI. Jeder Fehlschlag steht sichtbar unter dem Button — vorher gab
+  // es nur einen kurzen Toast, und der Button wirkte, als reagiere er nicht
+  // (z. B. bei erreichtem Tageslimit im Gratis-Tarif oder ohne Anmeldung).
   const handleAiAsk = async () => {
-    if (!aiQuestion.trim()) {
-      toast.error("Bitte eine Frage eingeben");
+    const question = aiQuestion.trim();
+    if (aiLoading) return;
+    setAiAnswer("");
+    setAiError("");
+    setAiSource(null);
+    if (!question) {
+      setAiError("Bitte gib zuerst deine Frage ein.");
       return;
     }
+
+    const online = typeof navigator === "undefined" || navigator.onLine !== false;
+    const local = resolveLocalAnswer(question, { online });
+    if (local) {
+      setAiAnswer(local.answer);
+      setAiSource(local.mode);
+      return;
+    }
+    if (!online) {
+      setAiAnswer(getOfflineFallback());
+      setAiSource("offline");
+      return;
+    }
+
     setAiLoading(true);
-    setAiAnswer("");
     try {
       const res = await integrations.Core.InvokeLLM({
-        prompt: `Du bist der Support-Assistent fuer die Angel-App "BaitBuddy". Beantworte folgende Nutzerfrage hilfsbereit, kurz und auf Deutsch:\n\nFrage: ${aiQuestion}`
+        prompt: `Du bist der Support-Assistent fuer die Angel-App "BaitBuddy". Beantworte folgende Nutzerfrage hilfsbereit, kurz und auf Deutsch:\n\nFrage: ${question}`
       });
-      setAiAnswer(typeof res === "string" ? res : JSON.stringify(res));
+      const text = typeof res === "string" ? res.trim() : "";
+      if (!text) throw new Error("Leere Antwort");
+      setAiAnswer(text);
+      setAiSource("ai");
     } catch (e) {
       console.error(e);
-      toast.error("KI-Antwort fehlgeschlagen");
+      const status = e?.status;
+      setAiError(
+        status === 401
+          ? "Bitte melde dich an, um die KI-Hilfe zu nutzen."
+          : status === 429
+            ? (e?.data?.error || "Das Tageslimit für KI-Anfragen ist erreicht.")
+            : (e?.data?.reply || e?.data?.error || "Die KI-Hilfe ist gerade nicht erreichbar.")
+      );
+      // Wenigstens die allgemeine Antwort aus dem eingebauten Wissen zeigen.
+      const fallback = resolveLocalAnswer(question, { online: false });
+      if (fallback) {
+        setAiAnswer(fallback.answer);
+        setAiSource("offline");
+      }
+    } finally {
+      setAiLoading(false);
     }
-    setAiLoading(false);
+  };
+
+  const askAsTicket = () => {
+    setSubject(aiQuestion.trim().slice(0, 120));
+    setMessage(aiQuestion.trim());
+    setCategory("frage");
+    setTab("ticket");
   };
 
   const statusColor = (s) => {
@@ -118,7 +169,7 @@ export default function Help() {
       <div className="max-w-4xl mx-auto space-y-6 w-full min-w-0">
         <PageTitle title="Hilfe & Support" subtitle="Wir helfen dir gerne weiter." />
 
-        <Tabs defaultValue="ticket" className="w-full min-w-0">
+        <Tabs value={tab} onValueChange={setTab} className="w-full min-w-0">
           <TabsList className="flex w-full justify-start overflow-x-auto scrollbar-hide">
             <TabsTrigger value="ticket">Ticket erstellen</TabsTrigger>
             <TabsTrigger value="meine">Meine Tickets</TabsTrigger>
@@ -181,6 +232,9 @@ export default function Help() {
                     "Ticket absenden"
                   )}
                 </button>
+                <p className="text-xs text-center" style={{ color: 'var(--bb-muted)' }}>
+                  Oder direkt per E-Mail: <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: 'var(--bb-cyan)' }}>{SUPPORT_EMAIL}</a>
+                </p>
               </div>
             </div>
           </TabsContent>
@@ -233,6 +287,7 @@ export default function Help() {
                   className="bg-gray-800/50 border-gray-700 text-white min-h-[100px]"
                 />
                 <button
+                  type="button"
                   onClick={handleAiAsk}
                   disabled={aiLoading}
                   className="bb-action w-full"
@@ -247,12 +302,26 @@ export default function Help() {
                   )}
                 </button>
 
-                {aiAnswer && (
-                  <div className="p-4 bg-cyan-900/20 border border-cyan-700/40 rounded-lg">
-                    <p className="text-xs text-cyan-400 font-semibold mb-2">Antwort</p>
-                    <p className="text-sm text-gray-200 whitespace-pre-wrap">{aiAnswer}</p>
-                  </div>
-                )}
+                <div role="status" aria-live="polite" className="grid gap-3">
+                  {aiError && (
+                    <div className="p-3 rounded-lg border border-amber-600/50 bg-amber-900/20">
+                      <p className="text-sm text-amber-200">{aiError}</p>
+                    </div>
+                  )}
+                  {aiAnswer && (
+                    <div className="p-4 bg-cyan-900/20 border border-cyan-700/40 rounded-lg">
+                      <p className="text-xs text-cyan-400 font-semibold mb-2">
+                        {aiSource === "ai" ? "Antwort der KI" : aiSource === "offline" ? "Allgemeine Antwort aus dem Buddy-Wissen" : "Sofort-Antwort aus dem Buddy-Wissen"}
+                      </p>
+                      <p className="text-sm text-gray-200 whitespace-pre-wrap">{aiAnswer}</p>
+                    </div>
+                  )}
+                  {(aiAnswer || aiError) && aiQuestion.trim() && (
+                    <button type="button" onClick={askAsTicket} className="bb-secondary w-full justify-center">
+                      Hat nicht geholfen? Als Ticket an den Support senden
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </TabsContent>

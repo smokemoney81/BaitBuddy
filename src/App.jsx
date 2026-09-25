@@ -10,7 +10,7 @@ import VisualEditAgent from '@/lib/VisualEditAgent'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { NavigationProvider } from '@/lib/NavigationContext'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 import { initializeDeepLinking } from '@/lib/deepLinkHandler';
 import { AnimatePresence } from 'framer-motion';
 import PageNotFound from './lib/PageNotFound';
@@ -26,7 +26,7 @@ import { initNetworkStatus } from '@/utils/networkStatus';
 import { prefetchAllPages } from '@/lib/prefetchPages';
 import { lazyPage } from '@/lib/lazyPage';
 const CatchStats = lazyPage(() => import('@/pages/CatchStats'));
-const AdminTracking = lazyPage(() => import('@/pages/AdminTracking'));
+const Admin = lazyPage(() => import('@/pages/Admin'));
 const Help = lazyPage(() => import('@/pages/Help'));
 const EventCatalog = lazyPage(() => import('@/pages/EventCatalog'));
 const EventDetails = lazyPage(() => import('@/pages/EventDetails'));
@@ -103,9 +103,11 @@ const AnimatedRoutes = () => {
           <Route path="/CatchStats" element={
             <ErrorBoundary><CatchStats /></ErrorBoundary>
           } />
-          <Route path="/AdminTracking" element={
-            <ErrorBoundary><AdminTracking /></ErrorBoundary>
+          <Route path="/Admin" element={
+            <ErrorBoundary><Admin /></ErrorBoundary>
           } />
+          {/* Frühere Tracking-Seite (las eine Entity ohne Endpunkt, zeigte nie Daten) */}
+          <Route path="/AdminTracking" element={<Navigate to="/Admin" replace />} />
           <Route path="/Help" element={
             <ErrorBoundary><Help /></ErrorBoundary>
           } />

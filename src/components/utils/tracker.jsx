@@ -1,7 +1,7 @@
 // Zentrale Tracking-Utility. Speichert Events ueber die TrackingEvent-Entity.
 // Fehler werden still verschluckt, damit Tracking niemals die App stoert.
 
-import { entities } from "@/api/frontendClient";
+import { entities, api } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 
 let cachedUserId = null;
@@ -17,14 +17,20 @@ async function getUserId() {
   return cachedUserId;
 }
 
+// Seitenaufrufe landen als usage_sessions-Zeile (status 'view',
+// feature_id 'page:<Route>') — daraus zählt der Admin-Bereich die
+// meistgenutzten Tools (GET /api/superadmin/stats/tools). Nur angemeldete
+// Nutzer: Gäste haben kein Konto, dem die Zeile gehören könnte. Vorher lief
+// das über eine Entity ohne Endpunkt und wurde stillschweigend verworfen.
 export async function trackPageView(pageName) {
-  if (!pageName) return;
+  const page = String(pageName || "").split("/")[0];
+  if (!page || !api.getToken()) return;
   try {
-    const user_id = await getUserId();
-    await entities.TrackingEvent.create({
-      user_id,
-      event_type: "page_view",
-      page_name: pageName,
+    await entities.UsageSession.create({
+      session_id: `view_${page}_${Date.now()}`,
+      feature_id: `page:${page}`,
+      status: "view",
+      started_at: new Date().toISOString(),
     });
   } catch {
     // silent

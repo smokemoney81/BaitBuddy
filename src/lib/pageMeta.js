@@ -14,6 +14,7 @@ export const PAGE_META = {
   Weather: { title: 'Wetter', icon: CloudSun },
   Logbook: { title: 'Fangbuch', icon: BookOpen },
   CatchStats: { title: 'Statistiken', icon: BarChart3 },
+  Admin: { title: 'Admin-Bereich', icon: ShieldCheck },
   TripPlanner: { title: 'Trips & Planung', icon: CalendarDays },
   AnglerMode: { title: 'Anglermodus', icon: Compass },
   LiveTrip: { title: 'Live-Trip', icon: Compass },

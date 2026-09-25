@@ -76,6 +76,7 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 - **Frontend**: verteilt über mehrere Stellen (es gibt **kein** `src/components/KiBuddy/`-Verzeichnis):
   - Es gibt **kein** schwebendes Chat-Widget mehr (entfernt im BaitBuddy-2.0-Layout, wie in den Vorlagen). Der Buddy ist über „Hey Buddy“ im Command Center (`src/components/layout/CommandCenter.jsx`), die Dashboard-Schnellzugriffe und das Plus-Menü der Bottom-Nav erreichbar; Fragen werden per `/KiBuddyBeta?question=…` vorbefüllt.
   - `src/pages/KiBuddyBeta.jsx` — eigenständige Voice-Buddy-Seite
+    - **Nicht scrollbar**: `useFitToViewport` (`src/hooks/useFitToViewport.js`) setzt die Seitenhöhe per JS (`--bb-fit-height`, kein `dvh` — fehlt in WebView 90/iOS 14) und sperrt das Dokument-Scrollen (`html.bb-no-page-scroll`); nur der Chatverlauf scrollt intern. Bei wenig Höhe blenden `max-height`-Media-Queries in `baitbuddy-v2.css` stufenweise Beiwerk, Buddy-Kreis und (Tastatur offen) Schnellaktionen/Freisprech-Leiste aus. Neue Elemente auf der Seite müssen in diese Höhenrechnung passen.
   - `src/components/ai/`, `src/components/chatbot/`, `src/components/home/MiniKiBuddy*.jsx`
   - Hooks: `useChatMessages`, `useSpeechRecognition`, `useElevenLabsVoice`
   - `src/lib/buddyGreetings.js` — Start-Begrüßungs-Generator: begrüßt per Sprechblase + TTS, variiert nach Tageszeit/Stimmung/Event-Status (Anti-Wiederholung via localStorage). Wiederholung gesteuert über **Zeitstempel-Cooldown** (`shouldGreet`/`markGreeted`, localStorage `bb_buddy_last_greeting`, Default 15 Min) statt eines Session-Flags — nötig, weil im Capacitor-WebView eine Sitzung das Wiederöffnen (Resume) überlebt. Seit dem Wegfall der schwebenden Buddy-Blase gibt es **keine automatische Start-Begrüßung** mehr; `KiBuddyBeta` nutzt `buildGreeting` beim Öffnen. Die Cooldown-Helfer bleiben für eine spätere Wiederverwendung erhalten. `getVariedPageBubble` rotiert die Seiten-Blase (Seitenfrage/Buddy-Frage/Funktions-Tipp).
@@ -230,6 +231,17 @@ ausschließlich serverseitig (`CHECKOUT_PLANS`); der Client sendet nur die
   `BillingManager` gepuffert und ausgeführt, sobald die Details da sind
   (Timeout 15 s) — kein sofortiger „Billing service not ready"-Fehler.
 
+## 📲 Android-App direkt installieren (APK)
+
+`AndroidInstallButton` (Login-Auswahl in `LandingAuthPanel.jsx`) lädt die APK aus
+dem neuesten GitHub-Release (Asset `baitbuddy.apk`, `src/lib/androidApk.js`, öffentliche
+GitHub-API, 1 h Cache). Ohne Release/Asset erscheint kein Button; in der installierten
+App und auf iOS nie. Das Release erzeugt `build-android.yml` (signierte Release-APK,
+nur mit Keystore-Secret) bei `v*`-Tags bzw. manuellem Lauf. Die APK ist mit dem
+Upload-Schlüssel signiert; mit Play App Signing (Standard bei AAB-Apps) signiert Google
+die Play-Version mit einem eigenen Schlüssel — dann lassen sich Sideload- und
+Play-Installation nicht gegenseitig aktualisieren (vorher deinstallieren).
+
 ## 🎁 Freundschafts-Empfehlung (Login-Popup)
 
 Nach dem Einloggen erscheint auf dem Dashboard das `ReferralInvitePopup`
@@ -288,10 +300,18 @@ Start via `POST /api/events`). Sie ist **nicht** mehr in der Community-Sektion
 1. Abgelaufene aktive Events (`status='active'` & `end_date < now`) werden mit
    finalen Rankings archiviert (`status='ended'`), bleiben aber sichtbar
    (finale Rangliste einsehbar).
-2. Beendete Events, deren Ende länger als `EVENT_AUTO_DELETE_DAYS` (Default 3 Tage)
-   zurückliegt, werden per **Soft-Delete** (`is_active=false`) aus der Liste
-   ausgeblendet. `GET /api/events` filtert nur `is_active=true`. Kein Hard-Delete —
-   `event_participants`/`event_submissions`/Punkte-Historie bleiben erhalten.
+2. Beendete Events, deren Ende länger als `EVENT_ARCHIVE_DAYS` (Default **7 Tage**)
+   zurückliegt, wandern per **Soft-Delete** (`is_active=false`) ins **Archiv**:
+   `GET /api/events` filtert nur `is_active=true`, `GET /api/events/archive`
+   liefert `status='ended'` + `is_active=false` (Reiter „Archiv“ in `Events.jsx`).
+   Kein Hard-Delete — `event_participants`/`event_submissions`/Punkte-Historie
+   bleiben erhalten. Vom Superuser gelöschte Events tragen `status='deleted'` und
+   fehlen auch im Archiv.
+
+**Event-Countdown** (`src/components/header/EventTimer.jsx`): eigene Zeile unter
+der Kopfzeile mit Event-Name + Restzeit bis `end_date` des laufenden Events, das
+als nächstes endet (`GET /api/events/user/active-event`, nur sichtbare Events).
+Die Restzeit wird jede Sekunde aus `end_date` berechnet, nicht hochgezählt.
 
 ## 🗄️ Datenbank-Migrationen (automatisierter Deploy)
 
@@ -373,6 +393,7 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
   im Layout hinter Kopfzeile und Seitentitel. Seiten-Wrapper dürfen ihn nicht mit
   opakem Hintergrund verdecken — verschachtelte `.bb-app` sind deshalb transparent.
   Vollflächige Seiten (Karte, AR, CatchCam) stehen in `NO_BACKDROP_PAGES`.
+- **Titel in der Kopfzeile statt Logo**: `src/components/layout/pageTopBars.jsx` (`PAGE_TOP_BARS`) gibt einzelnen Unterseiten Titel + Aktion in `AppTopBar` (derzeit Voice Buddy mit Einstellungs-Zahnrad).
 - **Seitentitel** über `PageTitle.jsx` (letztes Wort in Cyan, optional
   Script-Zeile); `SubPageHeader` ist nur noch ein Alias darauf.
 - **Bottom-Nav**: Plus als Cyan-Ring. Icon/Label kommen aus `navigationItems`
@@ -380,6 +401,30 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
 - „Zuletzt verwendet“ im Command Center: `recordRecentPage` in `src/lib/pageMeta.js`
   (localStorage `bb_recent_pages`).
 - Hintergrundfarbe `#0B1324` (Issue-Vorgabe), zentral in `baitbuddy-v2.css`.
+
+## 🛡️ Admin-Bereich (Superuser)
+
+- **Nur ein Konto:** `kaisaschnitt99@gmail.com` (per Env `SUPERUSER_EMAIL`
+  überschreibbar). Gate serverseitig über `requireSuperuser`
+  (`backend/src/middleware/auth.js`) für alle `/api/superadmin/*`-Routen
+  (`backend/src/routes/superAdmin.js`); `/api/auth/me` liefert `is_superuser`.
+  Der Superuser ist zusätzlich immer Admin (`isAdminEmail`); `ADMIN_EMAILS`
+  gilt weiter für die älteren Admin-Werkzeuge, **nicht** für `/Admin`.
+- **Seite `/Admin`** (`src/pages/Admin.jsx`, Einstieg im Command Center nur bei
+  `is_superuser`): Top-10-Tools, Community-Beiträge löschen, Events löschen
+  (weich, `status='deleted'`) und neu starten (neue Runde ab jetzt, gleiche
+  Laufzeit/Regeln, altes Event bleibt im Archiv), Support-Tickets beantworten
+  (Antwort geht per Mail an den Nutzer und erscheint in „Meine Tickets“),
+  Status setzen, löschen, Rundmail an alle Nutzer (BCC-Pakete à 50).
+- **Top-10-Tools** zählen Seitenaufrufe: `trackPageView` (`tracker.jsx`) legt pro
+  Seitenwechsel angemeldeter Nutzer eine `usage_sessions`-Zeile mit
+  `status='view'`, `feature_id='page:<Route>'` an; `Admin.jsx` ordnet Routen über
+  `TOOLS` (`toolRegistry.ts`) Tools zu (ohne Einstellungs-/Rechtsseiten und ohne
+  `?tab=`-Tools, die sich per Pfad nicht unterscheiden lassen).
+- **Mailversand** zentral in `backend/src/lib/mailer.js` (SMTP_HOST/USER/PASSWORD).
+  Support-Adresse `supportEmail()` = `SUPPORT_EMAIL` bzw. `kaisaschnitt99@gmail.com`,
+  Frontend-Gegenstück `src/lib/supportContact.js`. Ticket-Benachrichtigungen gehen
+  an `DEVELOPER_EMAIL`, sonst an die Support-Adresse.
 
 ## 🧩 Screens mit eigener Logik (BaitBuddy 2.0, Teil 2)
 
@@ -479,6 +524,7 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ✅ Cloudflare (Hosting, Worker/Container, Deploy) — Zielplattform
 - ✅ Supabase (DB, Auth, Storage)
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
+- ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
 - ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)

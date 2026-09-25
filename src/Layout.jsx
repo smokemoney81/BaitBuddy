@@ -4,6 +4,7 @@ import SEO from "@/components/pwa/SEO";
 import { LocationProvider } from "@/components/location/LocationManager";
 import OfflineWrapper from "@/components/utils/OfflineWrapper";
 import AppTopBar from "@/components/layout/AppTopBar";
+import { PAGE_TOP_BARS } from "@/components/layout/pageTopBars";
 import { ROOT_SEGMENTS } from "@/lib/NavigationContext";
 import { recordRecentPage } from "@/lib/pageMeta";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
@@ -463,6 +464,8 @@ function LayoutContent({ children, currentPageName }) {
                     user={user}
                     isDemo={isDemo}
                     onOpenCommandCenter={() => setIsSidebarOpen(true)}
+                    title={PAGE_TOP_BARS[currentPageName]?.title}
+                    action={PAGE_TOP_BARS[currentPageName]?.action}
                   />
                 )}
 

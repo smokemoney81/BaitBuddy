@@ -8,13 +8,20 @@ export default function SwipeToRefresh({ onRefresh, children }) {
   const [refreshing, setRefreshing] = useState(false);
   const containerRef = useRef(null);
 
-  const isAtTop = () => {
+  // Nur ganz oben ziehen: weder das Fenster noch ein scrollbarer Bereich unter
+  // dem Finger (z. B. der Chatverlauf im Voice Buddy) darf nach unten gescrollt
+  // sein — sonst wird aus normalem Hochscrollen ein Refresh.
+  const isAtTop = (target) => {
+    if (window.scrollY > 0) return false;
     const el = containerRef.current;
+    for (let node = target; node && node !== el; node = node.parentElement) {
+      if (node.scrollTop > 0) return false;
+    }
     return !el || el.scrollTop === 0;
   };
 
   const handleTouchStart = (e) => {
-    if (isAtTop()) {
+    if (isAtTop(e.target)) {
       startY.current = e.touches[0].clientY;
     }
   };
@@ -22,7 +29,7 @@ export default function SwipeToRefresh({ onRefresh, children }) {
   const handleTouchMove = (e) => {
     if (startY.current === null || refreshing) return;
     const delta = e.touches[0].clientY - startY.current;
-    if (delta > 0 && isAtTop()) {
+    if (delta > 0 && isAtTop(e.target)) {
       setPullDistance(Math.min(delta, THRESHOLD * 1.5));
     }
   };

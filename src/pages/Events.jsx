@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
 import { Link } from "react-router-dom";
-import { ChevronRight, Zap, Sparkles, Clock, CalendarDays, Users, Globe, Flag, Fish, Trophy, Hourglass, Star, ArrowRight, UserPlus, MapPin } from "lucide-react";
+import { ChevronRight, Zap, Sparkles, Clock, CalendarDays, Users, Globe, Flag, Fish, Trophy, Hourglass, Star, ArrowRight, UserPlus, MapPin, Archive } from "lucide-react";
 import { fishImageFor } from "@/lib/fishImages";
 import EventLauncher from "@/components/events/EventLauncher";
 import PageTitle from "@/components/layout/PageTitle";
@@ -34,6 +34,8 @@ const FILTERS = [
   { id: 'friends', label: 'Freunde', icon: Users },
   { id: 'community', label: 'Community', icon: Globe },
   { id: 'ended', label: 'Beendet', icon: Flag },
+  // Beendete Events wandern nach 1 Woche hierher (Cron /admin/events/auto-archive).
+  { id: 'archive', label: 'Archiv', icon: Archive },
 ];
 
 const eventTitle = (event) => event.name || event.title || 'Event';
@@ -155,6 +157,7 @@ export default function Events() {
   const [leaderboards, setLeaderboards] = useState({});
   const [pointsSummary, setPointsSummary] = useState({ total_points: 0, participating_events: 0 });
   const [filter, setFilter] = useState('all');
+  const [archive, setArchive] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -192,6 +195,16 @@ export default function Events() {
     loadData();
   }, [loadData]);
 
+  // Archiv erst beim Öffnen des Reiters laden.
+  useEffect(() => {
+    if (filter !== 'archive' || archive !== null) return;
+    let cancelled = false;
+    api.get('/api/events/archive')
+      .then(list => { if (!cancelled) setArchive(Array.isArray(list) ? list : []); })
+      .catch(() => { if (!cancelled) setArchive([]); });
+    return () => { cancelled = true; };
+  }, [filter, archive]);
+
   const handleJoin = async (compId) => {
     try {
       await api.post(`/api/events/${compId}/join`, {});
@@ -216,7 +229,7 @@ export default function Events() {
   }
 
   const participantsOf = (event) => (leaderboards[event.id] || []).length;
-  const visible = competitions.filter(event => {
+  const visible = filter === 'archive' ? (archive || []) : competitions.filter(event => {
     switch (filter) {
       case 'running': return !isEnded(event);
       case 'ended': return isEnded(event);
@@ -272,8 +285,17 @@ export default function Events() {
       {visible.length === 0 && (
         <div className="bb-card text-center py-8">
           <Trophy size={32} aria-hidden="true" className="mx-auto mb-3 text-slate-400" />
-          <p className="text-slate-200 font-semibold">Keine Events in dieser Auswahl</p>
-          <p className="bb-muted text-sm mt-1">Starte selbst ein Event aus einer Vorlage – unten.</p>
+          {filter === 'archive' ? (
+            <>
+              <p className="text-slate-200 font-semibold">{archive === null ? 'Archiv wird geladen …' : 'Noch keine archivierten Events'}</p>
+              <p className="bb-muted text-sm mt-1">Beendete Events wandern eine Woche nach ihrem Ende hierher – mit finaler Rangliste.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-slate-200 font-semibold">Keine Events in dieser Auswahl</p>
+              <p className="bb-muted text-sm mt-1">Starte selbst ein Event aus einer Vorlage – unten.</p>
+            </>
+          )}
         </div>
       )}
 
