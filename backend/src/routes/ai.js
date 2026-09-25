@@ -11,6 +11,7 @@ import {
   APP_FEATURE_KNOWLEDGE,
 } from '../lib/buddyKnowledge.js';
 import { buildFaqPromptSection } from '../lib/buddyFaq.js';
+import { buildPraxisPromptSection } from '../lib/buddyPraxisFaq.js';
 import { isInClosedSeason } from '../lib/closedSeason.js';
 import { isAllowedFetchUrl } from '../lib/urlSafety.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
@@ -284,6 +285,10 @@ async function buildChatPrompt(req) {
   // Prompt kurz (Latenz-Ziel < 2 s) und die Antwort konsistent zu den lokalen
   // Sofort-/Offline-Antworten der App.
   const faqSection = buildFaqPromptSection(lastMsg);
+  // Zusätzlich die passendsten Einträge aus der 500er-Praxis-FAQ — erweitert das
+  // geprüfte Wissen (Ausrüstung, Technik, Gewässerkunde, Recht, Sicherheit,
+  // Umwelt, Saison, Verarbeitung), ohne die kompakte Sofort-FAQ zu ersetzen.
+  const praxisSection = buildPraxisPromptSection(lastMsg);
   const context = contextParts.length ? '\n\n--- App-Daten ---\n' + contextParts.join('\n\n') + '\n---\n' : '';
 
   const systemPrompt = `Du bist BaitBuddy, ein erfahrener und sympathischer Angel-Kumpel und Experte. Du sprichst locker und natürlich wie in einem echten Gespräch am Wasser — nicht steif oder formell. Bei Smalltalk und einfachen Fragen antwortest du kurz und gesprächig (1–3 Sätze). Keine Emojis, keine Sternchen-Aufzählungen — flüssige Sätze; nummerierte Schritte (1., 2., 3.) sind nur in Anleitungs-Antworten erlaubt.
@@ -304,7 +309,7 @@ ${personalization.prompt}
 ${APP_FEATURE_KNOWLEDGE}
 
 ${FISHING_KNOWLEDGE}
-${faqSection ? `\n${faqSection}\n` : ''}
+${faqSection ? `\n${faqSection}\n` : ''}${praxisSection ? `\n${praxisSection}\n` : ''}
 ${buildActionPromptSection()}${context}`;
 
   const history = safeMessages.slice(-6).map(m =>
