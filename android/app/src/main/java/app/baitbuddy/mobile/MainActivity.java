@@ -5,12 +5,18 @@ import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 
+import app.baitbuddy.mobile.llm.LocalLlm;
+import app.baitbuddy.mobile.llm.LocalLlmPlugin;
+
 public class MainActivity extends BridgeActivity {
 
     private BillingManager billingManager;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Vor super.onCreate: Capacitor laedt Plugins, bevor die Seite geladen
+        // wird — nur so steht window.AndroidLocalLlm schon auf der ersten Seite.
+        registerPlugin(LocalLlmPlugin.class);
         super.onCreate(savedInstanceState);
 
         billingManager = new BillingManager(this, (eventName, jsonPayload) -> {
@@ -43,6 +49,12 @@ public class MainActivity extends BridgeActivity {
         if (billingManager != null) {
             billingManager.queryActivePurchases(true);
         }
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        LocalLlm.get(this).onTrimMemory(level);
     }
 
     @Override

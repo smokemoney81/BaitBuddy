@@ -8,6 +8,7 @@ export {
   FAQ_ENTRIES,
   FAQ_CATEGORIES,
   findFaqMatch,
+  getRelevantFaqEntries,
   resolveLocalAnswer,
   getOfflineFallback,
   pickFaqAnswer,

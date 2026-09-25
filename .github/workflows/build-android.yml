@@ -41,10 +41,12 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Install Android SDK platform 36
+      # NDK + CMake für den lokalen KI-Buddy (llama.cpp, android/app/src/main/cpp).
+      # Versionen müssen zu ndkVersion/cmake.version in android/app/build.gradle passen.
+      - name: Install Android SDK platform 36, NDK and CMake
         run: |
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/16.0/bin:$ANDROID_HOME/platform-tools:$PATH"
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.13113456" "cmake;3.31.6"
 
       - name: Install deps
         run: npm install --legacy-peer-deps

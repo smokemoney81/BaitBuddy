@@ -45,3 +45,10 @@
 # Optimization settings
 -optimizationpasses 5
 -allowaccessmodification
+
+# Lokaler KI-Buddy: JNI ruft LlamaNative.TokenCallback.onToken([B)Z per Namen auf.
+-keep class app.baitbuddy.mobile.llm.LlamaNative { *; }
+-keep interface app.baitbuddy.mobile.llm.LlamaNative$TokenCallback { *; }
+-keepclassmembers class * implements app.baitbuddy.mobile.llm.LlamaNative$TokenCallback {
+  public boolean onToken(byte[]);
+}

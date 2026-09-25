@@ -12,10 +12,22 @@ import DeleteAccountSection from './DeleteAccountSection';
 import { useTheme } from '@/lib/ThemeContext';
 import { useSearchParams } from 'react-router-dom';
 import BuddySettings from './BuddySettings';
+import LocalAiSettings from './LocalAiSettings';
 import NavigationSettings from './NavigationSettings';
 import FishingPreferencesSettings from './FishingPreferencesSettings';
 import OnboardingSettings from './OnboardingSettings';
 import PageTitle from '@/components/layout/PageTitle';
+
+// KI-Buddy-Reiter: Persönlichkeit/Stimme plus KI-Modus (Cloud oder Gerät).
+// Das Zahnrad des Voice Buddys führt hierher (?tab=buddy).
+function BuddyTab() {
+  return (
+    <div className="space-y-6">
+      <BuddySettings />
+      <LocalAiSettings />
+    </div>
+  );
+}
 
 export default function SettingsPageTabbed({ headerAction = null } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,7 +36,7 @@ export default function SettingsPageTabbed({ headerAction = null } = {}) {
   const { animationsEnabled } = useTheme();
 
   const tabs = [
-    { id: 'buddy', label: 'KI-Buddy', icon: Volume2, component: BuddySettings },
+    { id: 'buddy', label: 'KI-Buddy', icon: Volume2, component: BuddyTab },
     { id: 'onboarding', label: 'Einführung', icon: Compass, component: OnboardingSettings },
     { id: 'fishing', label: 'Angeln', icon: Fish, component: FishingPreferencesSettings },
     { id: 'navigation', label: 'Navigation', icon: Settings, component: NavigationSettings },

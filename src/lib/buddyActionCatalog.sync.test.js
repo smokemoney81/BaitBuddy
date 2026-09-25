@@ -9,6 +9,7 @@ import {
   buildActionPromptSection,
 } from '../../backend/src/lib/buddyActionCatalog.js';
 import { resolvePage } from '@/lib/voicePages';
+import { ACTION_TOOLS, CLOUD_ONLY_ACTIONS } from '@/lib/localLlm/localTools';
 
 // Der Aktions-Katalog erzeugt den Prompt-Abschnitt, ausgeführt werden die
 // Aktionen aber in `src/utils/buddyActions.js`. Beide Seiten waren bereits
@@ -77,5 +78,20 @@ describe('buildActionPromptSection', () => {
     expect(section).toContain('<<ACTION>>');
     expect(section).toContain('<<END>>');
     expect(section).toContain('frag nach, statt sie zu erfinden');
+  });
+});
+
+describe('Aktions-Katalog ↔ lokaler KI-Buddy', () => {
+  // Kommt eine Aktion in den Katalog, muss entschieden werden, ob das Modell
+  // auf dem Gerät sie auch auslösen darf — sonst fehlt sie dort stillschweigend.
+  it('jede Katalog-Aktion ist lokal verfügbar oder bewusst Cloud-only', () => {
+    const local = new Set(Object.values(ACTION_TOOLS));
+    const undecided = ACTION_TYPES.filter((type) => !local.has(type) && !CLOUD_ONLY_ACTIONS.includes(type));
+    expect(undecided).toEqual([]);
+  });
+
+  it('lokale Aktionen führt der Client auch aus', () => {
+    const handled = handledActionTypes();
+    for (const type of Object.values(ACTION_TOOLS)) expect(handled.has(type)).toBe(true);
   });
 });

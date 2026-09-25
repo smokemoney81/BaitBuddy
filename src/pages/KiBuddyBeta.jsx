@@ -13,9 +13,16 @@ import { stripActionMarker } from "@/lib/streamingReply";
 import { resolveLocalAnswer, getOfflineFallback, faqPageLabel } from "@/lib/buddyFaq";
 import { buildGreeting } from "@/lib/buddyGreetings";
 import { executeBuddyAction } from "@/utils/buddyActions";
+import { useLocalBuddy } from "@/hooks/useLocalBuddy";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
+
+const SOURCE_LABELS = {
+  offline: "Offline-Antwort aus dem Buddy-Wissen",
+  instant: "Sofort-Antwort aus dem Buddy-Wissen",
+  device: "Auf deinem Gerät beantwortet",
+};
 
 export default function KiBuddyBeta() {
   return (
@@ -33,6 +40,8 @@ function KiBuddyBetaInner() {
   const navigate = useNavigate();
   useFeatureTracking("ai_buddy");
   const { trackAIChat } = useEventActivityTracking();
+  // KI auf dem Gerät (Android-App mit heruntergeladenem Qwen-Modell).
+  const localBuddy = useLocalBuddy();
   // Begrüßung variiert bei jedem Öffnen (Tageszeit, Stimmung, gelegentlich ein
   // Funktions-Tipp) statt eines immer gleichen statischen Textes.
   const [messages, setMessages] = useState(() => [{ role: "system", text: buildGreeting({}) }]);
@@ -99,13 +108,13 @@ function KiBuddyBetaInner() {
 
   // Ersetzt die streamende Bubble durch die finale Antwort (bzw. legt sie an,
   // falls kein Streaming lief — Fallback-Pfad).
-  function finalizeAssistant(text) {
+  function finalizeAssistant(text, extra = {}) {
     if (!isMountedRef.current) return;
     const arr = messagesRef.current;
     const last = arr[arr.length - 1];
     const next = last && last.role === "assistant" && last.streaming
-      ? [...arr.slice(0, -1), { role: "assistant", text }]
-      : [...arr, { role: "assistant", text }];
+      ? [...arr.slice(0, -1), { role: "assistant", text, ...extra }]
+      : [...arr, { role: "assistant", text, ...extra }];
     messagesRef.current = next;
     setMessages(next);
   }
@@ -227,6 +236,93 @@ function KiBuddyBetaInner() {
     speakAnswer(local.answer);
   }
 
+  // Verwirft eine angefangene Streaming-Bubble (vor Fehler-/Fallback-Nachrichten).
+  function dropStreamingBubble() {
+    const arr = messagesRef.current;
+    if (arr[arr.length - 1]?.streaming) {
+      const trimmed = arr.slice(0, -1);
+      messagesRef.current = trimmed;
+      setMessages(trimmed);
+    }
+  }
+
+  const LOCAL_ERROR_LABELS = {
+    model_missing: "Das Modell auf dem Gerät fehlt. Lade es unter Einstellungen > KI-Buddy neu herunter.",
+    insufficient_ram: "Für das Modell auf dem Gerät reicht der Arbeitsspeicher nicht.",
+    model_load_failed: "Das Modell auf dem Gerät ließ sich nicht laden.",
+  };
+
+  // Antwort vom Qwen-Modell auf dem Gerät (llama.cpp in der Android-App),
+  // inklusive Werkzeugen für Wetter, Fangbuch, Spots, Schonzeiten und Aktionen.
+  async function askOnDevice(q, { fallback = false } = {}) {
+    setStatus("thinking");
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
+    speechQueueRef.current?.cancel();
+    speechQueueRef.current = null;
+    if (fallback) {
+      appendMessages({ role: "system", text: "Cloud-KI nicht erreichbar, dein Buddy antwortet jetzt direkt auf dem Gerät." });
+    }
+    const queue = tonAn ? createSpeechQueue({
+      rate: 1.0,
+      onDrain: () => {
+        if (!isMountedRef.current) return;
+        setStatus("");
+        stopWave();
+        maybeContinueConversation();
+      },
+    }) : null;
+    if (queue) speechQueueRef.current = queue;
+
+    // Verlauf ohne die aktuelle Frage (die hängt schon als letzte User-Nachricht an).
+    const turns = messagesRef.current
+      .filter(m => (m.role === "user" || m.role === "assistant") && !m.streaming)
+      .map(m => ({ role: m.role, content: m.text }));
+    let lastUser = turns.length - 1;
+    while (lastUser >= 0 && turns[lastUser].role !== "user") lastUser -= 1;
+    const history = lastUser >= 0 ? turns.slice(0, lastUser) : turns;
+
+    let shown = "";
+    let spoken = false;
+    try {
+      const result = await localBuddy.askLocal({
+        history,
+        question: q,
+        signal,
+        context: { navigate },
+        onDelta: (delta) => {
+          if (!isMountedRef.current) return;
+          shown += delta;
+          upsertAssistantStreaming(shown.trimStart());
+          if (queue) {
+            if (!spoken) { spoken = true; setStatus("speaking"); startWave(); }
+            queue.push(delta);
+          }
+        },
+      });
+      if (!isMountedRef.current) { queue?.cancel(); return; }
+      retryRef.current = 0;
+      const ans = result.reply || shown.trim() || "Keine Antwort erhalten.";
+      finalizeAssistant(ans, { source: "device" });
+      for (const notice of result.notices) appendMessages({ role: "system", text: notice });
+      if (result.action) {
+        executeBuddyAction(result.action, { navigate })
+          .then(outcome => { if (outcome?.message) appendMessages({ role: "system", text: outcome.message }); })
+          .catch(() => appendMessages({ role: "system", text: "Die Aktion konnte nicht ausgeführt werden." }));
+      }
+      if (activeEventId) trackAIChat(activeEventId);
+      if (queue && spoken) queue.flush();
+      else { queue?.cancel(); speakAnswer(ans); }
+    } catch (error) {
+      if (!isMountedRef.current || error?.name === "AbortError") return;
+      queue?.cancel();
+      dropStreamingBubble();
+      appendMessages({ role: "system", text: LOCAL_ERROR_LABELS[error?.code] || "Die KI auf dem Gerät hat gerade nicht geantwortet." });
+      answerLocally(resolveLocalAnswer(q, { online: false }));
+    }
+  }
+
   async function ask(q, isRetry = false) {
     if (!isRetry) {
       // Häufige Standardfragen beantwortet die lokale FAQ-Datenbank sofort —
@@ -234,6 +330,20 @@ function KiBuddyBetaInner() {
       // Offline-Pfad, statt erst Timeouts und Retries abzuwarten.
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
       const inConversation = messagesRef.current.some(m => m.role === "assistant");
+      const engine = localBuddy.engineFor(online);
+      if (engine === "local" || engine === "none") {
+        // Eindeutige Standardfragen bleiben Sofort-Antworten — schneller als jedes Modell.
+        const instant = resolveLocalAnswer(q, { online: true, inConversation });
+        abortRef.current?.abort();
+        speechQueueRef.current?.cancel();
+        speechQueueRef.current = null;
+        if (instant) { answerLocally(instant); return; }
+        if (engine === "local") { askOnDevice(q); return; }
+        // Modus "Nur auf dem Gerät", aber kein Modell bereit: keine Cloud.
+        appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
+        answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+        return;
+      }
       const local = resolveLocalAnswer(q, { online, inConversation });
       if (local || !online) {
         // Ein noch laufender Request/eine Sprachausgabe des vorherigen Turns
@@ -344,11 +454,14 @@ function KiBuddyBetaInner() {
       queue?.cancel();
       // Eine evtl. angefangene Streaming-Bubble verwerfen (bevor Offline-/
       // Fallback-Nachrichten angehängt werden).
-      const arr = messagesRef.current;
-      if (arr[arr.length - 1]?.streaming) {
-        const trimmed = arr.slice(0, -1);
-        messagesRef.current = trimmed;
-        setMessages(trimmed);
+      dropStreamingBubble();
+
+      // Automatik-Modus: Die KI auf dem Gerät springt ein, bevor es auf die
+      // deutlich knapperen FAQ-Antworten zurückgeht — auch beim Tageslimit
+      // der Cloud, denn lokal kostet eine Antwort nichts.
+      if (localBuddy.canFallBack) {
+        askOnDevice(q, { fallback: true });
+        return;
       }
 
       // Bei Verbindungsfehlern: passende Antwort aus der lokalen FAQ-Datenbank
@@ -523,7 +636,7 @@ function KiBuddyBetaInner() {
                 {m.text}
                 {m.source && (
                   <span className="bb-voice-source">
-                    <span>{m.source === "offline" ? "Offline-Antwort aus dem Buddy-Wissen" : "Sofort-Antwort aus dem Buddy-Wissen"}</span>
+                    <span>{SOURCE_LABELS[m.source] || SOURCE_LABELS.instant}</span>
                     {m.page && <Link to={`/${m.page}`}>{faqPageLabel(m.page)} öffnen</Link>}
                   </span>
                 )}

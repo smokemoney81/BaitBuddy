@@ -33,7 +33,7 @@ Keine `TODO`-Stubs, `Lorem ipsum`, Mock-Werte, leere „Coming soon"-Hülsen ode
 | **Mobile-Wrapper** | Capacitor 6 (Android-WebView) |
 | **Backend** | Express (Node.js) auf Vercel Serverless (`backend/`, gemountet über `api/[...path].mjs`) |
 | **Datenbank & Auth** | Supabase (Postgres, GoTrue-Auth, Storage) — Zugriff über eigenen REST-Client, **kein** Realtime |
-| **LLM** | Anthropic Claude (Messages API) für Chat & Vision; OpenAI Realtime (optional) für Voice; ElevenLabs (optional) für TTS |
+| **LLM** | Anthropic Claude (Messages API) für Chat & Vision; OpenAI Realtime (optional) für Voice; ElevenLabs (optional) für TTS; **auf dem Gerät** (nur Android, optional): Qwen3.5 4B über llama.cpp (JNI) |
 | **Package Manager** | npm mit legacy peer deps (`--legacy-peer-deps`) |
 | **CI/CD** | GitHub Actions (Web-Deploy via Vercel, Android-AAB-Build). **Kein Fastlane, keine iOS-Pipeline.** |
 
@@ -94,7 +94,8 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
   - Regeln für neue Einträge: Begriffe normalisiert schreiben (ä→ae, ß→ss); `$`-Suffix = exaktes Wort (gegen Fehltreffer wie „Drilling"→Drill, „Regenbogenforelle"→Regen); gesetzliche Details nur allgemein + Verweis auf `RuleAssistant`; fachlich konsistent zu `FISHING_KNOWLEDGE`. Der Test `buddyFaq.test.js` verlangt, dass jeder Eintrag über seine eigene `question` sofort beantwortet wird.
 - **Datenbank**: Supabase-Tabellen (`catches`, `spots`, `rule_entries` …) liefern den Kontext; Chat-Historie wird clientseitig gehalten.
 - **LLM**: **Anthropic Claude über Anthropic Cloud API** — natives `fetch` gegen die Messages API (`https://api.anthropic.com/v1/messages`) in `backend/src/lib/llm.js`. EIN Modell für Text UND Vision, Default `claude-haiku-4-5` (schnellstes Modell, hält das < 2 Sek.-Latenz-Ziel), per Env `ANTHROPIC_MODEL` umschaltbar (z. B. `claude-opus-4-8`). Der Key wird über `getAnthropicKey()` tolerant gelesen (`ANTHROPIC_API_KEY` bzw. `sk-ant-…`-Varianten). Der Aufruf erfolgt serverseitig, nie direkt vom Frontend. **Anthropic Cloud API ist der einzige LLM-Provider; andere Anbieter sind nicht gestattet.**
-  - ⚠️ **Regel: Nur Anthropic Cloud API als LLM-Quelle** — Alle LLM-Anfragen müssen über Backend-Endpoints mit Anthropic gehen (`POST /api/ai/chat`, `POST /api/ai/realtime-session`, `POST /api/ai/vision` u.ä.). Frontend darf keine LLM-Libraries direkt verwenden. Das verhindert API-Key-Exposure, reduziert Bundle-Size und zentralisiert Kontextverwaltung serverseitig.
+  - ⚠️ **Regel: Nur Anthropic Cloud API als Cloud-LLM-Quelle** — Alle Cloud-LLM-Anfragen müssen über Backend-Endpoints mit Anthropic gehen (`POST /api/ai/chat`, `POST /api/ai/realtime-session`, `POST /api/ai/vision` u.ä.). Frontend darf keine LLM-Libraries direkt verwenden. Das verhindert API-Key-Exposure, reduziert Bundle-Size und zentralisiert Kontextverwaltung serverseitig.
+  - **Einzige Ausnahme (Entscheidung des Projektinhabers, 2026-09): KI-Buddy auf dem Gerät** — siehe Abschnitt „KI-Buddy auf dem Gerät“. Läuft nativ in der Android-App, kein weiterer Cloud-Anbieter, kein API-Key.
 - **TTS-Stimmen**: `POST /api/ai/tts` (ElevenLabs) kennt zwei Stimmen: männlich „Daniel" (Standard, alle Pläne) und weiblich „Matilda" (**nur Ultimate**, Plan-ID `elite`/Friends-Level). Das Plan-Gate sitzt **serverseitig** (`backend/src/lib/planResolver.js`, geteilt mit `premium.js`; `/ai/tts` ruft `resolveServerToolAccess` mit `requiredPlanRank: PLAN_RANK.elite` — Basic/Pro zählen dort nicht) — ohne Ultimate fällt der Server still auf die Standardstimme zurück. Die Auswahl liegt in den Audio-Einstellungen (`VoiceSettings.jsx`), gespeichert via `src/lib/ttsVoice.js` (localStorage `buddy-tts-voice`); `elevenLabsTTS.js` sendet die Wahl bei jedem TTS-Aufruf mit. Env-Overrides: `ELEVENLABS_VOICE_ID` (männlich), `ELEVENLABS_VOICE_ID_FEMALE` (weiblich).
   - ⚠️ **Regel: Nur natürliche Stimmen, nie Browser-TTS** — Die App spricht ausschließlich über die zentrale Utility `src/components/utils/elevenLabsTTS.js` (`speakWithFallback` = spricht und löst nach Wiedergabe-Ende auf; „Fallback" bedeutet **Stille** bei Fehlern, nicht Roboterstimme). Die frühere Browser-TTS (`speechSynthesis`, `browserTTS.jsx`) wurde komplett entfernt und darf **nicht** wieder eingeführt werden — schlägt ElevenLabs fehl (offline, kein API-Key), bleibt die Ausgabe still und der Text steht im Chat. Überlappende TTS-Aufrufe werden per Generation-Token in `elevenLabsTTS.js` verworfen (keine Doppelstimmen).
     **Welche natürliche Stimme spricht, entscheidet die Server-Kette**, nicht der
@@ -112,6 +113,60 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 - [ ] Performance-Test (Response < 2 Sek.)
 - [ ] Accessibility (Screen Reader, Mobile)
 - [ ] App Store Review vorbereitet (Privacy, Datenhandling dokumentiert)
+
+---
+
+## 📱 KI-Buddy auf dem Gerät (Qwen3.5 4B, nur Android)
+
+Der Buddy kann ohne Cloud-KI direkt auf dem Handy antworten — offline und
+ohne dass Fragen das Gerät verlassen. Kein Termux/Ollama: llama.cpp läuft im
+App-Prozess.
+
+- **KI-Modus** (`src/lib/localLlm/localModel.js`, localStorage `bb_ai_mode`,
+  Einstellungen → KI-Buddy → `LocalAiSettings.jsx`): `auto` (Standard: Cloud
+  online, Gerät offline **und** als Ausweich bei Cloud-Fehler/Tageslimit),
+  `device` (nie Cloud; ohne Modell nur FAQ + Hinweis), `cloud`. Cloud liegt in
+  `auto` bewusst vorn: 4B auf der Handy-CPU ≈ 5–10 Token/s.
+- **Native Schicht** (`android/app/src/main/cpp/`, `…/mobile/llm/`):
+  - `bb_llm_engine.cpp` — reine Engine (laden, Prompt, Sampling, Stop-Texte).
+    **Qwen3.5 ist ein Hybrid-Modell mit rekurrentem Zustand**: gerechnete Token
+    lassen sich nicht teilweise verwerfen. Deshalb Checkpoint am Ende des festen
+    Prompt-Teils (`prefix`), zusätzlich auf Platte (`cacheDir/llm-checkpoints`,
+    ~100 MB, max. 3 je Modell) → Start nach App-Neustart 0,5 s statt ~50 s.
+    Folgefragen sind nur billig, wenn der Prompt den vorigen **wortgleich**
+    fortsetzt (siehe Sitzung unten).
+  - llama.cpp per CMake-FetchContent auf Tag `b11175` gepinnt **und** gegen den
+    Commit-Hash geprüft; nur arm64-v8a/x86_64 voll, 32-Bit-ABIs bekommen
+    `bb_llm_stub.cpp` (App bleibt dort installierbar). `useLegacyPackaging`, weil
+    ggml die CPU-Variante (`libggml-cpu-android_armv8.x`) zur Laufzeit lädt.
+  - `ModelCatalog.java` — **einzige** Quelle für URL/Größe/SHA-256 (gepinnte
+    HF-Revision). Das Web nennt nur die Modell-ID. **Nur 4B**: 2B erfand im Test
+    Fangwerte und rief Tools sinnlos auf.
+  - `ModelDownloader.java` — Range-Resume (`.part`), SHA-256 vor Umbenennen.
+  - `LocalLlmPlugin.java` — Brücke `window.AndroidLocalLlm` per
+    `WebViewCompat.addWebMessageListener` **nur für eigene Origins**
+    (`ALLOWED_ORIGINS`), als Capacitor-Plugin registriert, damit sie vor dem
+    ersten Seitenaufruf hängt. Neue App-Domain → dort eintragen.
+- **Web-Schicht** (`src/lib/localLlm/`, per Web-Deploy änderbar ohne APK):
+  - `qwenPrompt.js` bildet das **offizielle Qwen3.5-Chat-Template** nach
+    (Tool-Format `<tool_call><function=…><parameter=…>`, Denkmodus aus).
+  - `localTools.js` — Lese-Tools (Wissensbasis, Wetter, Fänge, Spots,
+    Schonzeiten) + Aktionen (`log_catch`, `add_spot`, `create_trip`,
+    `open_page`). `post_community`/`support_ticket`/`open_url` bleiben
+    **bewusst Cloud-only** (`CLOUD_ONLY_ACTIONS`, Sync-Test). Fang-Werte laufen
+    durch `groundCatchArguments` (nur vom Nutzer genannte Zahlen/Köder).
+    Standort nur, wenn schon erlaubt.
+  - `localBuddy.js` — Orchestrator (max. 3 Tool-Runden), Sitzung
+    (`createLocalSession`) hält Rohtexte für Cache-Treffer; FAQ-Wissen wird bei
+    Fachfragen direkt mitgegeben, **nie** bei Fragen zu eigenen Daten.
+  - Eingebunden in `KiBuddyBeta` (`askOnDevice`) und `HandsFreeBuddy` über
+    `useLocalBuddy`.
+- **Nicht lokal:** Rezepte/Wartungstipps (getestet: 55–150 s, fachlich
+  unbrauchbar) und Bildanalyse (bräuchte ~670 MB Bild-Encoder).
+- **Datenschutz ehrlich formulieren:** Vorlesen/Spracherkennung bleiben online.
+- **Build:** NDK `29.0.13113456` + CMake `3.31.6` (`build-android.yml`). Die
+  Engine lässt sich ohne Handy testen: `-DLLAMA_CPP_DIR=…` auf dem Host bauen
+  (JNI gegen das JDK) und `LlamaNative` aus der JVM aufrufen.
 
 ---
 

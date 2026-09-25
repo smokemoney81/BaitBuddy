@@ -81,6 +81,14 @@ E-Mail: kaisaschnitt99@gmail.com
 - **Anthropic API (Claude)** (KI-Buddy, Textgenerierung & Bildanalyse) – [anthropic.com/legal/privacy](https://www.anthropic.com/legal/privacy)
 - **ElevenLabs TTS** (optional, Sprachausgabe) – [elevenlabs.io/privacy](https://elevenlabs.io/privacy)
 - **Open-Meteo Weather API** (Wetterdaten) – kostenlos, keine Authentifizierung
+- **Hugging Face** (nur Android-App, nur nach Zustimmung) – Download des Sprachmodells Qwen3.5 4B (~2,6 GB, Apache-2.0) für den KI-Buddy auf dem Gerät. Übertragen wird nur die Download-Anfrage (IP-Adresse), keine Nutzerdaten – [huggingface.co/privacy](https://huggingface.co/privacy)
+
+### 4.4 KI-Buddy auf dem Gerät (Android)
+- **Aktivierung:** freiwillig unter Einstellungen → KI-Buddy → KI-Modus; der Download startet erst nach ausdrücklicher Bestätigung
+- **Verarbeitung:** Im Modus „Nur auf dem Gerät“ (und im Automatik-Modus ohne Netz) werden Fragen und Antworten ausschließlich auf dem Gerät berechnet und nicht an Anthropic oder eine andere Cloud-KI gesendet
+- **Weiterhin online:** Werkzeuge des Buddys (Wetter über Open-Meteo, Fangbuch/Spots/Regeln über das BaitBuddy-Backend), Vorlesen (Sprachausgabe-Dienst) und Spracherkennung (Android/Google)
+- **Speicherort:** Modelldatei im privaten App-Speicher (nicht von anderen Apps lesbar, nicht im Backup); ein Rechenzwischenstand (~100 MB) im App-Cache
+- **Löschung:** jederzeit über „Entfernen“ in den Einstellungen oder durch Deinstallation der App
 
 ---
 
