@@ -9,7 +9,7 @@ import { useEventActivityTracking } from "@/hooks/useEventActivityTracking";
 import { events, ai } from "@/api/frontendClient";
 import { createSpeechQueue } from "@/components/utils/elevenLabsTTS";
 import { stripActionMarker } from "@/lib/streamingReply";
-import { findOfflineBuddyAnswer, getOfflineBuddyFallback } from "@/lib/offlineBuddyQuestions";
+import { resolveLocalAnswer, getOfflineFallback, faqPageLabel } from "@/lib/buddyFaq";
 import { buildGreeting } from "@/lib/buddyGreetings";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
@@ -194,7 +194,49 @@ function KiBuddyBetaInner() {
     appendMessages({ role: "system", text: "Gespräch beendet." });
   }
 
+  // Antwort aus der lokalen FAQ-Datenbank (ohne API). `local` = null heißt:
+  // offline und nichts Passendes gefunden → ehrliche Fallback-Nachricht.
+  function answerLocally(local) {
+    retryRef.current = 0;
+    if (!local) {
+      setStatus("");
+      appendMessages(
+        {
+          role: "system",
+          text: typeof navigator !== "undefined" && navigator.onLine === false
+            ? "Offline-Modus: Keine Internetverbindung."
+            : "KI-Dienst gerade nicht erreichbar.",
+        },
+        { role: "assistant", text: getOfflineFallback(), source: "offline" }
+      );
+      maybeContinueConversation();
+      return;
+    }
+    appendMessages({ role: "assistant", text: local.answer, source: local.mode, page: local.page });
+    if (activeEventId && local.mode === "instant" && local.entry.category !== "smalltalk") {
+      trackAIChat(activeEventId);
+    }
+    speakAnswer(local.answer);
+  }
+
   async function ask(q, isRetry = false) {
+    if (!isRetry) {
+      // Häufige Standardfragen beantwortet die lokale FAQ-Datenbank sofort —
+      // ohne API-Aufruf und Wartezeit. Ohne Netz geht es direkt in den
+      // Offline-Pfad, statt erst Timeouts und Retries abzuwarten.
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      const inConversation = messagesRef.current.some(m => m.role === "assistant");
+      const local = resolveLocalAnswer(q, { online, inConversation });
+      if (local || !online) {
+        // Ein noch laufender Request/eine Sprachausgabe des vorherigen Turns
+        // darf die lokale Antwort nicht überholen.
+        abortRef.current?.abort();
+        speechQueueRef.current?.cancel();
+        speechQueueRef.current = null;
+        answerLocally(local);
+        return;
+      }
+    }
     setStatus("thinking");
     // Vorherigen laufenden Request abbrechen und für diesen Turn einen frischen
     // Controller anlegen; das Unmount-Cleanup abortet über diese Ref.
@@ -294,14 +336,11 @@ function KiBuddyBetaInner() {
         setMessages(trimmed);
       }
 
-      // Bei Verbindungsfehlern: Versuche offline Antwort zu finden
-      const offlineAnswer = findOfflineBuddyAnswer(q);
+      // Bei Verbindungsfehlern: passende Antwort aus der lokalen FAQ-Datenbank
+      const offlineAnswer = resolveLocalAnswer(q, { online: false });
 
       if (offlineAnswer) {
-        // Offline-Antwort gefunden
-        retryRef.current = 0;
-        appendMessages({ role: "assistant", text: offlineAnswer });
-        speakAnswer(offlineAnswer);
+        answerLocally(offlineAnswer);
         return;
       }
 
@@ -314,15 +353,8 @@ function KiBuddyBetaInner() {
         return ask(q, true);
       }
 
-      // Kein Offline-Answer und Retries erschöpft: Fallback-Nachricht
-      retryRef.current = 0;
-      setStatus("");
-      const fallbackMessage = getOfflineBuddyFallback();
-      appendMessages(
-        { role: "system", text: "Offline-Modus: Keine Internetverbindung. Verwende vorgefertigte Antworten." },
-        { role: "assistant", text: fallbackMessage }
-      );
-      maybeContinueConversation();
+      // Keine passende lokale Antwort und Retries erschöpft: Fallback-Nachricht
+      answerLocally(null);
     }
   }
 
@@ -549,6 +581,16 @@ function KiBuddyBetaInner() {
                 textAlign: m.role === "system" ? "center" : "left"
               }}>
                 {m.text}
+                {m.role === "assistant" && m.source && (
+                  <div style={{ marginTop: 6, fontSize: 10, color: "#4f8a6a", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+                    <span>{m.source === "offline" ? "Offline-Antwort aus dem Buddy-Wissen" : "Sofort-Antwort aus dem Buddy-Wissen"}</span>
+                    {m.page && (
+                      <Link to={`/${m.page}`} style={{ color: "#22d3c8", textDecoration: "underline" }}>
+                        {faqPageLabel(m.page)} öffnen
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {interimTranscript && (

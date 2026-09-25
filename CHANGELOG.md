@@ -1,5 +1,18 @@
 # Changelog
 
+## KI-Buddy: lokale FAQ-Datenbank (September 2026)
+
+### Neu
+- **Lokale FAQ-Datenbank** (`backend/src/lib/buddyFaq.data.js`, 101 Einträge): Häufige Fragen zu Fischarten, Ködern, Montagen, Knoten, Ausrüstung, Wetter, Jahreszeiten, Regeln, Fischbehandlung, Sicherheit und App-Funktionen beantwortet der KI-Buddy jetzt sofort ohne API-Aufruf — auch ohne Internet. Antworten mit passender App-Seite zeigen einen „… öffnen"-Link.
+- Persönliche, orts- oder zeitbezogene Fragen, App-Aktionen und Rückfragen im Gespräch gehen weiterhin an die KI.
+
+### Geändert
+- Offline-Antworten überarbeitet: Du-Form statt Sie, fachliche Fehler korrigiert, treffsichere Suche (vorher lieferte „Köder für Hecht" die allgemeine Köder-Antwort), ehrlicher Hinweis bei nur allgemeinen Antworten. Ohne Netz antwortet der Buddy sofort statt erst nach Timeouts und Retries.
+- Der LLM-Prompt enthält statt der kompletten FAQ-Liste (~30 000 Zeichen, viele Ein-Wort-Antworten) nur noch die bis zu drei zur Frage passenden, geprüften Einträge; die Realtime-Voice-Session kommt ohne die Liste aus.
+
+### Entfernt
+- `src/lib/offlineBuddyQuestions.js` (ersetzt durch die FAQ-Datenbank) und die 200 Kurz-Einträge `FISHING_FAQ` in `buddyKnowledge.js`.
+
 ## Bug-Fix-Sprint (Juli 2026)
 
 ### Entfernt

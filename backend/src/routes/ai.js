@@ -9,9 +9,8 @@ import {
   PRACTICAL_GUIDE_RULES_VOICE,
   CONVERSATION_STYLE,
   APP_FEATURE_KNOWLEDGE,
-  FISHING_FAQ,
-  FISHING_FAQ_CONTEXT,
 } from '../lib/buddyKnowledge.js';
+import { buildFaqPromptSection } from '../lib/buddyFaq.js';
 import { isInClosedSeason } from '../lib/closedSeason.js';
 import { isAllowedFetchUrl } from '../lib/urlSafety.js';
 import { resolvePlan } from '../lib/planResolver.js';
@@ -281,6 +280,10 @@ async function buildChatPrompt(req) {
   ]);
 
   const contextParts = [catchesPart, rulesPart, spotsPart, weatherPart, planningPart].filter(Boolean);
+  // Nur die zur Frage passenden FAQ-Einträge statt der ganzen Liste: hält den
+  // Prompt kurz (Latenz-Ziel < 2 s) und die Antwort konsistent zu den lokalen
+  // Sofort-/Offline-Antworten der App.
+  const faqSection = buildFaqPromptSection(lastMsg);
   const context = contextParts.length ? '\n\n--- App-Daten ---\n' + contextParts.join('\n\n') + '\n---\n' : '';
 
   const systemPrompt = `Du bist BaitBuddy, ein erfahrener und sympathischer Angel-Kumpel und Experte. Du sprichst locker und natürlich wie in einem echten Gespräch am Wasser — nicht steif oder formell. Bei Smalltalk und einfachen Fragen antwortest du kurz und gesprächig (1–3 Sätze). Keine Emojis, keine Sternchen-Aufzählungen — flüssige Sätze; nummerierte Schritte (1., 2., 3.) sind nur in Anleitungs-Antworten erlaubt.
@@ -301,9 +304,7 @@ ${personalization.prompt}
 ${APP_FEATURE_KNOWLEDGE}
 
 ${FISHING_KNOWLEDGE}
-
-${FISHING_FAQ_CONTEXT}
-
+${faqSection ? `\n${faqSection}\n` : ''}
 ${buildActionPromptSection()}${context}`;
 
   const history = safeMessages.slice(-6).map(m =>
@@ -838,8 +839,7 @@ router.post('/ai/realtime-session', requireAuth, async (req, res) => {
       // ohne diesen Hinweis würde der Voice-Buddy fälschlich behaupten, er habe
       // Einträge angelegt oder Seiten geöffnet.
       + `\nWichtig für dich im Sprachmodus: Du kannst hier selbst KEINE App-Aktionen ausführen (kein Eintragen, kein Seiten-Öffnen). Erkläre stattdessen, wo der Nutzer die Funktion findet oder dass er sie dem Text-Chat-Buddy per Zuruf sagen kann.`
-      + `\n\n${FISHING_KNOWLEDGE}`
-      + `\n\n${FISHING_FAQ_CONTEXT}` + ctx;
+      + `\n\n${FISHING_KNOWLEDGE}` + ctx;
 
     // GA-API: der Beta-Endpunkt /v1/realtime/sessions wurde von OpenAI entfernt
     // (Antwort war "Invalid URL"). Ephemeral-Tokens kommen jetzt von
