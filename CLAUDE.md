@@ -524,7 +524,7 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ✅ Cloudflare (Hosting, Worker/Container, Deploy) — Zielplattform
 - ✅ Supabase (DB, Auth, Storage)
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
-- ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
+- ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`, übernimmt Secrets aus den GitHub-Repository-Secrets). Braucht Workers Paid Plan + Secrets; Umschalten über das **Service Binding `API`** in der Root-`wrangler.toml` (einkommentieren), **nie** über `BACKEND_URL` auf eine workers.dev-Adresse — Worker→Worker-`fetch` in derselben Zone scheitert mit Fehler 1042. Schritte in `docs/CLOUDFLARE_MIGRATION.md`. Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
 - ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)

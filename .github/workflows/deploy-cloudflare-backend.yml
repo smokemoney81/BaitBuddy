@@ -1,11 +1,12 @@
 name: Deploy Backend to Cloudflare
 
 # Express-Backend als Cloudflare Container (Worker `baitbuddy-api`,
-# cloudflare/backend/wrangler.toml). Getrennt vom Frontend-Deploy: Solange
-# BACKEND_URL in der Root-wrangler.toml auf Vercel zeigt, bekommt dieser Worker
-# keinen Nutzer-Traffic.
+# cloudflare/backend/wrangler.toml). Getrennt vom Frontend-Deploy: Solange das
+# Service Binding `API` in der Root-wrangler.toml auskommentiert ist, bekommt
+# dieser Worker keinen Nutzer-Traffic.
 #
-# Voraussetzungen: Workers Paid Plan (Containers) und die Backend-Secrets am
+# Voraussetzungen: Workers Paid Plan (Containers) und die Backend-Secrets —
+# als GitHub-Repository-Secrets (werden beim Deploy übernommen) oder direkt am
 # Worker (Liste: cloudflare/backend/containerEnv.js). Automatische Deploys bei
 # Backend-Änderungen erst, wenn die Repo-Variable CLOUDFLARE_BACKEND_ENABLED=true
 # gesetzt ist — sonst wäre jeder Push auf main rot, solange der Plan fehlt.
@@ -49,13 +50,42 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      # Baut docker/backend.Dockerfile (Docker ist auf ubuntu-latest vorhanden),
-      # pusht das Image in die Cloudflare-Registry und rollt den Container aus.
-      - name: Deploy Worker + Container
-        run: npx wrangler deploy --config cloudflare/backend/wrangler.toml
+      # Backend-Secrets aus den GitHub-Repository-Secrets übernehmen (nur die
+      # Namen aus cloudflare/backend/containerEnv.js). So braucht schon der erste
+      # Deploy keinen Handgriff im Cloudflare-Dashboard. Am Worker gesetzte
+      # Secrets bleiben erhalten (--secrets-file wirkt additiv).
+      - name: Collect backend secrets
+        run: node cloudflare/backend/secretsFile.js "$RUNNER_TEMP/backend-secrets.json"
+        env:
+          GH_SECRETS: ${{ toJSON(secrets) }}
+
+      # Ohne SUPABASE_SERVICE_ROLE_KEY beendet sich die Express-App sofort
+      # (backend/src/lib/supabase.js) — dann nicht deployen, sondern sagen, was fehlt.
+      - name: Check required secrets
+        run: |
+          if node -e 'const s=require(process.argv[1]); process.exit(s.SUPABASE_SERVICE_ROLE_KEY ? 0 : 1)' "$RUNNER_TEMP/backend-secrets.json"; then
+            exit 0
+          fi
+          if npx wrangler secret list --config cloudflare/backend/wrangler.toml --format json 2>/dev/null | grep -q '"SUPABASE_SERVICE_ROLE_KEY"'; then
+            exit 0
+          fi
+          echo "::error::SUPABASE_SERVICE_ROLE_KEY fehlt: als GitHub-Repository-Secret oder als Secret am Worker baitbuddy-api setzen (docs/CLOUDFLARE_MIGRATION.md)."
+          exit 1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Baut docker/backend.Dockerfile (Docker ist auf ubuntu-latest vorhanden),
+      # pusht das Image in die Cloudflare-Registry und rollt den Container aus.
+      - name: Deploy Worker + Container
+        run: npx wrangler deploy --config cloudflare/backend/wrangler.toml --secrets-file "$RUNNER_TEMP/backend-secrets.json"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Remove secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/backend-secrets.json"
 
       # Der erste Deploy kann einige Minuten brauchen, bis das Image bereitsteht.
       - name: Verify backend health

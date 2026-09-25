@@ -13,6 +13,10 @@ RUN cd backend && npm ci --omit=dev --legacy-peer-deps
 COPY backend ./backend
 COPY scripts ./scripts
 
+# maps.js legt Karten unter backend/data/maps ab. Der Prozess laeuft als
+# "node", der Rest von /app gehoert root — ohne das scheitert mkdir mit EACCES.
+RUN mkdir -p /app/backend/data/maps && chown -R node:node /app/backend/data
+
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000

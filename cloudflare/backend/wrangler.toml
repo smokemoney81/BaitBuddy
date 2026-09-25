@@ -39,3 +39,7 @@ APP_URL = "https://catchgbt.com"
 # workers.dev-Adresse des Front-Door-Workers. Bewusst KEIN ALLOWED_ORIGINS: das
 # ersetzt die Standardliste komplett und sperrte die Android-App aus.
 APP_BASE_URL = "https://baitbuddy.kaisaschnitt99.workers.dev"
+# Die Container-Platte ist fluechtig (weg nach sleepAfter/Neustart). Der
+# Kartendownload (backend/src/routes/maps.js, mehrere GB) antwortet deshalb mit
+# 501, statt Dateien anzulegen, die beim naechsten Kaltstart fehlen.
+READ_ONLY_FS = "1"

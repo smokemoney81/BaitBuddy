@@ -51,14 +51,27 @@ ein fehlender Paid Plan bricht den Frontend-Deploy nicht.
 
 - `cloudflare/backend/wrangler.toml` — Worker + `[[containers]]` (Image aus
   `docker/backend.Dockerfile`, Build-Kontext Repo-Root, `instance_type = "basic"`,
-  Region WEUR), nicht-geheime Vars (`SUPABASE_URL`, `APP_URL`, `APP_BASE_URL`).
+  Region WEUR), nicht-geheime Vars (`SUPABASE_URL`, `APP_URL`, `APP_BASE_URL`,
+  `READ_ONLY_FS=1` — die Container-Platte ist flüchtig, der Kartendownload
+  antwortet dort mit 501).
 - `cloudflare/backend/worker.js` — reicht jede Anfrage an die Container-Instanz
   `primary` weiter (eine Instanz: In-Memory-Caches/Rate-Limit bleiben konsistent).
 - `cloudflare/backend/containerEnv.js` — welche Worker-Secrets als Umgebung in den
   Container gehen (Test prüft, dass `backend/.env.example` vollständig abgedeckt ist).
+- `cloudflare/backend/secretsFile.js` — übernimmt beim Deploy genau diese Namen aus
+  den GitHub-Repository-Secrets (`wrangler deploy --secrets-file`, additiv).
 - `.github/workflows/deploy-cloudflare-backend.yml` — manuell oder (mit Repo-Variable
-  `CLOUDFLARE_BACKEND_ENABLED=true`) bei Backend-Änderungen auf `main`; prüft danach
+  `CLOUDFLARE_BACKEND_ENABLED=true`) bei Backend-Änderungen auf `main`; bricht vor
+  dem Deploy ab, wenn `SUPABASE_SERVICE_ROLE_KEY` weder als GitHub-Secret noch am
+  Worker existiert (ohne ihn beendet sich die App sofort), und prüft danach
   `https://baitbuddy-api.kaisaschnitt99.workers.dev/api/health`.
+
+**Warum ein Service Binding statt `BACKEND_URL`:** Ein `fetch()` von einem Worker
+auf einen anderen Worker derselben Zone scheitert mit Fehler **1042** — das gilt
+auch für zwei Worker unter `*.kaisaschnitt99.workers.dev`. `BACKEND_URL` auf die
+workers.dev-Adresse zu setzen, würde jede `/api`-Anfrage brechen. Der Front-Door
+(`cloudflare/worker.js`) nimmt deshalb das Binding `API`, sobald es gesetzt ist,
+und fällt sonst auf `BACKEND_URL` (Vercel) zurück.
 
 **Nicht `ALLOWED_ORIGINS` setzen**, solange die Android-App `capacitor://localhost`
 braucht: die Variable ersetzt die Standardliste komplett.
@@ -66,20 +79,30 @@ braucht: die Variable ersetzt die Standardliste komplett.
 ### Umschalten (in dieser Reihenfolge)
 
 1. Workers Paid Plan im Cloudflare-Konto aktivieren.
-2. Secrets am Worker setzen (Dashboard → Workers → `baitbuddy-api` → Settings →
-   Variables, oder `npx wrangler secret put NAME --config cloudflare/backend/wrangler.toml`):
-   mindestens `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET`
-   (identisch zum Front-Door-Worker), dazu je nach Funktion `STRIPE_*`,
-   `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `ELEVENLABS_*`/`OPENAI_API_KEY`, `SMTP_*`.
+2. Secrets hinterlegen — **einer** der beiden Wege:
+   - GitHub → Settings → Secrets and variables → Actions → Repository secrets,
+     Namen wie in `containerEnv.js` (mindestens `SUPABASE_SERVICE_ROLE_KEY`,
+     `ANTHROPIC_API_KEY`, `CRON_SECRET` identisch zum Front-Door-Worker, je nach
+     Funktion `STRIPE_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `ELEVENLABS_*`/
+     `OPENAI_API_KEY`, `SMTP_*`). Der Workflow übernimmt sie bei jedem Deploy.
+   - oder nach einem ersten Deploy am Worker (Dashboard → Workers →
+     `baitbuddy-api` → Settings → Variables bzw.
+     `npx wrangler secret put NAME --config cloudflare/backend/wrangler.toml`).
 3. GitHub → Actions → „Deploy Backend to Cloudflare“ → Run workflow. Grün heißt:
    `/api/health` antwortet aus dem Container.
 4. Login, KI-Chat (auch Streaming) und einen Kauf-Check gegen
    `https://baitbuddy-api.kaisaschnitt99.workers.dev` testen.
-5. `BACKEND_URL` in der Root-`wrangler.toml` auf
-   `https://baitbuddy-api.kaisaschnitt99.workers.dev` umstellen und mergen.
-   Rückweg bei Problemen: denselben Wert zurück auf `https://bait-buddy.vercel.app`.
+5. In der Root-`wrangler.toml` den Block `[[services]] binding = "API"` einkommentieren
+   und mergen. Ab dann gehen `/api/*` und die Crons an den Container.
+   **Nicht** `BACKEND_URL` auf die workers.dev-Adresse setzen (Fehler 1042, s. o.).
+   Rückweg bei Problemen: Block wieder auskommentieren — `BACKEND_URL` zeigt
+   weiter auf `https://bait-buddy.vercel.app`.
 6. Repo-Variable `CLOUDFLARE_BACKEND_ENABLED=true` setzen, damit Backend-Änderungen
    automatisch deployt werden. Stripe-Webhook-URL erst danach umziehen.
+7. Wenn Vercel abgeschaltet wird: die `crons` in `vercel.json` entfallen mit. Bis
+   dahin laufen die vier Crons doppelt (Vercel + Cloudflare Cron Trigger) — die
+   Endpunkte sind idempotent (Upserts, `claimed`-Status bleibt erhalten), das
+   kostet nur Aufrufe.
 
 ## Ziel-Domain
 
@@ -96,16 +119,15 @@ Die produktive Web-App-Domain ist **`catchgbt.com`** (Apex). Erwartete Origins:
    die Root-`wrangler.toml` (`npx wrangler deploy`).
 3. Am Worker setzen: Variable `BACKEND_URL` (aktuell das **neue Vercel-Projekt**,
    Konto `ssbedburg` — exakten Produktions-Alias im Vercel-Dashboard verifizieren;
-   spaeter die Container-URL) und Secret `CRON_SECRET` (identisch zum Backend).
+   fuer das Cloudflare-Backend stattdessen das Service Binding `API`, siehe oben)
+   und Secret `CRON_SECRET` (identisch zum Backend).
    Hinweis: Der Backend-Container (`docker/backend.Dockerfile`, `[[containers]]`)
    ist die Ziel-Architektur, aber **zurueckgestellt** — er braucht den Workers
    Paid Plan. Bis dahin proxyt der Front-Door `/api/*` an das Vercel-Backend.
 4. Worker Custom Domain `catchgbt.com` (und `www` bzw. Redirect `www -> apex`)
    hinzufuegen; alten `www`-CNAME (manus.space) erst danach ersetzen.
-5. Spaeter: Backend-Container (`docker/backend.Dockerfile`) deployen, Secrets aus
-   `backend/.env.example` setzen (`SUPABASE_*`, `ANTHROPIC_API_KEY`, `ELEVENLABS_*`,
-   `STRIPE_*`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `KV_URL` optional, `ALLOWED_ORIGINS`,
-   `CRON_SECRET`), dann `BACKEND_URL` am Worker darauf umstellen.
+5. Spaeter: Backend-Container deployen und per Service Binding umschalten
+   (Abschnitt „Umschalten“ oben).
 6. DNS-Hygiene: `_dmarc` (TXT), `autodiscover`, `_domainconnect` auf **DNS only**.
 
 ## Was NACH der Domain-Aktivierung noch zu tun ist (Android-AAB)

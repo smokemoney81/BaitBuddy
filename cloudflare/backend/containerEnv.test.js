@@ -23,7 +23,7 @@ describe('containerEnv', () => {
     const example = readFileSync(new URL('../../backend/.env.example', import.meta.url), 'utf8');
     const names = [...example.matchAll(/^#?\s?([A-Z][A-Z0-9_]+)=/gm)].map((m) => m[1]);
     // Vom Container selbst gesetzt bzw. nur für Vercel/lokal relevant.
-    const notForwarded = new Set(['NODE_ENV', 'PORT', 'VERCEL', 'READ_ONLY_FS']);
+    const notForwarded = new Set(['NODE_ENV', 'PORT', 'VERCEL']);
     const missing = names.filter((n) => !notForwarded.has(n) && !FORWARDED_ENV.includes(n));
     expect(missing).toEqual([]);
   });
