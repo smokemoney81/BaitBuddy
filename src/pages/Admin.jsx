@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  BarChart3, MessageSquare, Trophy, LifeBuoy, Mail, Trash2, RotateCcw, Loader2, ShieldAlert, Send,
+  BarChart3, MessageSquare, Trophy, LifeBuoy, Mail, Trash2, RotateCcw, Loader2, ShieldAlert, Send, Users, Crown, Fish,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -58,7 +58,120 @@ function Busy() {
 }
 
 // ── Statistik ──────────────────────────────────────────────────────────────
-function ToolStats() {
+// Nur echte Daten aus /api/superadmin/stats. Konnte der Server eine Zahl nicht
+// ermitteln, kommt null — angezeigt als „unbekannt“, nie als erfundene 0.
+
+// Feature-IDs aus useFeatureTracking (usage_sessions.feature_id) -> Anzeige.
+// tool:false = keine Angel-Funktion (Einstellungen, Profil …), zählt nicht zu den Top 10.
+const FEATURES = {
+  ai_buddy: { name: "KI-Buddy", route: "/KiBuddyBeta" },
+  map: { name: "Karte", route: "/Map" },
+  catch_log: { name: "Fangbuch", route: "/Logbook" },
+  fishing_plan: { name: "Trip-Planer", route: "/TripPlanner" },
+  community: { name: "Community", route: "/Community" },
+  geraete: { name: "Geräte", route: "/Devices" },
+  bait_recipe: { name: "Köder-Mixer", route: "/BaitMixer" },
+  water_analysis: { name: "Gewässeranalyse", route: "/WaterAnalysis" },
+  angelschein_pruefung: { name: "Prüfung & Schonzeiten", route: "/AngelscheinPruefungSchonzeiten" },
+  lizenzen: { name: "Lizenzen", route: "/Licenses" },
+  leaderboard: { name: "Ranglisten", route: "/Rank" },
+  bite_detector: { name: "Fischbestimmung & Biss", route: "/AI" },
+  lure_3d: { name: "3D-Köderführung", route: "/Koeder3D" },
+  gear_market: { name: "Gebrauchtmarkt", route: "/UsedGear" },
+  gear_recognition: { name: "Ausrüstung erkennen", route: "/GearRecognition" },
+  gear_maintenance: { name: "Wartung", route: "/GearMaintenance" },
+  satellite_analysis: { name: "Satellitenanalyse", route: "/SatelliteAnalysis" },
+  rule_assistant: { name: "Regel-Assistent", route: "/RuleAssistant" },
+  offline_fishing_pack: { name: "Offline-Paket", route: "/OfflineFishingPack" },
+  fish_recipes: { name: "Fischrezepte", route: "/FishRecipes" },
+  events: { name: "Event-Katalog", route: "/events-catalog" },
+  event_details: { name: "Event-Details", route: "/Events" },
+  monthly_leaderboard: { name: "Monatsrangliste", route: "/leaderboards/monthly" },
+  voice_lecture: { name: "Sprach-Lektionen", route: "/VoiceLecture" },
+  einstellungen: { name: "Einstellungen", route: "/Settings", tool: false },
+  profil: { name: "Profil", route: "/Profile", tool: false },
+  notification_center: { name: "Benachrichtigungen", route: "/NotificationCenter", tool: false },
+  premium: { name: "Premium", route: "/PremiumPlans", tool: false },
+};
+
+const PLAN_LABELS = {
+  free: "Kostenlos", basic: "Basic", pro: "Pro", elite: "Ultimate", ultimate: "Ultimate",
+  friends: "Friends", friends_monthly: "Friends (Monat)", trial_10_10: "10-Tage-Pass",
+};
+
+const fmt = (n) => (typeof n === "number" ? n.toLocaleString("de-DE") : "unbekannt");
+
+function formatMinutes(min) {
+  if (typeof min !== "number") return "unbekannt";
+  if (min < 60) return `${min} Min.`;
+  const h = min / 60;
+  return `${h.toLocaleString("de-DE", { maximumFractionDigits: h < 10 ? 1 : 0 })} Std.`;
+}
+
+function Kpi({ label, value, detail }) {
+  return (
+    <div className="bb-admin-kpi">
+      <span className="bb-admin-kpi-label">{label}</span>
+      <strong className="bb-admin-kpi-value">{value}</strong>
+      {detail && <span className="bb-admin-kpi-detail">{detail}</span>}
+    </div>
+  );
+}
+
+function BarList({ rows, valueKey, render }) {
+  const max = Math.max(1, ...rows.map(r => r[valueKey] || 0));
+  return (
+    <ol className="bb-admin-bars">
+      {rows.map((row, i) => {
+        const { label, href, value, detail, title } = render(row);
+        return (
+          <li key={label + i} title={title}>
+            <span className="bb-admin-bar-rank">{i + 1}</span>
+            <span className="bb-admin-bar-label">
+              {href ? <Link to={href}>{label}</Link> : <span className="bb-admin-bar-name">{label}</span>}
+              <span className="bb-admin-bar-track" aria-hidden="true">
+                <span className="bb-admin-bar-fill" style={{ width: `${Math.max(2, ((row[valueKey] || 0) / max) * 100)}%` }} />
+              </span>
+            </span>
+            <span className="bb-admin-bar-value">{value}{detail && <small>{detail}</small>}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function DailyChart({ daily }) {
+  const max = Math.max(1, ...daily.map(d => d.users));
+  const label = (date) => new Date(`${date}T12:00:00`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  return (
+    <figure className="bb-admin-daily">
+      <div className="bb-admin-daily-plot" role="img" aria-label={`Aktive Nutzer pro Tag, höchstens ${max}`}>
+        {daily.map(d => (
+          <span key={d.date} className="bb-admin-daily-col" title={`${label(d.date)}: ${d.users} aktive Nutzer, ${d.sessions} App-Sitzungen`}>
+            <span className="bb-admin-daily-bar" style={{ height: `${d.users ? Math.max(4, (d.users / max) * 100) : 0}%` }} />
+          </span>
+        ))}
+      </div>
+      <figcaption className="bb-admin-daily-axis">
+        <span>{label(daily[0].date)}</span>
+        <span>max. {max} am Tag</span>
+        <span>{label(daily[daily.length - 1].date)}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+function StatsSection({ title, icon: Icon, children }) {
+  return (
+    <section className="bb-card">
+      <h2 className="bb-section-title mb-3">{Icon && <Icon size={20} aria-hidden="true" />}{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Statistics() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -67,64 +180,120 @@ function ToolStats() {
     let cancelled = false;
     setData(null);
     setError("");
-    superAdmin.toolStats(days)
+    superAdmin.stats(days)
       .then(res => { if (!cancelled) setData(res); })
       .catch(e => { if (!cancelled) setError(errorText(e, "Statistik konnte nicht geladen werden")); });
     return () => { cancelled = true; };
   }, [days]);
 
-  const top = useMemo(() => {
-    if (!data?.pages) return [];
-    return data.pages
-      .map(row => ({ ...row, tool: TOOL_BY_PAGE.get(row.page) }))
-      .filter(row => row.tool)
-      .slice(0, 10);
-  }, [data]);
-  const max = top[0]?.views || 1;
+  const tools = useMemo(() => (data?.usage?.features || [])
+    .filter(f => FEATURES[f.feature]?.tool !== false)
+    .slice(0, 10), [data]);
+  const plans = useMemo(() => Object.entries(data?.users?.plans || {})
+    .map(([plan, count]) => ({ plan, count }))
+    .sort((a, b) => b.count - a.count), [data]);
+
+  const users = data?.users;
+  const usage = data?.usage;
+  const content = data?.content || {};
 
   return (
-    <section className="bb-card" aria-labelledby="admin-stats-title">
-      <div className="bb-section-head">
-        <h2 id="admin-stats-title" className="bb-section-title"><BarChart3 size={20} aria-hidden="true" />Top 10 Tools</h2>
+    <div className="grid gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm bb-muted">Zeitraum</p>
         <div className="flex gap-1" role="group" aria-label="Zeitraum">
           {[7, 30, 90].map(d => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDays(d)}
-              aria-pressed={days === d}
-              className={`bb-admin-range${days === d ? " is-active" : ""}`}
-            >
-              {d} T
+            <button key={d} type="button" onClick={() => setDays(d)} aria-pressed={days === d}
+              className={`bb-admin-range${days === d ? " is-active" : ""}`}>
+              {d} Tage
             </button>
           ))}
         </div>
       </div>
-      {error ? <Empty>{error}</Empty> : !data ? <Busy /> : top.length === 0 ? (
-        <Empty>Noch keine Tool-Aufrufe im Zeitraum. Gezählt wird ab jetzt jeder Seitenaufruf angemeldeter Nutzer.</Empty>
-      ) : (
+
+      {error ? <div className="bb-card"><Empty>{error}</Empty></div> : !data ? <div className="bb-card"><Busy /></div> : (
         <>
-          <ol className="bb-admin-bars">
-            {top.map((row, i) => (
-              <li key={row.page} title={`${row.tool.name}: ${row.views} Aufrufe von ${row.users} Nutzern`}>
-                <span className="bb-admin-bar-rank">{i + 1}</span>
-                <span className="bb-admin-bar-label">
-                  <Link to={row.tool.route}>{row.tool.name}</Link>
-                  <span className="bb-admin-bar-track" aria-hidden="true">
-                    <span className="bb-admin-bar-fill" style={{ width: `${Math.max(2, (row.views / max) * 100)}%` }} />
-                  </span>
-                </span>
-                <span className="bb-admin-bar-value">
-                  {row.views}
-                  <small>{row.users} Nutzer</small>
-                </span>
-              </li>
-            ))}
-          </ol>
-          <p className="text-xs bb-muted mt-3">{data.total_views} Seitenaufrufe in den letzten {data.days} Tagen.</p>
+          <div className="bb-admin-kpis">
+            <Kpi label="Nutzer gesamt" value={fmt(users?.total)} detail={users ? `+${fmt(users.new_period)} neu in ${days} Tagen` : "unbekannt"} />
+            <Kpi label={`Aktiv (${days} Tage)`} value={fmt(users?.active_period)} detail={users ? `${fmt(users.active_7d)} in den letzten 7 Tagen` : null} />
+            <Kpi label="App-Sitzungen" value={fmt(usage?.app_sessions)} detail={usage ? `${formatMinutes(usage.app_minutes)} Nutzung` : null} />
+            <Kpi label="Offene Tickets" value={fmt(content.tickets_open)} detail={`von ${fmt(content.tickets_total)} insgesamt`} />
+          </div>
+
+          <StatsSection title="Aktive Nutzer pro Tag" icon={Users}>
+            {usage?.daily?.length ? <DailyChart daily={usage.daily} /> : <Empty>Keine Nutzungsdaten verfügbar.</Empty>}
+          </StatsSection>
+
+          <StatsSection title="Top 10 Tools" icon={BarChart3}>
+            {!usage ? <Empty>Nutzungsdaten konnten nicht geladen werden.</Empty> : tools.length === 0 ? (
+              <Empty>Im Zeitraum wurde kein Tool genutzt.</Empty>
+            ) : (
+              <BarList rows={tools} valueKey="sessions" render={f => {
+                const meta = FEATURES[f.feature];
+                return {
+                  label: meta?.name || f.feature,
+                  href: meta?.route,
+                  value: fmt(f.sessions),
+                  detail: `${f.users} Nutzer · ${formatMinutes(f.minutes)}`,
+                  title: `${meta?.name || f.feature}: ${f.sessions} Sitzungen von ${f.users} Nutzern, ${formatMinutes(f.minutes)} Nutzungsdauer`,
+                };
+              }} />
+            )}
+            <p className="text-xs bb-muted mt-3">Gezählt werden Sitzungen: jedes Öffnen eines Tools durch einen angemeldeten Nutzer.</p>
+          </StatsSection>
+
+          <StatsSection title="Tarife" icon={Crown}>
+            {!users ? <Empty>Nutzerdaten konnten nicht geladen werden.</Empty> : (
+              <BarList rows={plans} valueKey="count" render={p => ({
+                label: PLAN_LABELS[p.plan] || p.plan,
+                value: fmt(p.count),
+                detail: users.total ? `${Math.round((p.count / users.total) * 100)} %` : null,
+                title: `${PLAN_LABELS[p.plan] || p.plan}: ${p.count} Nutzer`,
+              })} />
+            )}
+            {users && <p className="text-xs bb-muted mt-3">{fmt(users.never_signed_in)} Konten haben sich nie angemeldet.</p>}
+          </StatsSection>
+
+          <StatsSection title="Inhalte" icon={Fish}>
+            <dl className="bb-admin-content">
+              {[
+                ["Fänge", content.catches_total, `${fmt(content.catches_period)} in ${days} Tagen`],
+                ["Spots", content.spots],
+                ["Trip-Pläne", content.fishing_plans],
+                ["Gewässeranalysen", content.water_analyses],
+                ["Community-Beiträge", content.community_posts],
+                ["Kommentare", content.community_comments],
+                ["Laufende Events", content.events_running],
+                ["Archivierte Events", content.events_archived],
+                ["Event-Teilnahmen", content.event_participants],
+              ].map(([label, value, detail]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{fmt(value)}{detail && <small>{detail}</small>}</dd>
+                </div>
+              ))}
+            </dl>
+          </StatsSection>
+
+          {usage?.pages?.length > 0 && (
+            <StatsSection title="Meistbesuchte Seiten" icon={BarChart3}>
+              <BarList rows={usage.pages.slice(0, 10)} valueKey="views" render={p => {
+                const tool = TOOL_BY_PAGE.get(p.page);
+                return {
+                  label: tool?.name || p.page,
+                  href: `/${p.page}`,
+                  value: fmt(p.views),
+                  detail: `${p.users} Nutzer`,
+                  title: `${tool?.name || p.page}: ${p.views} Aufrufe von ${p.users} Nutzern`,
+                };
+              }} />
+            </StatsSection>
+          )}
+
+          <p className="text-xs bb-muted text-center">Stand: {formatDate(data.generated_at)}</p>
         </>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -449,7 +618,7 @@ export default function Admin() {
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
           <TabsTrigger value="mail">Rundmail</TabsTrigger>
         </TabsList>
-        <TabsContent value="stats" className="mt-4"><ToolStats /></TabsContent>
+        <TabsContent value="stats" className="mt-4"><Statistics /></TabsContent>
         <TabsContent value="community" className="mt-4"><CommunityAdmin /></TabsContent>
         <TabsContent value="events" className="mt-4"><EventsAdmin /></TabsContent>
         <TabsContent value="tickets" className="mt-4"><TicketsAdmin /></TabsContent>

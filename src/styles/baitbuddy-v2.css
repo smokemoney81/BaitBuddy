@@ -2997,6 +2997,10 @@ textarea.bb-comp-input { padding: 10px; min-height: 96px; }
 .bb-landing-or::before, .bb-landing-or::after { content: ''; flex: 1; height: 1px; background: rgba(0,229,255,.3); }
 .bb-landing-later { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; font-size: 15px; color: #dce8f2; }
 .bb-landing-later svg { color: var(--bb-cyan); }
+/* Android-APK direkt installieren (AndroidInstallButton.jsx) */
+.bb-landing-apk { display: grid; gap: 6px; }
+.bb-landing-apk > a { text-decoration: none; }
+.bb-landing-apk-meta { text-align: center; font-size: 12px; color: #9fb3c6; }
 .bb-landing-msg { font-size: 14px; }
 .bb-landing-msg.is-error { color: #ff9aa9; }
 .bb-landing-msg.is-info { color: #7ff0b5; }
@@ -3074,7 +3078,7 @@ textarea.bb-comp-input { padding: 10px; min-height: 96px; }
 .bb-admin-range.is-active { color: var(--bb-cyan); border-color: var(--bb-cyan); }
 /* Top-10-Liste: eine Serie, eine Farbe; Werte in Textfarbe neben dem Balken. */
 .bb-admin-bars { display: grid; gap: 10px; }
-.bb-admin-bars li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.bb-admin-bars li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 104px; align-items: center; gap: 10px; }
 .bb-admin-bar-rank { font-size: 13px; font-weight: 700; color: var(--bb-muted); text-align: right; font-variant-numeric: tabular-nums; }
 .bb-admin-bar-label { display: grid; justify-items: start; gap: 4px; min-width: 0; text-align: left; }
 .bb-admin-bar-label > .bb-admin-bar-track { justify-self: stretch; }
@@ -3089,3 +3093,23 @@ textarea.bb-comp-input { padding: 10px; min-height: 96px; }
 .bb-admin-icon-btn.is-danger { color: #ff5a70; border-color: rgba(255,69,96,.5); }
 .bb-admin-icon-btn:disabled { opacity: .45; }
 .bb-admin-select { min-height: 44px; padding: 0 10px; border-radius: 12px; color: #eef5fa; background: rgba(8, 20, 34, .8); border: 1px solid var(--bb-border); }
+.bb-admin-bar-name { font-size: 14px; color: #eef5fa; }
+.bb-admin-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 720px) { .bb-admin-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.bb-admin-kpi { display: grid; gap: 2px; padding: 12px 14px; border-radius: 16px; background: var(--bb-surface-grad); border: 1px solid var(--bb-border); }
+.bb-admin-kpi-label { font-size: 12px; color: var(--bb-muted); }
+.bb-admin-kpi-value { font-size: 26px; line-height: 1.15; font-weight: 800; color: #f4f8fb; font-variant-numeric: tabular-nums; }
+.bb-admin-kpi-detail { font-size: 12px; color: #b9cbdb; }
+/* Aktive Nutzer pro Tag: eine Serie, dünne Säulen, Details per Hover (title). */
+.bb-admin-daily { display: grid; gap: 6px; }
+.bb-admin-daily-plot { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid rgba(160,190,215,.25); }
+.bb-admin-daily-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.bb-admin-daily-col:hover .bb-admin-daily-bar { filter: brightness(1.25); }
+.bb-admin-daily-bar { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--bb-cyan); }
+.bb-admin-daily-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--bb-muted); }
+.bb-admin-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 720px) { .bb-admin-content { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.bb-admin-content > div { padding: 10px 12px; border-radius: 12px; background: rgba(0,0,0,.25); border: 1px solid var(--bb-border); }
+.bb-admin-content dt { font-size: 12px; color: var(--bb-muted); }
+.bb-admin-content dd { display: grid; font-size: 20px; font-weight: 700; color: #f4f8fb; font-variant-numeric: tabular-nums; }
+.bb-admin-content dd small { font-size: 11px; font-weight: 400; color: #b9cbdb; }

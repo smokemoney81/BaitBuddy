@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { requireAuth, requireSuperuser } from '../middleware/auth.js';
 import { listAllUsers } from '../lib/adminUsers.js';
+import { resolvePlan } from '../lib/planResolver.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { getMailTransporter, mailFrom, supportEmail, escapeHtml, textToHtml } from '../lib/mailer.js';
 
@@ -33,48 +34,203 @@ function clampInt(value, fallback, min, max) {
   return Math.min(Math.max(n, min), max);
 }
 
-// ── Statistik: meistgenutzte Tools ──────────────────────────────────────────
-// Grundlage sind die Seitenaufrufe, die PageViewTracker als usage_sessions
-// (status='view', feature_id='page:<Route>') speichert. Das Backend zählt pro
-// Seite; welche Seite ein Tool ist, entscheidet das Frontend über die
-// Tool-Registry (src/lib/toolRegistry.ts), die es im Backend-Image nicht gibt.
-router.get('/superadmin/stats/tools', safe(async (req, res) => {
-  const days = clampInt(req.query.days, 30, 1, 365);
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+// ── Statistik ───────────────────────────────────────────────────────────────
+// Alles hier wird aus echten Zeilen gezählt. Kann eine Zahl nicht ermittelt
+// werden (Tabelle fehlt, DB-Fehler), steht dort null — die Oberfläche zeigt
+// dann „unbekannt“ statt einer erfundenen 0.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_SESSION_MINUTES = 180; // hängengebliebene Sitzungen nicht aufblähen
+const STATS_TIMEZONE = 'Europe/Berlin';
 
-  const perPage = new Map();
-  let rows = 0;
+function dayKey(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  // sv-SE formatiert als YYYY-MM-DD
+  return d.toLocaleDateString('sv-SE', { timeZone: STATS_TIMEZONE });
+}
+
+async function countRows(table, apply) {
+  let q = supabase.from(table).select('id', { count: 'exact', head: true });
+  if (apply) q = apply(q);
+  const { count, error } = await q;
+  if (error) {
+    console.warn(`[superadmin] Zählung ${table} fehlgeschlagen:`, error.message);
+    return null;
+  }
+  return typeof count === 'number' ? count : null;
+}
+
+async function loadUsageRows(since) {
+  const rows = [];
   for (let offset = 0; offset < MAX_STAT_ROWS; offset += PAGE_SIZE) {
     const { data, error } = await supabase
       .from('usage_sessions')
-      .select('feature_id, user_id')
-      .eq('status', 'view')
+      .select('feature_id, feature, user_id, status, started_at, stopped_at, last_heartbeat, created_at')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
-    if (error) return sendDbError(res, error);
-
+    if (error) return { rows, error };
     const batch = Array.isArray(data) ? data : [];
-    for (const row of batch) {
-      const id = String(row.feature_id || '');
-      if (!id.startsWith('page:')) continue;
-      const page = id.slice(5);
-      if (!page) continue;
-      const entry = perPage.get(page) || { page, views: 0, users: new Set() };
-      entry.views += 1;
-      if (row.user_id) entry.users.add(row.user_id);
-      perPage.set(page, entry);
-      rows += 1;
-    }
+    rows.push(...batch);
     if (batch.length < PAGE_SIZE) break;
   }
+  return { rows, error: null };
+}
 
-  const pages = [...perPage.values()]
-    .map(({ page, views, users }) => ({ page, views, users: users.size }))
-    .sort((a, b) => b.views - a.views)
-    .slice(0, 100);
+function sessionMinutes(row) {
+  const start = new Date(row.started_at || row.created_at).getTime();
+  const end = new Date(row.stopped_at || row.last_heartbeat || NaN).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return Math.min((end - start) / 60000, MAX_SESSION_MINUTES);
+}
 
-  return res.json({ days, total_views: rows, pages });
+// Reine Auswertung (ohne DB), damit sie direkt testbar ist.
+export function summarizeUsage(rows, { days, now = Date.now() }) {
+  const features = new Map();
+  const pages = new Map();
+  const daily = new Map();
+  const activeUsers = new Set();
+  let appSessions = 0;
+  let appMinutes = 0;
+
+  for (let i = days - 1; i >= 0; i--) {
+    const key = dayKey(now - i * DAY_MS);
+    if (key) daily.set(key, { date: key, users: new Set(), sessions: 0 });
+  }
+
+  for (const row of rows) {
+    const id = String(row.feature_id || row.feature || '');
+    if (!id) continue;
+    const user = row.user_id || null;
+    if (user) activeUsers.add(user);
+
+    const day = daily.get(dayKey(row.started_at || row.created_at));
+    if (day && user) day.users.add(user);
+
+    if (id.startsWith('page:')) {
+      const page = id.slice(5);
+      if (!page) continue;
+      const entry = pages.get(page) || { page, views: 0, users: new Set() };
+      entry.views += 1;
+      if (user) entry.users.add(user);
+      pages.set(page, entry);
+      continue;
+    }
+
+    const minutes = sessionMinutes(row);
+    if (id === 'app_general') {
+      appSessions += 1;
+      appMinutes += minutes;
+      if (day) day.sessions += 1;
+      continue;
+    }
+
+    const entry = features.get(id) || { feature: id, sessions: 0, users: new Set(), minutes: 0 };
+    entry.sessions += 1;
+    entry.minutes += minutes;
+    if (user) entry.users.add(user);
+    features.set(id, entry);
+  }
+
+  return {
+    active_users: activeUsers.size,
+    app_sessions: appSessions,
+    app_minutes: Math.round(appMinutes),
+    features: [...features.values()]
+      .map(({ feature, sessions, users, minutes }) => ({ feature, sessions, users: users.size, minutes: Math.round(minutes) }))
+      .sort((a, b) => b.sessions - a.sessions),
+    pages: [...pages.values()]
+      .map(({ page, views, users }) => ({ page, views, users: users.size }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 50),
+    daily: [...daily.values()].map(({ date, users, sessions }) => ({ date, users: users.size, sessions })),
+  };
+}
+
+export function summarizeUsers(users, { days, now = Date.now() }) {
+  const since = now - days * DAY_MS;
+  const week = now - 7 * DAY_MS;
+  const plans = {};
+  let newPeriod = 0;
+  let new7 = 0;
+  let activePeriod = 0;
+  let active7 = 0;
+  let neverSignedIn = 0;
+  for (const u of users) {
+    const created = new Date(u.created_at).getTime();
+    const lastSeen = u.last_sign_in_at ? new Date(u.last_sign_in_at).getTime() : NaN;
+    if (created >= since) newPeriod += 1;
+    if (created >= week) new7 += 1;
+    if (Number.isFinite(lastSeen)) {
+      if (lastSeen >= since) activePeriod += 1;
+      if (lastSeen >= week) active7 += 1;
+    } else {
+      neverSignedIn += 1;
+    }
+    const { effectiveId } = resolvePlan(u, new Date(now));
+    plans[effectiveId] = (plans[effectiveId] || 0) + 1;
+  }
+  return {
+    total: users.length,
+    new_7d: new7,
+    new_period: newPeriod,
+    active_7d: active7,
+    active_period: activePeriod,
+    never_signed_in: neverSignedIn,
+    plans,
+  };
+}
+
+router.get('/superadmin/stats', safe(async (req, res) => {
+  const days = clampInt(req.query.days, 30, 1, 365);
+  const now = Date.now();
+  const since = new Date(now - days * DAY_MS).toISOString();
+  const nowIso = new Date(now).toISOString();
+
+  const [usersResult, usageResult, content] = await Promise.all([
+    listAllUsers(supabase),
+    loadUsageRows(since),
+    Promise.all([
+      countRows('catches'),
+      countRows('catches', (q) => q.gte('created_at', since)),
+      countRows('spots'),
+      countRows('community_posts'),
+      countRows('community_comments'),
+      countRows('fishing_plans'),
+      countRows('water_analysis_history'),
+      countRows('events', (q) => q.eq('status', 'active').eq('is_active', true).gt('end_date', nowIso)),
+      countRows('events', (q) => q.eq('status', 'ended').eq('is_active', false)),
+      countRows('event_participants'),
+      countRows('support_tickets', (q) => q.in('status', ['offen', 'in_bearbeitung'])),
+      countRows('support_tickets'),
+    ]),
+  ]);
+
+  const [
+    catchesTotal, catchesPeriod, spots, posts, comments, plans, waterAnalyses,
+    eventsRunning, eventsArchived, participants, ticketsOpen, ticketsTotal,
+  ] = content;
+
+  return res.json({
+    days,
+    generated_at: nowIso,
+    users: usersResult.error ? null : summarizeUsers(usersResult.users, { days, now }),
+    usage: usageResult.error ? null : summarizeUsage(usageResult.rows, { days, now }),
+    content: {
+      catches_total: catchesTotal,
+      catches_period: catchesPeriod,
+      spots,
+      community_posts: posts,
+      community_comments: comments,
+      fishing_plans: plans,
+      water_analyses: waterAnalyses,
+      events_running: eventsRunning,
+      events_archived: eventsArchived,
+      event_participants: participants,
+      tickets_open: ticketsOpen,
+      tickets_total: ticketsTotal,
+    },
+  });
 }));
 
 // ── Community ───────────────────────────────────────────────────────────────

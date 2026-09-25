@@ -10,6 +10,7 @@ import { Browser } from '@capacitor/browser';
 import { Eye, EyeOff, Mail, UserRound, Compass, ChevronRight, ChevronLeft, CloudUpload } from 'lucide-react';
 import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
 import { postLoginPath } from '@/lib/guestStore';
+import AndroidInstallButton from '@/components/home/AndroidInstallButton';
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
 // Aus src/pages/Home.jsx extrahiert: acht zusammenhaengende State-Felder und
@@ -241,6 +242,7 @@ export default function LandingAuthPanel() {
             </button>
             {loginError && <p role="alert" className="bb-landing-msg is-error">{loginError}</p>}
             {loginInfo && <p role="status" className="bb-landing-msg is-info">{loginInfo}</p>}
+            <AndroidInstallButton />
             <a href="/GastdatenUebernehmen" className="bb-landing-later">
               <CloudUpload className="w-5 h-5" aria-hidden="true" />
               Gastdaten später übernehmen

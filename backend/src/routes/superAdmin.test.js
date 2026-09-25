@@ -63,32 +63,65 @@ describe('Zugriff auf /api/superadmin', () => {
   });
 });
 
-describe('GET /api/superadmin/stats/tools', () => {
-  it('zählt nur Seitenaufrufe und sortiert nach Häufigkeit', async () => {
+describe('Statistik', () => {
+  const NOW = Date.parse('2026-09-25T10:00:00.000Z');
+
+  it('summarizeUsage zählt Tools, Seiten, App-Sitzungen und aktive Nutzer pro Tag', async () => {
+    const { summarizeUsage } = await import('./superAdmin.js');
+    const rows = [
+      { feature_id: 'ai_buddy', user_id: 'a', status: 'stopped', started_at: '2026-09-24T08:00:00Z', stopped_at: '2026-09-24T08:10:00Z' },
+      { feature_id: 'ai_buddy', user_id: 'b', status: 'stopped', started_at: '2026-09-25T08:00:00Z', stopped_at: '2026-09-25T08:05:00Z' },
+      // hängengebliebene Sitzung: auf 180 Minuten gedeckelt
+      { feature_id: 'map', user_id: 'a', status: 'active', started_at: '2026-09-20T00:00:00Z', last_heartbeat: '2026-09-22T00:00:00Z' },
+      { feature_id: 'app_general', user_id: 'c', status: 'active', started_at: '2026-09-25T07:00:00Z', last_heartbeat: '2026-09-25T07:30:00Z' },
+      { feature_id: 'page:Weather', user_id: 'a', status: 'view', created_at: '2026-09-25T09:00:00Z' },
+      { feature: 'catch_log', user_id: 'b', status: 'stopped', started_at: '2026-09-23T08:00:00Z' },
+    ];
+    const out = summarizeUsage(rows, { days: 7, now: NOW });
+    expect(out.features).toEqual([
+      { feature: 'ai_buddy', sessions: 2, users: 2, minutes: 15 },
+      { feature: 'map', sessions: 1, users: 1, minutes: 180 },
+      { feature: 'catch_log', sessions: 1, users: 1, minutes: 0 },
+    ]);
+    expect(out.pages).toEqual([{ page: 'Weather', views: 1, users: 1 }]);
+    expect(out.app_sessions).toBe(1);
+    expect(out.app_minutes).toBe(30);
+    expect(out.active_users).toBe(3);
+    expect(out.daily).toHaveLength(7);
+    expect(out.daily.at(-1)).toEqual({ date: '2026-09-25', users: 3, sessions: 1 });
+    expect(out.daily.find(d => d.date === '2026-09-21')).toEqual({ date: '2026-09-21', users: 0, sessions: 0 });
+  });
+
+  it('summarizeUsers zählt neue, aktive Nutzer und Tarife', async () => {
+    const { summarizeUsers } = await import('./superAdmin.js');
+    const users = [
+      { created_at: '2026-09-24T00:00:00Z', last_sign_in_at: '2026-09-24T00:00:00Z', app_metadata: {} },
+      { created_at: '2026-01-01T00:00:00Z', last_sign_in_at: '2026-09-01T00:00:00Z', app_metadata: { premium_plan_id: 'basic', premium_expires_at: '2099-01-01T00:00:00Z' } },
+      { created_at: '2026-01-01T00:00:00Z', last_sign_in_at: null, app_metadata: {} },
+    ];
+    expect(summarizeUsers(users, { days: 30, now: NOW })).toEqual({
+      total: 3, new_7d: 1, new_period: 1, active_7d: 1, active_period: 2, never_signed_in: 1,
+      plans: { free: 2, basic: 1 },
+    });
+  });
+
+  it('GET /api/superadmin/stats liefert Nutzer, Nutzung und Inhalte', async () => {
     await boot({
+      adminUsers: [{ id: 'u1', email: 'a@b.test', created_at: new Date().toISOString(), last_sign_in_at: new Date().toISOString() }],
       fromResults: {
-        usage_sessions: {
-          data: [
-            { feature_id: 'page:KiBuddyBeta', user_id: 'a' },
-            { feature_id: 'page:KiBuddyBeta', user_id: 'b' },
-            { feature_id: 'page:KiBuddyBeta', user_id: 'a' },
-            { feature_id: 'page:Weather', user_id: 'a' },
-            { feature_id: 'ai_buddy', user_id: 'a' },
-          ],
-          error: null,
-        },
+        usage_sessions: { data: [{ feature_id: 'ai_buddy', user_id: 'u1', status: 'stopped', started_at: new Date().toISOString() }], error: null },
+        catches: { data: null, count: 4, error: null },
+        spots: { data: null, error: { message: 'relation does not exist' } },
       },
     });
-    const res = await auth(request(app).get('/api/superadmin/stats/tools?days=7'));
+    const res = await auth(request(app).get('/api/superadmin/stats?days=7'));
     expect(res.status).toBe(200);
     expect(res.body.days).toBe(7);
-    expect(res.body.total_views).toBe(4);
-    expect(res.body.pages).toEqual([
-      { page: 'KiBuddyBeta', views: 3, users: 2 },
-      { page: 'Weather', views: 1, users: 1 },
-    ]);
-    const builder = supabaseMock.current.__builders.usage_sessions;
-    expect(builder.eq).toHaveBeenCalledWith('status', 'view');
+    expect(res.body.users.total).toBe(1);
+    expect(res.body.usage.features[0]).toMatchObject({ feature: 'ai_buddy', sessions: 1, users: 1 });
+    expect(res.body.content.catches_total).toBe(4);
+    // Fehler wird nicht zur 0 geschönt
+    expect(res.body.content.spots).toBeNull();
   });
 });
 

@@ -977,7 +977,7 @@ export const events = {
 
 // Admin-Bereich des Superusers (Seite /Admin, backend/src/routes/superAdmin.js).
 export const superAdmin = {
-  toolStats:       (days = 30)           => api.get(`/api/superadmin/stats/tools?days=${days}`),
+  stats:           (days = 30)           => api.get(`/api/superadmin/stats?days=${days}`),
   communityPosts:  ()                    => api.get('/api/superadmin/community/posts'),
   deletePost:      (id)                  => api.del(`/api/superadmin/community/posts/${id}`),
   events:          ()                    => api.get('/api/superadmin/events'),
