@@ -10,6 +10,7 @@
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
+    "@clerk/backend": "^3.20.1",
     "@sentry/node": "^10.73.0",
     "@supabase/supabase-js": "^2.38.0",
     "cors": "^2.8.5",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { auth } from '@/api/auth';
 import { supabase } from '@/api/supabaseClient';
 import { createPageUrl } from '@/utils';
@@ -7,11 +7,15 @@ import { isOnline } from '@/utils/networkStatus';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { maybeShowEventPopup, EVENT_POPUP_DWELL_MS } from '@/lib/loginEventPopup';
 import { Browser } from '@capacitor/browser';
-import { Eye, EyeOff, Mail, ChevronRight, ChevronLeft, CloudUpload } from 'lucide-react';
+import { Eye, EyeOff, Mail, ChevronRight, ChevronLeft, CloudUpload, KeyRound } from 'lucide-react';
 import OAuthMigrationModal from '@/components/auth/OAuthMigrationModal';
 import LandingPitch from '@/components/home/LandingPitch';
 import AndroidInstallButton from '@/components/home/AndroidInstallButton';
 import { postLoginPath, hasGuestData } from '@/lib/guestStore';
+import { clerkPublishableKey, isClerkLoginAvailable, isClerkHashRoute } from '@/lib/clerkLogin';
+
+// Clerk nur bei Bedarf nachladen (nicht im Start-Bundle der Login-Seite).
+const ClerkSignInPanel = lazy(() => import('@/components/auth/ClerkSignInPanel'));
 
 // Anmelde-/Registrierungs-Panel der Landing Page.
 // Aus src/pages/Home.jsx extrahiert: acht zusammenhaengende State-Felder und
@@ -76,8 +80,26 @@ export default function LandingAuthPanel() {
   const [showPassword, setShowPassword] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   // 'intro' = Startbildschirm wie in der Vorlage ("Los geht's"),
-  // 'choice' = Auswahl (Google, E-Mail, Gast), 'email' = Formular.
-  const [view, setView] = useState(() => (loginMode === 'register' ? 'email' : 'intro'));
+  // 'choice' = Auswahl (Google, E-Mail, Gast), 'email' = Formular,
+  // 'clerk' = eingebettete Clerk-Anmeldung. Kehrt die Seite mit einem
+  // Clerk-Hash zurück (#/sso-callback …), direkt dorthin.
+  const [view, setView] = useState(() => {
+    if (clerkPublishableKey() && isClerkHashRoute(window.location.hash)) return 'clerk';
+    return loginMode === 'register' ? 'email' : 'intro';
+  });
+  const [clerkAvailable, setClerkAvailable] = useState(false);
+  useEffect(() => {
+    let active = true;
+    isClerkLoginAvailable().then((ok) => { if (active) setClerkAvailable(ok); });
+    return () => { active = false; };
+  }, []);
+  const leaveClerk = () => {
+    // Clerk-Hash (#/…) entfernen, sonst öffnet ein Neuladen wieder Clerk.
+    if (isClerkHashRoute(window.location.hash)) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    setView('choice');
+  };
   const openEmail = (mode) => {
     setLoginMode(mode);
     setLoginError('');
@@ -251,6 +273,12 @@ export default function LandingAuthPanel() {
               <Mail className="bb-landing-btn-icon text-cyan-300" aria-hidden="true" />
               <span>Mit E-Mail anmelden</span>
             </button>
+            {clerkAvailable && (
+              <button type="button" onClick={() => { setLoginError(''); setLoginInfo(''); setView('clerk'); }} className="bb-landing-btn is-dark">
+                <KeyRound className="bb-landing-btn-icon text-cyan-300" aria-hidden="true" />
+                <span>Weitere Anmeldeoptionen</span>
+              </button>
+            )}
             <button type="button" onClick={handleGuestLogin} className="bb-landing-btn is-cta">
               <span>Als Gast loslegen</span>
               <ChevronRight className="bb-landing-btn-arrow" aria-hidden="true" />
@@ -268,6 +296,19 @@ export default function LandingAuthPanel() {
                 Gastdaten später übernehmen
               </a>
             )}
+          </div>
+        )}
+        {view === 'clerk' && (
+          <div className="bb-landing-form">
+            <div className="bb-landing-form-head">
+              <button type="button" onClick={leaveClerk} className="bb-landing-back" aria-label="Zurück zur Auswahl">
+                <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+              </button>
+              <h2>Anmelden</h2>
+            </div>
+            <Suspense fallback={<p role="status" className="bb-landing-msg is-info">Anmeldung wird geladen …</p>}>
+              <ClerkSignInPanel />
+            </Suspense>
           </div>
         )}
         {view === 'email' && (

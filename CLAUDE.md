@@ -41,7 +41,7 @@ Keine `TODO`-Stubs, `Lorem ipsum`, Mock-Werte, leere „Coming soon"-Hülsen ode
 
 ## 🔑 Auth-Architektur: Zwei Session-Systeme
 
-Die App nutzt **absichtlich zwei parallele Auth-Pfade**, beide aktiv:
+Die App nutzt **absichtlich zwei parallele Auth-Pfade**, beide aktiv (dazu Clerk als optionaler Anmeldeweg, der in Pfad 1 mündet):
 
 ### 1. `bb_token` / `bb_refresh` (Haupt-Pfad für E-Mail/Passwort)
 - Stored in `localStorage` (reine Strings)
@@ -55,6 +55,13 @@ Die App nutzt **absichtlich zwei parallele Auth-Pfade**, beide aktiv:
 - Synchronisierung in `bb_token`/`bb_refresh` via `AuthCallback.jsx` / `ResetPassword.jsx`
 - `AuthContext.jsx` hält zentralen `onAuthStateChange`-Listener (SIGNED_IN/SIGNED_OUT/TOKEN_REFRESHED)
 - Location: `src/api/supabaseClient.js`
+
+### 3. Clerk (optionaler Zusatz-Login, endet in `bb_token`)
+- Login-Seite → „Weitere Anmeldeoptionen“ bettet Clerks `<SignIn>` ein (`src/components/auth/ClerkSignInPanel.jsx`, lazy, Hash-Routing `#/…`). Nach der Anmeldung leitet Clerk auf `/ClerkCallback` (`src/pages/ClerkCallback.jsx`), das `POST /api/auth/clerk` aufruft und Clerk sofort wieder abmeldet — die App kennt danach **nur** `bb_token`/`bb_refresh`. Clerk ist also nur Anmelde-Zwischenschritt, kein vierter Session-Pfad.
+- Backend (`backend/src/lib/clerkAuth.js`, `routes/auth.js`): prüft das Clerk-Session-Token (`authorizedParties` = `getAllowedOrigins()`), nimmt **nur die bei Clerk verifizierte primäre E-Mail** und ordnet sie dem Supabase-Nutzer zu (neu → `createUser` + dieselbe 24-h-Trial wie `/auth/register`). Die Sitzung entsteht per Admin-`generateLink` (Magic-Link, verschickt nichts) + direktem `POST /auth/v1/verify` — nie über den geteilten Client.
+- Aktiv nur, wenn **beide** Keys gesetzt sind: `VITE_CLERK_PUBLISHABLE_KEY` (Build, `.env.production`) und `CLERK_SECRET_KEY` (Backend, optional `CLERK_JWT_KEY`). `GET /api/auth/clerk/config` meldet den Server-Teil; ohne ihn blendet die Login-Seite Clerk aus.
+- Grenze: Google/Apple **über Clerk** scheitern im Android-WebView (Google sperrt eingebettete WebViews); dort bleibt der eigene Google-Button (externer Browser) der Weg. E-Mail-Code/Passwort über Clerk funktionieren.
+- Bewusste, vom Betreiber gewünschte Ausnahme von „keine weiteren externen Dienste“.
 
 ### ⚠️ Kritisch
 `autoRefreshToken` ist in `supabaseClient.js` **deaktiviert**, um Token-Konflikt zu vermeiden (nur `bb_token`-Refresh ist aktiv). Eine vollständige Konsolidierung wurde bewusst zurückgestellt (zu großer Eingriff, OAuth nicht offline verifizierbar). **Bei zukünftigen Auth-Änderungen diese Dualität beachten.**
@@ -525,8 +532,9 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ✅ Cloudflare (Hosting, Worker/Container, Deploy) — Zielplattform
 - ✅ Supabase (DB, Auth, Storage)
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
+- ⚠️ **Zwei Vercel-Projekte:** `BACKEND_URL` (`bait-buddy.vercel.app`, Konto „Sebastian's projects“) ist wegen der Abrechnung gesperrt und steht auf PR #368. Merges deployt das Projekt im Konto `ssbedburg` (`VERCEL_BACKEND_URL`, per Deployment Protection gesperrt). Der Worker schaltet erst dorthin, wenn das Worker-Secret `VERCEL_PROTECTION_BYPASS` gesetzt ist (`backendTarget` in `cloudflare/worker.js`). Symptom bei altem Backend: Features, die neue API-Felder brauchen (z. B. `is_superuser` → Admin-Bereich), fehlen trotz aktuellem Frontend. Prüfen: `/api/superadmin/stats` → 404 = altes Backend.
 - ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
-- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services)
+- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services) — einzige vom Betreiber freigegebene Ausnahme: Clerk als optionaler Zusatz-Login (siehe Auth-Architektur)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)
 > nutzt optional **Vercel KV** (Upstash Redis, ioredis-kompatibel) als

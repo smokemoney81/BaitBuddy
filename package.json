@@ -29,6 +29,8 @@
     "@capacitor/app": "^6.0.0",
     "@capacitor/browser": "^6.0.0",
     "@capacitor/network": "^6.0.0",
+    "@clerk/localizations": "^4.20.0",
+    "@clerk/react": "^6.17.2",
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",

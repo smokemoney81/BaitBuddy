@@ -91,6 +91,8 @@ if (process.env.NODE_ENV !== 'test') {
   app.use('/api/auth/login', authRateLimiter);
   app.use('/api/auth/register', authRateLimiter);
   app.use('/api/auth/refresh', authRateLimiter);
+  // Nur der Token-Tausch, nicht /api/auth/clerk/config (app.use würde als Präfix greifen).
+  app.post('/api/auth/clerk', authRateLimiter);
 }
 
 app.use('/api', authRoutes);

@@ -192,7 +192,7 @@ class ApiClient {
     if (!res.ok) {
       // Abgelaufene Sitzung: einmalig Token erneuern und Anfrage wiederholen.
       // Login/Register/Refresh selbst sind ausgenommen (401 = falsche Daten).
-      const noRetry = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
+      const noRetry = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/clerk'];
       if (res.status === 401 && !_retried && !noRetry.some(p => path.startsWith(p)) && this.getRefreshToken()) {
         const refreshed = await this._refreshSession();
         if (refreshed) return this.request(method, path, body, { signal: externalSignal, _retried: true, _attempt });
@@ -515,6 +515,20 @@ const FUNCTION_MAP = {
 };
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+// Übernimmt die Sitzung aus /auth/login, /auth/register und /auth/clerk.
+function applySession(res) {
+  if (res.token) {
+    api.setToken(res.token);
+    if (res.refresh_token) api.setRefreshToken(res.refresh_token);
+    if (res.user) setCachedUser(res.user);
+    // Trigger PlanContext to reload plan after token is set
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('plan-updated'));
+    }
+  }
+  return res;
+}
+
 export const auth = {
   // Liefert das aktuelle Profil. Offline (Netzwerkfehler) wird — sofern ein Token
   // vorliegt — das zwischengespeicherte Profil zurückgegeben, damit ein zuvor
@@ -603,32 +617,18 @@ export const auth = {
   },
 
   login: (email, password) =>
-    api.post('/api/auth/login', { email, password }).then(res => {
-      if (res.token) {
-        api.setToken(res.token);
-        if (res.refresh_token) api.setRefreshToken(res.refresh_token);
-        if (res.user) setCachedUser(res.user);
-        // Trigger PlanContext to reload plan after token is set
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('plan-updated'));
-        }
-      }
-      return res;
-    }),
+    api.post('/api/auth/login', { email, password }).then(applySession),
 
   register: (email, password, full_name) =>
-    api.post('/api/auth/register', { email, password, full_name }).then(res => {
-      if (res.token) {
-        api.setToken(res.token);
-        if (res.refresh_token) api.setRefreshToken(res.refresh_token);
-        if (res.user) setCachedUser(res.user);
-        // Trigger PlanContext to reload plan after token is set
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('plan-updated'));
-        }
-      }
-      return res;
-    }),
+    api.post('/api/auth/register', { email, password, full_name }).then(applySession),
+
+  // Clerk als zusätzlicher Anmeldeweg: Das Backend prüft das Clerk-Session-Token
+  // und stellt dafür eine normale bb_token-Sitzung aus (POST /api/auth/clerk).
+  // clerkConfig meldet, ob der Server Clerk-Tokens prüfen kann.
+  loginWithClerk: (token) =>
+    api.post('/api/auth/clerk', { token }).then(applySession),
+
+  clerkConfig: () => api.get('/api/auth/clerk/config'),
 
   linkOAuth: (provider) =>
     api.post('/api/auth/link-oauth', { provider }).then(res => {

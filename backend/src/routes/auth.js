@@ -3,6 +3,7 @@ import { supabase, supabaseUrl, supabaseKey } from '../lib/supabase.js';
 import { requireAuth, isAdminEmail, isSuperuserEmail, getFreshUser, invalidateCachedUser } from '../middleware/auth.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
+import { isClerkConfigured, resolveClerkIdentity, ClerkAuthError } from '../lib/clerkAuth.js';
 
 const router = Router();
 
@@ -74,6 +75,26 @@ router.post('/auth/refresh', async (req, res) => {
   }
 });
 
+// Neue Nutzer bekommen 24h Vollzugriff (Elite-Trial). Die Metadaten werden
+// final NACH createUser gesetzt, da der email_confirm-Schritt sie überschreibt.
+// Gilt für die Registrierung und für die erste Clerk-Anmeldung.
+async function grantSignupTrial(userId, fullName) {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase.auth.admin.updateUserById(userId, {
+    user_metadata: { full_name: fullName },
+    app_metadata: {
+      premium_plan_id: 'elite',
+      premium_expires_at: expiresAt,
+      premium_trial: true,
+      trial_started_at: now.toISOString(),
+      trial_expires_at: expiresAt,
+      trial_used: true,
+    },
+  }).catch((e) => ({ error: e }));
+  if (error) console.error('Fehler beim Setzen der Premium-Trial nach Registration:', error);
+}
+
 router.post('/auth/register', async (req, res) => {
   const { email, password, full_name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort sind erforderlich' });
@@ -93,25 +114,7 @@ router.post('/auth/register', async (req, res) => {
     return res.status(400).json({ error: msg });
   }
 
-  // Neue Nutzer bekommen 24h Vollzugriff (Elite-Trial). Wir setzen die Metadaten
-  // final NACH createUser, da der email_confirm-Schritt die Metadaten überschreibt.
-  if (created?.user?.id) {
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-    await supabase.auth.admin.updateUserById(created.user.id, {
-      user_metadata: { full_name },
-      app_metadata: {
-        premium_plan_id: 'elite',
-        premium_expires_at: expiresAt,
-        premium_trial: true,
-        trial_started_at: now.toISOString(),
-        trial_expires_at: expiresAt,
-        trial_used: true,
-      },
-    }).catch((error) => {
-      console.error('Fehler beim Setzen der Premium-Trial nach Registration:', error);
-    });
-  }
+  if (created?.user?.id) await grantSignupTrial(created.user.id, full_name);
 
   // Frisch angelegten (bestätigten) Nutzer direkt einloggen, um ein Token zu liefern.
   // Auch hier der direkte GoTrue-Call, siehe Kommentar bei passwordGrant().
@@ -125,6 +128,72 @@ router.post('/auth/register', async (req, res) => {
       id: data.user.id,
       email: data.user.email,
       full_name: data.user.user_metadata?.full_name || '',
+    },
+  });
+});
+
+// Sitzung für einen bestehenden Supabase-Nutzer ohne Passwort: Magic-Link per
+// Admin-API erzeugen (verschickt nichts) und sofort bei GoTrue einlösen. Direkter
+// REST-Call statt supabase.auth.verifyOtp — sonst läge die User-Session auf dem
+// geteilten Service-Role-Client (siehe passwordGrant()).
+async function magicLinkSession(email) {
+  const { data: link, error: linkError } = await supabase.auth.admin.generateLink({ type: 'magiclink', email });
+  const tokenHash = link?.properties?.hashed_token;
+  if (linkError || !tokenHash) {
+    return { error: linkError?.message || 'Anmeldung fehlgeschlagen' };
+  }
+  const r = await fetchWithTimeout(`${supabaseUrl}/auth/v1/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: supabaseKey },
+    body: JSON.stringify({ type: 'magiclink', token_hash: tokenHash }),
+  }, 10000);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data.access_token) {
+    return { error: data.error_description || data.msg || 'Anmeldung fehlgeschlagen' };
+  }
+  return { data };
+}
+
+// Ob der Clerk-Anmeldeweg angeboten werden kann (öffentlich). Ohne Secret am
+// Server blendet die Login-Seite ihn aus, statt den Nutzer erst bei Clerk
+// anmelden und dann mit einem Fehler zurückkommen zu lassen.
+router.get('/auth/clerk/config', (_req, res) => {
+  res.json({ enabled: isClerkConfigured() });
+});
+
+// Tauscht ein Clerk-Session-Token gegen eine normale bb_token-Sitzung. Der
+// Supabase-Nutzer wird über die bei Clerk verifizierte E-Mail gefunden bzw.
+// beim ersten Mal angelegt (mit derselben Trial wie /auth/register).
+router.post('/auth/clerk', async (req, res) => {
+  let identity;
+  try {
+    identity = await resolveClerkIdentity(req.body?.token);
+  } catch (e) {
+    if (e instanceof ClerkAuthError) return res.status(e.status).json({ error: e.message });
+    console.error('[auth/clerk] Clerk-Prüfung fehlgeschlagen:', e);
+    return res.status(502).json({ error: 'Clerk ist gerade nicht erreichbar. Bitte später erneut versuchen.' });
+  }
+
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email: identity.email,
+    email_confirm: true,
+    user_metadata: { full_name: identity.fullName },
+  });
+  const alreadyExists = createError
+    && (createError.code === 'email_exists' || /already.*registered|already.*exists|duplicate/i.test(createError.message || ''));
+  if (createError && !alreadyExists) return sendDbError(res, createError);
+  if (created?.user?.id) await grantSignupTrial(created.user.id, identity.fullName);
+
+  const { data, error } = await magicLinkSession(identity.email);
+  if (error) return res.status(401).json({ error });
+
+  return res.json({
+    token: data.access_token,
+    refresh_token: data.refresh_token,
+    user: {
+      id: data.user?.id,
+      email: data.user?.email,
+      full_name: data.user?.user_metadata?.full_name || '',
     },
   });
 });

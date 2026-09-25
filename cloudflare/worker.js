@@ -14,6 +14,7 @@
 //   - env.ASSETS      : Static-Assets-Binding (dist/)
 //   - env.BACKEND_URL : Basis-URL des Backends, z. B. https://api.<domain>
 //   - env.CRON_SECRET : Secret fuer die Cron-Authentifizierung (als Secret setzen)
+//   - env.VERCEL_BACKEND_URL / env.VERCEL_PROTECTION_BYPASS : siehe backendTarget()
 
 // Cron-Ausdruck -> Admin-Pfad. Muss synchron zu vercel.json > crons und
 // docker/cron/crontab bleiben.
@@ -24,10 +25,22 @@ const CRON_ROUTES = {
   '0 0 1 * *': '/api/admin/leaderboards/monthly/generate',
 };
 
-function backendBase(env) {
+// Das aktuelle Vercel-Backend (Konto ssbedburg) ist per Vercel Deployment
+// Protection gesperrt: ohne Freigabe antwortet es mit einem Redirect auf die
+// Vercel-Anmeldung. Der Worker schaltet deshalb erst dorthin um, wenn das
+// Secret VERCEL_PROTECTION_BYPASS ("Protection Bypass for Automation" aus dem
+// Vercel-Projekt) gesetzt ist, und schickt es als Header mit. Ohne Secret
+// bleibt BACKEND_URL das Ziel — ein Umstellen der Variable allein kann die API
+// also nicht lahmlegen, und Entfernen des Secrets schaltet zurueck.
+export function backendTarget(env) {
+  const bypass = (env.VERCEL_PROTECTION_BYPASS || '').trim();
+  const vercelBase = (env.VERCEL_BACKEND_URL || '').replace(/\/+$/, '');
+  if (bypass && vercelBase) {
+    return { base: vercelBase, headers: { 'x-vercel-protection-bypass': bypass } };
+  }
   const base = (env.BACKEND_URL || '').replace(/\/+$/, '');
   if (!base) throw new Error('BACKEND_URL is not configured');
-  return base;
+  return { base, headers: {} };
 }
 
 export default {
@@ -37,8 +50,11 @@ export default {
     // API-Verkehr an das Backend weiterreichen (inkl. SSE-Streaming: der
     // Response-Body wird unveraendert durchgereicht, Cloudflare puffert SSE nicht).
     if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
-      const target = backendBase(env) + url.pathname + url.search;
-      const proxied = new Request(target, request);
+      const { base, headers } = backendTarget(env);
+      const proxied = new Request(base + url.pathname + url.search, request);
+      // Ein vom Client mitgeschickter Bypass-Header darf nie durchgereicht werden.
+      proxied.headers.delete('x-vercel-protection-bypass');
+      for (const [name, value] of Object.entries(headers)) proxied.headers.set(name, value);
       // Original-Host fuer korrekte Absolut-URLs / Logging erhalten.
       proxied.headers.set('X-Forwarded-Host', url.host);
       proxied.headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
@@ -56,9 +72,10 @@ export default {
       return;
     }
     const run = (async () => {
-      const res = await fetch(backendBase(env) + path, {
+      const { base, headers } = backendTarget(env);
+      const res = await fetch(base + path, {
         method: 'GET',
-        headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
+        headers: { ...headers, Authorization: `Bearer ${env.CRON_SECRET}` },
       });
       const body = await res.text();
       console.log(`[cron] ${path} -> HTTP ${res.status} ${body.slice(0, 300)}`);
