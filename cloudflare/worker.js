@@ -30,17 +30,59 @@ const CRON_ROUTES = {
 // Vercel-Anmeldung. Der Worker schaltet deshalb erst dorthin um, wenn das
 // Secret VERCEL_PROTECTION_BYPASS ("Protection Bypass for Automation" aus dem
 // Vercel-Projekt) gesetzt ist, und schickt es als Header mit. Ohne Secret
-// bleibt BACKEND_URL das Ziel — ein Umstellen der Variable allein kann die API
-// also nicht lahmlegen, und Entfernen des Secrets schaltet zurueck.
-export function backendTarget(env) {
-  const bypass = (env.VERCEL_PROTECTION_BYPASS || '').trim();
-  const vercelBase = (env.VERCEL_BACKEND_URL || '').replace(/\/+$/, '');
-  if (bypass && vercelBase) {
-    return { base: vercelBase, headers: { 'x-vercel-protection-bypass': bypass } };
-  }
+// bleibt BACKEND_URL das Ziel, und Entfernen des Secrets schaltet zurueck.
+//
+// Weist Vercel den Wert trotzdem ab (falsches Projekt, falsch kopiert), faellt
+// der Worker auf BACKEND_URL zurueck (siehe isVercelAuthRedirect) — ein
+// falscher Wert darf nie die ganze API auf die Vercel-Anmeldung umleiten.
+const VERCEL_REJECT_BACKOFF_MS = 5 * 60 * 1000;
+let vercelRejectedUntil = 0;
+
+function fallbackTarget(env) {
   const base = (env.BACKEND_URL || '').replace(/\/+$/, '');
   if (!base) throw new Error('BACKEND_URL is not configured');
-  return { base, headers: {} };
+  return { base, headers: {}, canFallback: false };
+}
+
+export function backendTarget(env, now = Date.now()) {
+  const bypass = (env.VERCEL_PROTECTION_BYPASS || '').trim();
+  const vercelBase = (env.VERCEL_BACKEND_URL || '').replace(/\/+$/, '');
+  if (bypass && vercelBase && now >= vercelRejectedUntil) {
+    const hasFallback = Boolean((env.BACKEND_URL || '').trim());
+    return { base: vercelBase, headers: { 'x-vercel-protection-bypass': bypass }, canFallback: hasFallback };
+  }
+  return fallbackTarget(env);
+}
+
+// Vercel beantwortet eine nicht freigegebene Anfrage mit 401 oder einem
+// Redirect auf https://vercel.com/sso-api — nie mit einer Antwort der App.
+export function isVercelAuthRedirect(res) {
+  if (res.status === 401 && (res.headers.get('server') || '').toLowerCase() === 'vercel'
+    && !(res.headers.get('content-type') || '').includes('application/json')) return true;
+  if (res.status < 300 || res.status >= 400) return false;
+  const location = res.headers.get('location') || '';
+  return location.startsWith('https://vercel.com/sso-api') || location.startsWith('https://vercel.com/login');
+}
+
+function markVercelRejected() {
+  vercelRejectedUntil = Date.now() + VERCEL_REJECT_BACKOFF_MS;
+  console.error('[backend] Vercel lehnt VERCEL_PROTECTION_BYPASS ab — nutze BACKEND_URL. Secret pruefen.');
+}
+
+// Nur fuer Tests.
+export function _resetVercelRejection() {
+  vercelRejectedUntil = 0;
+}
+
+function proxyRequest(target, request, url) {
+  const proxied = new Request(target.base + url.pathname + url.search, request);
+  // Ein vom Client mitgeschickter Bypass-Header darf nie durchgereicht werden.
+  proxied.headers.delete('x-vercel-protection-bypass');
+  for (const [name, value] of Object.entries(target.headers)) proxied.headers.set(name, value);
+  // Original-Host fuer korrekte Absolut-URLs / Logging erhalten.
+  proxied.headers.set('X-Forwarded-Host', url.host);
+  proxied.headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
+  return proxied;
 }
 
 export default {
@@ -50,15 +92,14 @@ export default {
     // API-Verkehr an das Backend weiterreichen (inkl. SSE-Streaming: der
     // Response-Body wird unveraendert durchgereicht, Cloudflare puffert SSE nicht).
     if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
-      const { base, headers } = backendTarget(env);
-      const proxied = new Request(base + url.pathname + url.search, request);
-      // Ein vom Client mitgeschickter Bypass-Header darf nie durchgereicht werden.
-      proxied.headers.delete('x-vercel-protection-bypass');
-      for (const [name, value] of Object.entries(headers)) proxied.headers.set(name, value);
-      // Original-Host fuer korrekte Absolut-URLs / Logging erhalten.
-      proxied.headers.set('X-Forwarded-Host', url.host);
-      proxied.headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
-      return fetch(proxied);
+      const target = backendTarget(env);
+      if (!target.canFallback) return fetch(proxyRequest(target, request, url));
+      // Kopie vor dem ersten Versuch: der Body laesst sich nur einmal lesen.
+      const retry = request.clone();
+      const res = await fetch(proxyRequest(target, request, url));
+      if (!isVercelAuthRedirect(res)) return res;
+      markVercelRejected();
+      return fetch(proxyRequest(fallbackTarget(env), retry, url));
     }
 
     // Alles andere: statische SPA aus dem Assets-Binding.
@@ -72,11 +113,18 @@ export default {
       return;
     }
     const run = (async () => {
-      const { base, headers } = backendTarget(env);
-      const res = await fetch(base + path, {
+      const call = ({ base, headers }) => fetch(base + path, {
         method: 'GET',
+        // Nicht folgen: sonst endet ein abgewiesener Aufruf als 200 auf der Vercel-Anmeldeseite.
+        redirect: 'manual',
         headers: { ...headers, Authorization: `Bearer ${env.CRON_SECRET}` },
       });
+      const target = backendTarget(env);
+      let res = await call(target);
+      if (target.canFallback && isVercelAuthRedirect(res)) {
+        markVercelRejected();
+        res = await call(fallbackTarget(env));
+      }
       const body = await res.text();
       console.log(`[cron] ${path} -> HTTP ${res.status} ${body.slice(0, 300)}`);
       if (!res.ok) throw new Error(`Cron ${path} failed with HTTP ${res.status}`);
