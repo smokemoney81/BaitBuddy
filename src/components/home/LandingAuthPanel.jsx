@@ -227,13 +227,14 @@ export default function LandingAuthPanel() {
         />
       )}
       <div className="bb-landing-auth">
-        {view === 'intro' && (
+        {view === ‘intro’ && (
           <>
             <LandingPitch />
-            <button type="button" onClick={() => setView('choice')} className="bb-landing-btn is-cta">
+            <button type="button" onClick={() => setView(‘choice’)} className="bb-landing-btn is-cta">
               <span>Los geht’s</span>
               <ChevronRight className="bb-landing-btn-arrow" aria-hidden="true" />
             </button>
+            <AndroidInstallButton />
           </>
         )}
         {view === 'choice' && (
