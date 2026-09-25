@@ -466,7 +466,7 @@ function LayoutContent({ children, currentPageName }) {
                     onOpenCommandCenter={() => setIsSidebarOpen(true)}
                     title={PAGE_TOP_BARS[currentPageName]?.title}
                     action={PAGE_TOP_BARS[currentPageName]?.action}
-                    hideEventTimer={PAGE_TOP_BARS[currentPageName]?.hideEventTimer}
+                    showEventTimer={currentPageName === 'Dashboard'}
                   />
                 )}
 
