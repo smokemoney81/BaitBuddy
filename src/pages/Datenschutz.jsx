@@ -60,6 +60,9 @@ export default function Datenschutz() {
             <p>
               Für KI-Funktionen werden Nutzereingaben an externe KI-APIs übermittelt. Die Verarbeitung erfolgt ausschließlich zur Beantwortung der Anfrage. Eine Nutzung zu Trainingszwecken findet nicht statt.
             </p>
+            <p className="mt-2">
+              In der Android-App kann der KI-Buddy optional auf dem Gerät antworten (Einstellungen &gt; KI-Buddy &gt; KI-Modus). Das Sprachmodell wird nur nach deiner Zustimmung von Hugging Face heruntergeladen; dabei sieht Hugging Face deine IP-Adresse, aber keine BaitBuddy-Daten. Fragen und Antworten werden dann auf deinem Gerät berechnet und nicht an eine Cloud-KI gesendet. Wetter, Fangbuch und Spots ruft der Buddy weiterhin über die jeweiligen Dienste ab; Vorlesen und Spracherkennung laufen weiterhin über Online-Sprachdienste. Das Modell lässt sich jederzeit in den Einstellungen entfernen.
+            </p>
           </Section>
 
           <Section number="6" title="Speicherung und Löschung">

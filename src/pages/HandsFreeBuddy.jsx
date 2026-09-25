@@ -17,6 +17,7 @@ import { readTripStart, writeTripStart } from '@/lib/anglerMode';
 import { readPrivacyPrefs } from '@/lib/privacyPrefs';
 import { detectWakeWord, HANDS_FREE_EXAMPLES, HANDS_FREE_IDLE_SECONDS } from '@/lib/wakeWord';
 import { fishImageFor } from '@/lib/fishImages';
+import { useLocalBuddy } from '@/hooks/useLocalBuddy';
 
 const HISTORY_TURNS = 10;
 const FATAL_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'audio-capture']);
@@ -54,6 +55,7 @@ const STEP_INDEX = { waiting: -1, listening: 1, thinking: 2, speaking: 3 };
 function HandsFreeInner() {
   const navigate = useNavigate();
   const { buddy } = useBuddyPreferences();
+  const localBuddy = useLocalBuddy();
   const { currentLocation } = useGeoLocation();
   const [prefs] = useState(() => readPrivacyPrefs());
   const wakeWordOn = prefs.wakeWord;
@@ -203,31 +205,71 @@ function HandsFreeInner() {
     const userLocation = loc?.lat != null ? { latitude: loc.lat, longitude: loc.lon } : null;
 
     const speak = buddy.voiceEnabled !== false;
-    const queue = speak ? createSpeechQueue({ rate: 1.0, onDrain: () => resumeListening() }) : null;
+    let queue = speak ? createSpeechQueue({ rate: 1.0, onDrain: () => resumeListening() }) : null;
     queueRef.current = queue;
     let raw = '';
     let spokenLen = 0;
     let result = null;
 
+    // KI auf dem Gerät: streamt Text-Stücke direkt in die Sprech-Queue.
+    const runOnDevice = async () => {
+      raw = '';
+      spokenLen = 0;
+      const res = await localBuddy.askLocal({
+        history: historyRef.current.slice(0, -1),
+        question,
+        signal: controller.signal,
+        context: { navigate, userLocation },
+        onDelta: (delta) => {
+          if (!activeRef.current) return;
+          raw += delta;
+          if (queue) {
+            if (phaseRef.current !== 'speaking') setPhaseBoth('speaking');
+            queue.push(delta);
+            spokenLen = raw.length;
+          }
+        },
+      });
+      return { reply: res.reply, action: res.action, notices: res.notices, onDevice: true };
+    };
+
     try {
-      try {
-        result = await ai.chatStream(historyRef.current, userLocation, {
-          signal: controller.signal,
-          onDelta: (delta) => {
-            if (!activeRef.current) return;
-            raw += delta;
-            const visible = stripActionMarker(raw);
-            if (queue && visible.length > spokenLen) {
-              if (phaseRef.current !== 'speaking') setPhaseBoth('speaking');
-              queue.push(visible.slice(spokenLen));
-              spokenLen = visible.length;
-            }
-          },
-        });
-      } catch {
-        if (controller.signal.aborted) return;
-        spokenLen = 0;
-        result = await ai.chat(historyRef.current, userLocation);
+      const engine = localBuddy.engineFor();
+      if (engine === 'none') {
+        throw Object.assign(new Error('Die KI auf dem Gerät ist noch nicht eingerichtet.'), { code: 'local_unavailable' });
+      }
+      if (engine === 'local') {
+        result = await runOnDevice();
+      } else {
+        try {
+          result = await ai.chatStream(historyRef.current, userLocation, {
+            signal: controller.signal,
+            onDelta: (delta) => {
+              if (!activeRef.current) return;
+              raw += delta;
+              const visible = stripActionMarker(raw);
+              if (queue && visible.length > spokenLen) {
+                if (phaseRef.current !== 'speaking') setPhaseBoth('speaking');
+                queue.push(visible.slice(spokenLen));
+                spokenLen = visible.length;
+              }
+            },
+          });
+        } catch {
+          if (controller.signal.aborted) return;
+          spokenLen = 0;
+          try {
+            result = await ai.chat(historyRef.current, userLocation);
+          } catch (cloudError) {
+            // Automatik-Modus: ohne Cloud antwortet das Gerät.
+            if (!localBuddy.canFallBack || controller.signal.aborted) throw cloudError;
+            queue?.cancel();
+            const deviceQueue = speak ? createSpeechQueue({ rate: 1.0, onDrain: () => resumeListening() }) : null;
+            queueRef.current = deviceQueue;
+            queue = deviceQueue;
+            result = await runOnDevice();
+          }
+        }
       }
       if (!activeRef.current) return;
 
@@ -240,12 +282,19 @@ function HandsFreeInner() {
         const outcome = await executeBuddyAction(action, { navigate, userLocation });
         if (outcome?.message) answer += ` ${outcome.message}`;
       }
+      for (const notice of result?.notices || []) answer += ` ${notice}`;
       historyRef.current = [...historyRef.current, { role: 'assistant', content: answer }].slice(-HISTORY_TURNS);
       setLog(prev => [...prev.slice(-5), { role: 'assistant', text: answer }]);
 
       if (queue) {
         setPhaseBoth('speaking');
-        if (answer.length > spokenLen) queue.push(answer.slice(spokenLen));
+        // Gerät: Gestreamtes ist schon in der Queue, nur Zusätze fehlen noch.
+        if (result?.onDevice && spokenLen > 0) {
+          const extra = answer.slice((result.reply || '').length).trim();
+          if (extra) queue.push(` ${extra}`);
+        } else if (answer.length > spokenLen) {
+          queue.push(answer.slice(spokenLen));
+        }
         queue.flush();
       } else {
         resumeListening();
@@ -253,14 +302,16 @@ function HandsFreeInner() {
     } catch (error) {
       if (controller.signal.aborted || !activeRef.current) return;
       queue?.cancel();
-      const message = error?.status === 429
-        ? 'Dein Tageslimit für den KI-Buddy ist erreicht.'
-        : 'Keine Verbindung zum Buddy. Ich höre weiter zu.';
+      const message = error?.code === 'local_unavailable'
+        ? 'Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter.'
+        : error?.status === 429
+          ? 'Dein Tageslimit für den KI-Buddy ist erreicht.'
+          : 'Keine Verbindung zum Buddy. Ich höre weiter zu.';
       setLog(prev => [...prev.slice(-5), { role: 'system', text: message }]);
       if (error?.status === 429) stopHandsFree(message);
       else resumeListening();
     }
-  }, [buddy.voiceEnabled, navigate, resumeListening, setPhaseBoth, stopHandsFree, stopRecognition]);
+  }, [buddy.voiceEnabled, localBuddy, navigate, resumeListening, setPhaseBoth, stopHandsFree, stopRecognition]);
 
   // Erkannter Satz → Aktivierungswort prüfen oder direkt als Frage stellen.
   utteranceRef.current = (text) => {
