@@ -317,9 +317,11 @@ Start via `POST /api/events`). Sie ist **nicht** mehr in der Community-Sektion
    fehlen auch im Archiv.
 
 **Event-Countdown** (`src/components/header/EventTimer.jsx`): eigene Zeile unter
-der Kopfzeile mit Event-Name + Restzeit bis `end_date` des laufenden Events, das
+der Kopfzeile des Dashboards mit Event-Name + Restzeit bis `end_date` des laufenden Events, das
 als nächstes endet (`GET /api/events/user/active-event`, nur sichtbare Events).
 Die Restzeit wird jede Sekunde aus `end_date` berechnet, nicht hochgezählt.
+Die Zeile erscheint **nur auf dem Dashboard** (`showEventTimer` in `Layout.jsx` →
+`AppTopBar`), alle anderen Seiten zeigen keinen Countdown.
 
 ## 🗄️ Datenbank-Migrationen (automatisierter Deploy)
 

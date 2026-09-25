@@ -2058,7 +2058,20 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   -webkit-overflow-scrolling: touch;
   padding: 2px;
 }
-.bb-voice-system { text-align: center; font-size: 13px; color: #b9cbdb; font-style: italic; }
+/* Buddy-Begrüßung/Systemtext: eigene dunkle Fläche statt kursiver grauer
+   Schrift direkt auf dem Seefoto — sonst auf hellen Himmelspartien kaum lesbar. */
+.bb-voice-system {
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: #f2f8fc;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(8, 20, 34, .82);
+  border: 1px solid rgba(0,229,255,.28);
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
 .bb-voice-row { display: flex; align-items: flex-end; gap: 6px; }
 .bb-voice-row.is-user { justify-content: flex-end; }
 .bb-voice-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; border: 1.5px solid var(--bb-cyan); background: #0d1a2a; }
@@ -2069,8 +2082,8 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   border-radius: 16px 16px 16px 4px;
   font-size: 14px;
   line-height: 1.4;
-  color: #eef5fa;
-  background: rgba(12, 30, 48, .85);
+  color: #f4f9fc;
+  background: rgba(10, 26, 42, .92);
   border: 1px solid rgba(0,229,255,.28);
   white-space: pre-wrap;
 }
