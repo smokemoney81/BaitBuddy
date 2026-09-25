@@ -58,6 +58,7 @@ describe('LandingAuthPanel — Anmeldung', () => {
   it('meldet mit E-Mail und Passwort an und navigiert ins Dashboard', async () => {
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
@@ -71,6 +72,7 @@ describe('LandingAuthPanel — Anmeldung', () => {
     authMock.login.mockRejectedValueOnce({ data: { error: 'Falsche Zugangsdaten' } });
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'falsch');
@@ -84,6 +86,7 @@ describe('LandingAuthPanel — Anmeldung', () => {
     isOnlineMock.mockReturnValue(false);
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
@@ -97,6 +100,7 @@ describe('LandingAuthPanel — Anmeldung', () => {
     maybeShowEventPopupMock.mockResolvedValueOnce(true);
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'a@b.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
@@ -107,12 +111,27 @@ describe('LandingAuthPanel — Anmeldung', () => {
   });
 });
 
+describe('LandingAuthPanel — Startauswahl', () => {
+  it('zeigt die Auswahl der Vorlage und öffnet das Formular erst auf Wunsch', async () => {
+    const user = userEvent.setup();
+    render(<LandingAuthPanel />);
+    for (const name of [/Mit Google fortfahren/, 'Mit E-Mail anmelden', 'Vorhandenes Konto', 'Als Gast ausprobieren']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByPlaceholderText('E-Mail Adresse')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
+    expect(screen.getByPlaceholderText('E-Mail Adresse')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Zurück zur Auswahl' }));
+    expect(screen.getByRole('button', { name: 'Als Gast ausprobieren' })).toBeInTheDocument();
+  });
+});
+
 describe('LandingAuthPanel — Registrierung', () => {
   it('wechselt in den Registrierungsmodus und legt ein Konto an', async () => {
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
 
-    await user.click(screen.getByRole('button', { name: 'Registrieren' }));
+    await user.click(screen.getByRole('button', { name: 'Mit E-Mail anmelden' }));
     // Im Registrierungsmodus kommt das Namensfeld dazu.
     const nameField = await screen.findByPlaceholderText('Vollständiger Name');
     await user.type(nameField, 'Test Angler');
@@ -126,8 +145,10 @@ describe('LandingAuthPanel — Registrierung', () => {
     expect(authMock.login).not.toHaveBeenCalled();
   });
 
-  it('blendet das Namensfeld im Anmeldemodus aus', () => {
+  it('blendet das Namensfeld im Anmeldemodus aus', async () => {
+    const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
     expect(screen.queryByPlaceholderText('Vollständiger Name')).toBeNull();
   });
 });
@@ -136,6 +157,7 @@ describe('LandingAuthPanel — Passwort zuruecksetzen', () => {
   it('verlangt zuerst eine E-Mail-Adresse', async () => {
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.click(screen.getByRole('button', { name: 'Passwort vergessen?' }));
 
@@ -146,6 +168,7 @@ describe('LandingAuthPanel — Passwort zuruecksetzen', () => {
   it('verschickt den Reset-Link und bestaetigt neutral (kein Konto-Leak)', async () => {
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.click(screen.getByRole('button', { name: 'Passwort vergessen?' }));
@@ -165,6 +188,7 @@ describe('LandingAuthPanel — Passwort zuruecksetzen', () => {
     });
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.click(screen.getByRole('button', { name: 'Passwort vergessen?' }));
@@ -202,7 +226,7 @@ describe('LandingAuthPanel — Social Login und Gastzugang', () => {
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
 
-    await user.click(screen.getByRole('button', { name: 'Als Gast fortfahren' }));
+    await user.click(screen.getByRole('button', { name: 'Als Gast ausprobieren' }));
 
     expect(setGuestSessionMock).toHaveBeenCalledWith({ is_guest: true });
     expect(assignedHref).toBe('/Dashboard');
@@ -214,6 +238,7 @@ describe('LandingAuthPanel — OAuth Migration Modal', () => {
     authMock.me.mockResolvedValueOnce({ oauth_linked: false });
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
@@ -229,6 +254,7 @@ describe('LandingAuthPanel — OAuth Migration Modal', () => {
     authMock.me.mockResolvedValueOnce({ oauth_linked: true });
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
@@ -241,6 +267,7 @@ describe('LandingAuthPanel — OAuth Migration Modal', () => {
     authMock.me.mockResolvedValueOnce({ oauth_linked: false });
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     await user.type(screen.getByPlaceholderText('E-Mail Adresse'), 'angler@baitbuddy.test');
     await user.type(screen.getByPlaceholderText('Passwort'), 'geheim123');
@@ -257,6 +284,7 @@ describe('LandingAuthPanel — Passwort-Sichtbarkeit', () => {
   it('schaltet zwischen verborgenem und sichtbarem Passwort um', async () => {
     const user = userEvent.setup();
     render(<LandingAuthPanel />);
+    await user.click(screen.getByRole('button', { name: 'Vorhandenes Konto' }));
 
     const field = screen.getByPlaceholderText('Passwort');
     expect(field).toHaveAttribute('type', 'password');
