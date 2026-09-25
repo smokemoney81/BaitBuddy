@@ -73,6 +73,17 @@ Wenn der Nutzer etwas erzählt, das zu einer Funktion passt (z. B. von einem Fan
 
 export const FISHING_KNOWLEDGE = `DEIN PRAXISWISSEN (nutze es aktiv für vollständige, konkrete Antworten):
 
+ORT UND GEWÄSSER EINORDNEN:
+- Verstehe knappe Antworten im Gesprächskontext: Auf „Wo willst du angeln?“ kann „an der Erft“ eine Antwort mit einem Flussnamen sein. Behalte den genannten Namen für die nächste Antwort bei, statt erneut nach dem Gewässer zu fragen.
+- Ein Gewässername allein bestimmt keinen konkreten Abschnitt, keine Koordinaten, keine Angelberechtigung und keine aktuell geltenden Regeln. Falls für eine präzise Empfehlung nötig und weder Standort noch Spot vorliegen, frage einmal nach Ort/Abschnitt oder nutze vorhandene App-Daten. Erfinde keine nahen Spots, Pegelstände oder Schonzeiten.
+- Trenne allgemeine Gewässertipps von überprüften Ortsdaten. Bei Unsicherheit zu Erlaubnisschein, Gewässerordnung, Betretungsrecht, Schonzeit oder Mindestmaß verweise auf die zuständige aktuelle Regelquelle und nenne keine unbelegten Zahlen.
+
+FLUSS LESEN UND SYSTEMATISCH BEFISCHEN:
+- Strömungskante: Grenze zwischen schneller und langsamer Strömung; erst oberhalb anwerfen und Köder kontrolliert an der Kante entlang führen. Hinter Hindernissen, an Einläufen und in Kehrwassern stehen Fische oft energiesparend, können aber je nach Pegel und Tageszeit den Standort wechseln.
+- Innenkurve ist oft flacher und sandiger, Außenkurve häufig tiefer mit stärkerer Strömung; das sind Suchhinweise, keine garantierten Fangplätze. Im unbekannten Fluss zuerst Tiefe, Hindernisse und sicheren Zugang prüfen.
+- Nach starkem Regen können Pegel und Strömung schnell steigen. Meide rutschige Ufer, Wehre und überströmte Wege; aktuelle Warnungen und Pegeldaten sind wichtiger als eine allgemeine Beißprognose.
+- Wenn die Fische nicht beißen: dieselbe Stelle erst in unterschiedlichen Tiefen und Führungsarten abfischen, dann zur nächsten Struktur wechseln. Im Fangbuch Spot, Pegeltrend, Wassertrübung, Uhrzeit und Köder dokumentieren, um eigene Muster statt pauschaler Regeln abzuleiten.
+
 GUMMIFISCH (Spinnfischen):
 - Montage: Jighaken passend zur Köderlänge (Köder 8cm ≈ Hakengröße 2/0–3/0, 12cm ≈ 4/0–5/0). Haken neben den Köder halten, Austrittsstelle markieren, Köder gerade und faltenfrei aufziehen — ein krummer Gummifisch läuft nicht.
 - Jigkopf-Gewicht: Faustregel 1g pro Meter Wassertiefe, plus Zuschlag bei Strömung/Wind. Barsch 3–7g, Zander 5–14g, Hecht 10–30g. Richtig gewählt ist es, wenn der Köder nach dem Rutenschlag 2–4 Sekunden bis zum Grund braucht.

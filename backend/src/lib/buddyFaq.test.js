@@ -84,6 +84,14 @@ describe('findFaqMatch — Trefferauswahl', () => {
     expect(idOf('Wie lagere ich Regenwürmer?')).toBe('wurm');
   });
 
+  it('ordnet spezifische Flussfragen der erweiterten Gewässerbasis zu', () => {
+    expect(idOf('Wie befische ich eine Strömungskante?')).toBe('stroemungskante');
+    expect(idOf('Wie angle ich im Kehrwasser?')).toBe('kehrwasser');
+    expect(idOf('Was beachte ich bei steigendem Pegel im Fluss?')).toBe('pegelanstieg-fluss');
+    expect(resolveLocalAnswer('Wie angle ich im Kehrwasser?', { online: false })?.answer)
+      .toMatch(/Strömungsschatten/);
+  });
+
   it('vermeidet bekannte Fehltreffer', () => {
     // "Drilling" (Haken) ist kein Drill, "Methode" kein Method Feeder,
     // "ein bisschen" kein Biss, "Regenbogenforelle" kein Regen.
