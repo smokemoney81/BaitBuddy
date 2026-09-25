@@ -232,3 +232,148 @@ describe('GET /api/events/archive', () => {
     expect(events.eq).toHaveBeenCalledWith('visibility', 'public');
   });
 });
+
+describe('Nutzer & Pläne', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const users = () => [
+    {
+      id: 'u-old', email: 'alt@baitbuddy.test', created_at: '2026-01-01T00:00:00Z',
+      last_sign_in_at: '2026-09-01T10:00:00Z', email_confirmed_at: '2026-01-01T00:00:00Z',
+      user_metadata: { full_name: 'Alte Anglerin' },
+      app_metadata: { provider: 'email', providers: ['email'], premium_plan_id: 'basic', premium_expires_at: new Date(Date.now() + 10 * DAY).toISOString(), premium_pass_expires_at: new Date(Date.now() + 3 * DAY).toISOString(), refresh_marker: 'bleibt' },
+    },
+    {
+      id: 'u-new', email: 'neu@baitbuddy.test', created_at: '2026-09-20T00:00:00Z',
+      last_sign_in_at: '2026-09-24T08:00:00Z',
+      user_metadata: { nickname: 'Hecht99' },
+      app_metadata: { provider: 'google', providers: ['google', 'email'] },
+    },
+    {
+      id: 'u-never', email: 'nie@baitbuddy.test', created_at: '2026-09-22T00:00:00Z',
+      last_sign_in_at: null, user_metadata: {}, app_metadata: {},
+    },
+  ];
+
+  it('listet alle Konten, zuletzt angemeldete zuerst, mit tatsächlich geltendem Plan', async () => {
+    await boot({ adminUsers: users() });
+    const res = await auth(request(app).get('/api/superadmin/users'));
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(3);
+    expect(res.body.users.map((u) => u.id)).toEqual(['u-new', 'u-old', 'u-never']);
+
+    const old = res.body.users.find((u) => u.id === 'u-old');
+    expect(old).toMatchObject({
+      full_name: 'Alte Anglerin',
+      email_confirmed: true,
+      providers: ['email'],
+      plan: { id: 'elite', source: 'premium_pass' },
+      subscription: { id: 'basic' },
+    });
+    const fresh = res.body.users.find((u) => u.id === 'u-new');
+    expect(fresh).toMatchObject({ full_name: 'Hecht99', providers: ['google', 'email'], plan: { id: 'free' } });
+    // Keine rohen Metadaten oder Tokens in der Antwort.
+    expect(JSON.stringify(res.body)).not.toContain('refresh_marker');
+  });
+
+  it('ist nur für den Superuser erreichbar', async () => {
+    await boot({ authUser: ADMIN, adminUsers: users() });
+    const list = await auth(request(app).get('/api/superadmin/users'));
+    expect(list.status).toBe(403);
+    const assign = await auth(request(app).post('/api/superadmin/users/u-new/plan').send({ plan_id: 'elite', duration_days: 30 }));
+    expect(assign.status).toBe(403);
+    expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('weist einen Plan zu, behält die übrigen app_metadata und liefert den neuen Stand', async () => {
+    await boot({ adminUsers: users() });
+    const res = await auth(request(app).post('/api/superadmin/users/u-new/plan').send({ plan_id: 'pro', duration_days: 90 }));
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, plan_id: 'pro', user: { id: 'u-new', plan: { id: 'pro', source: 'subscription' } } });
+    const days = (new Date(res.body.expires_at).getTime() - Date.now()) / DAY;
+    expect(days).toBeGreaterThan(89.9);
+    expect(days).toBeLessThanOrEqual(90);
+
+    const [id, attrs] = supabaseMock.current.auth.admin.updateUserById.mock.calls[0];
+    expect(id).toBe('u-new');
+    expect(attrs.app_metadata).toMatchObject({
+      provider: 'google',
+      providers: ['google', 'email'],
+      premium_plan_id: 'pro',
+      premium_payment_method: 'admin',
+      premium_assigned_by: 'Kaisaschnitt99@gmail.com',
+    });
+    expect(attrs.user_metadata).toBeUndefined();
+  });
+
+  it('entzieht einen Plan mit "free"', async () => {
+    await boot({ adminUsers: users() });
+    const res = await auth(request(app).post('/api/superadmin/users/u-old/plan').send({ plan_id: 'free' }));
+    expect(res.status).toBe(200);
+    expect(res.body.expires_at).toBeNull();
+    expect(res.body.user.subscription).toMatchObject({ id: 'free', expires_at: null });
+  });
+
+  it('prüft Plan, Laufzeit und Zielkonto', async () => {
+    await boot({ adminUsers: users() });
+    expect((await auth(request(app).post('/api/superadmin/users/u-new/plan').send({ plan_id: 'gold' }))).status).toBe(400);
+    expect((await auth(request(app).post('/api/superadmin/users/u-new/plan').send({ plan_id: 'pro', duration_days: 0 }))).status).toBe(400);
+    expect((await auth(request(app).post('/api/superadmin/users/u-new/plan').send({ plan_id: 'pro', duration_days: 4000 }))).status).toBe(400);
+    expect((await auth(request(app).post('/api/superadmin/users/gibt-es-nicht/plan').send({ plan_id: 'pro' }))).status).toBe(404);
+    expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+});
+
+describe('App-Schalter (Werbung, alle Tools kostenlos)', () => {
+  const row = (value) => ({ app_config: { data: { value, updated_at: '2026-09-25T10:00:00Z' }, error: null } });
+
+  it('liefert öffentlich die Standardwerte, solange nichts gespeichert ist', async () => {
+    await boot({ authUser: null });
+    const res = await request(app).get('/api/app/settings');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ads_enabled: true, all_tools_free: false });
+  });
+
+  it('fällt bei fehlender Tabelle auf die Standardwerte zurück (nie Werbung aus oder alles gratis)', async () => {
+    await boot({ authUser: null, fromResults: { app_config: { data: null, error: { message: 'relation "app_config" does not exist' } } } });
+    const res = await request(app).get('/api/app/settings');
+    expect(res.body).toEqual({ ads_enabled: true, all_tools_free: false });
+  });
+
+  it('liefert gespeicherte Werte aus', async () => {
+    await boot({ authUser: null, fromResults: row({ ads_enabled: false, all_tools_free: true }) });
+    const res = await request(app).get('/api/app/settings');
+    expect(res.body).toEqual({ ads_enabled: false, all_tools_free: true });
+    const ads = await request(app).get('/api/ads/config');
+    expect(ads.body.ads_enabled).toBe(false);
+  });
+
+  it('lässt nur den Superuser umschalten und speichert nur Booleans', async () => {
+    await boot({ authUser: ADMIN });
+    const denied = await auth(request(app).patch('/api/superadmin/settings').send({ ads_enabled: false }));
+    expect(denied.status).toBe(403);
+
+    await boot();
+    const bad = await auth(request(app).patch('/api/superadmin/settings').send({ all_tools_free: 'ja' }));
+    expect(bad.status).toBe(400);
+    const empty = await auth(request(app).patch('/api/superadmin/settings').send({}));
+    expect(empty.status).toBe(400);
+
+    const ok = await auth(request(app).patch('/api/superadmin/settings').send({ all_tools_free: true }));
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ ads_enabled: true, all_tools_free: true, updated_by: 'Kaisaschnitt99@gmail.com' });
+    const upsert = supabaseMock.current.__builders.app_config.upsert;
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'app_settings', value: { ads_enabled: true, all_tools_free: true, updated_by: 'Kaisaschnitt99@gmail.com' } }),
+      { onConflict: 'key' },
+    );
+    // Sofort wirksam, ohne auf den Cache zu warten.
+    const pub = await request(app).get('/api/app/settings');
+    expect(pub.body.all_tools_free).toBe(true);
+  });
+
+  it('meldet 503, wenn nicht gespeichert werden kann', async () => {
+    await boot({ fromResults: { app_config: { data: null, error: { message: 'relation "app_config" does not exist' } } } });
+    const res = await auth(request(app).patch('/api/superadmin/settings').send({ ads_enabled: false }));
+    expect(res.status).toBe(503);
+  });
+});

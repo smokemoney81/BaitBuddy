@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   supabase: { from: vi.fn() },
   resolvePlan: vi.fn(),
+  isAllToolsFree: vi.fn(async () => false),
 }));
 
 vi.mock('./supabase.js', () => ({ supabase: mocks.supabase }));
+vi.mock('./appSettings.js', () => ({ isAllToolsFree: mocks.isAllToolsFree }));
 vi.mock('./planResolver.js', async (importOriginal) => ({
   ...(await importOriginal()),
   resolvePlan: mocks.resolvePlan,
@@ -31,6 +33,15 @@ function unlockQuery(result) {
 describe('resolveServerToolAccess', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.isAllToolsFree.mockResolvedValue(false);
+  });
+
+  it('opens every tool while the admin switch "alle Tools kostenlos" is on', async () => {
+    mocks.supabase.from.mockReturnValue(unlockQuery({ data: null, error: null }));
+    mocks.resolvePlan.mockReturnValue({ isActive: false, effectiveId: 'free' });
+    mocks.isAllToolsFree.mockResolvedValue(true);
+    const access = await resolveServerToolAccess({ user: { id: 'u1' }, toolId: 'premium_voice', requiredPlanRank: 3 });
+    expect(access.allowed).toBe(true);
   });
 
   it('allows a permanent server-owned Premium Voice unlock without Premium', async () => {

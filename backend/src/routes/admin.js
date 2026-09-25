@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { listAllUsers } from '../lib/adminUsers.js';
-import { PLAN_RANK } from '../lib/planResolver.js';
+import { assignPlan } from '../lib/planAssignment.js';
 import { sendDbError } from '../lib/errorResponse.js';
 
 const router = Router();
@@ -97,62 +97,16 @@ router.get('/admin/premium/check-expiry', requireCronAuth, async (req, res) => {
 //
 // Zulässige Plan-IDs kommen aus derselben Rangtabelle wie das übrige
 // Feature-Gating; 'free' entzieht den Plan.
-const ASSIGNABLE_PLANS = new Set([...Object.keys(PLAN_RANK), 'free']);
-const MAX_DURATION_DAYS = 3650;
-
 router.post('/admin/plans/assign', requireAuth, requireAdmin, async (req, res) => {
   const { target_user_id, plan_id, duration_days } = req.body || {};
-
-  if (!target_user_id || typeof target_user_id !== 'string') {
-    return res.status(400).json({ error: 'target_user_id erforderlich' });
-  }
-  if (!plan_id || !ASSIGNABLE_PLANS.has(plan_id)) {
-    return res.status(400).json({ error: 'Unbekannte oder fehlende plan_id' });
-  }
-
-  const days = Number(duration_days ?? 30);
-  if (!Number.isFinite(days) || days < 1 || days > MAX_DURATION_DAYS) {
-    return res.status(400).json({ error: `duration_days muss zwischen 1 und ${MAX_DURATION_DAYS} liegen` });
-  }
-
-  // Bestehende Metadaten laden und mergen — updateUserById ersetzt
-  // user_metadata komplett, ein Teil-Objekt würde Profil, Einstellungen und
-  // Referral-Daten des Nutzers löschen.
-  const { data: found, error: loadError } = await supabase.auth.admin.getUserById(target_user_id);
-  if (loadError) return sendDbError(res, loadError);
-  const targetUser = found?.user;
-  if (!targetUser) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-
-  const current = targetUser.app_metadata || {};
-  const isRevoke = plan_id === 'free';
-
-  const merged = {
-    ...current,
-    premium_plan_id: isRevoke ? 'free' : plan_id,
-    premium_expires_at: isRevoke
-      ? null
-      : new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
-    premium_trial: false,
-    premium_payment_method: isRevoke ? null : 'admin',
-    premium_activated_at: new Date().toISOString(),
-    premium_activation_version: (current.premium_activation_version || 0) + 1,
-    // Nachvollziehbarkeit: wer hat den Plan von Hand gesetzt.
-    premium_assigned_by: req.user.email,
-  };
-
-  const { error: updateError } = await supabase.auth.admin.updateUserById(target_user_id, {
-    app_metadata: merged,
+  const result = await assignPlan({
+    targetUserId: target_user_id,
+    planId: plan_id,
+    durationDays: duration_days,
+    assignedBy: req.user.email,
   });
-  if (updateError) return sendDbError(res, updateError);
-
-  console.log(`[admin] ${req.user.email} hat ${targetUser.email} den Plan "${merged.premium_plan_id}" zugewiesen`);
-
-  return res.json({
-    ok: true,
-    plan_id: merged.premium_plan_id,
-    expires_at: merged.premium_expires_at,
-    user_email: targetUser.email || null,
-  });
+  if (result.error) return sendDbError(res, result.error);
+  return res.status(result.status).json(result.body);
 });
 
 export default router;

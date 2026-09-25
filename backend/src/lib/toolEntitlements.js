@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js';
 import { resolvePlan, planRank } from './planResolver.js';
 import { resolveToolAccess } from './entitlementResolver.js';
+import { isAllToolsFree } from './appSettings.js';
 
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/;
 
@@ -47,7 +48,8 @@ export async function resolveServerToolAccess({ user, toolId, requiredPlanRank =
   }
 
   const { isActive, effectiveId } = resolvePlan(user);
-  const premiumActive = isActive && planRank(effectiveId) >= requiredPlanRank;
+  // Modus „alle Tools kostenlos“ (Admin-Bereich) zählt wie ein passender Plan.
+  const premiumActive = (isActive && planRank(effectiveId) >= requiredPlanRank) || await isAllToolsFree();
   return resolveToolAccess({
     premiumActive,
     permanentUnlock: Boolean(permanentUnlock),

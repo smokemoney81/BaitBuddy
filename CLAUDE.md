@@ -399,6 +399,10 @@ Details in `supabase/README.md`.
   `IF NOT EXISTS` nur den **Namen**, nicht die Spalten-Abdeckung.
 - Secrets `SUPABASE_ACCESS_TOKEN` und `SUPABASE_DB_PASSWORD` müssen in den
   Repository-Secrets gesetzt sein, sonst schlägt der Deploy bewusst fehl.
+  **Stand 2026-09-25:** `SUPABASE_DB_PASSWORD` fehlt — seit `20260916110000`
+  wurde keine Migration mehr eingespielt (u. a. `app_config`, Vereinsprofile,
+  Wettbewerbs-Freigabe fehlen live). Prüfen: `list_migrations` gegen
+  `supabase/migrations/`.
 
 > ⚠️ **Regel: `USING (true)` ist bei personenbezogenen Daten ein Datenleck.**
 > Eine SELECT-Policy ohne `to`-Klausel gilt für die Rolle `public` — also auch
@@ -477,11 +481,33 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
   Der Superuser ist zusätzlich immer Admin (`isAdminEmail`); `ADMIN_EMAILS`
   gilt weiter für die älteren Admin-Werkzeuge, **nicht** für `/Admin`.
 - **Seite `/Admin`** (`src/pages/Admin.jsx`, Einstieg im Command Center nur bei
-  `is_superuser`): Top-10-Tools, Community-Beiträge löschen, Events löschen
+  `is_superuser`): Nutzerliste mit Plan-Zuweisung, Top-10-Tools, Community-Beiträge löschen, Events löschen
   (weich, `status='deleted'`) und neu starten (neue Runde ab jetzt, gleiche
   Laufzeit/Regeln, altes Event bleibt im Archiv), Support-Tickets beantworten
   (Antwort geht per Mail an den Nutzer und erscheint in „Meine Tickets“),
   Status setzen, löschen, Rundmail an alle Nutzer (BCC-Pakete à 50).
+- **Reiter „Nutzer“** (`GET /api/superadmin/users`, `POST /api/superadmin/users/:id/plan`):
+  alle Konten, zuletzt angemeldete zuerst, mit letztem Login, Anmeldeweg,
+  E-Mail-Bestätigung und dem **tatsächlich geltenden** Plan (`resolvePlan`: Abo,
+  Testphase oder Pass); weicht das gespeicherte Abo ab, steht es daneben. Plan
+  zuweisen/entziehen läuft über `assignPlan` (`backend/src/lib/planAssignment.js`,
+  geteilt mit `POST /api/admin/plans/assign`): schreibt nur `app_metadata`
+  (`premium_payment_method='admin'`, `premium_assigned_by`) und leert den
+  Token-Cache. „Abo entziehen“ beendet keinen laufenden Pass und keine Testphase.
+- **Reiter „App“ — globale Schalter** (`GET/PATCH /api/superadmin/settings`,
+  öffentlich lesbar über `GET /api/app/settings`), gespeichert in `app_config`
+  (`key='app_settings'`, `backend/src/lib/appSettings.js`, 30 s Server-Cache):
+  - `ads_enabled` — Werbung für alle an/aus. Wirkt über `/api/ads/config`
+    (`ads_enabled`) → `AdGate`/`getAdCapabilities(…, { adsEnabled })`; Rewarded
+    Ads werden serverseitig mit abgelehnt. Werbe-Config-Cache im Browser 5 Min.
+  - `all_tools_free` — alle Tools für alle frei: `PlanContext.hasFeature` → immer
+    `true`, `planLevel` ≥ Friends; serverseitig `resolveServerToolAccess`,
+    `/premium/check-feature` und das KI-Tageslimit für Free (`checkChatRateLimit`).
+    Der gespeicherte Plan bleibt unverändert (Werbung richtet sich weiter danach).
+  - Fehlt `app_config` oder scheitert das Lesen, gelten die Standardwerte
+    (Werbung an, nichts gratis) — nie umgekehrt.
+  - Neue Plan-Sperren im Frontend über `hasFeature`/`PlanGuard`, nicht über
+    `plan.id` direkt, sonst greift der Schalter dort nicht.
 - **Top-10-Tools** zählen Seitenaufrufe: `trackPageView` (`tracker.jsx`) legt pro
   Seitenwechsel angemeldeter Nutzer eine `usage_sessions`-Zeile mit
   `status='view'`, `feature_id='page:<Route>'` an; `Admin.jsx` ordnet Routen über
@@ -590,7 +616,7 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ✅ Cloudflare (Hosting, Worker/Container, Deploy) — Zielplattform
 - ✅ Supabase (DB, Auth, Storage)
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
-- ⚠️ **Zwei Vercel-Projekte:** `BACKEND_URL` (`bait-buddy.vercel.app`, Konto „Sebastian's projects“) ist wegen der Abrechnung gesperrt und steht auf PR #368. Merges deployt das Projekt im Konto `ssbedburg` (`VERCEL_BACKEND_URL`, per Deployment Protection gesperrt). Der Worker schaltet erst dorthin, wenn das Worker-Secret `VERCEL_PROTECTION_BYPASS` gesetzt ist (`backendTarget` in `cloudflare/worker.js`). Weist Vercel den Bypass-Wert ab (Redirect auf `vercel.com/sso-api` bzw. 401-HTML), fällt der Worker für 5 Min. auf `BACKEND_URL` zurück (`isVercelAuthRedirect`) — ein falscher Wert legt die API also nicht mehr lahm (am 2026-09-25 passiert, bevor es diesen Rückfall gab). Der Wert muss aus dem Projekt stammen, zu dem `VERCEL_BACKEND_URL` gehört. Symptom bei altem Backend: Features, die neue API-Felder brauchen (z. B. `is_superuser` → Admin-Bereich), fehlen trotz aktuellem Frontend. Prüfen: `/api/superadmin/stats` → 404 = altes Backend.
+- ⚠️ **Zwei Vercel-Projekte:** `BACKEND_URL` (`bait-buddy.vercel.app`, Konto „Sebastian's projects“) ist wegen der Abrechnung gesperrt und steht auf PR #368. Merges deployt das Projekt im Konto `ssbedburg` (`VERCEL_BACKEND_URL`, per Deployment Protection gesperrt). Der Worker schaltet erst dorthin, wenn das Worker-Secret `VERCEL_PROTECTION_BYPASS` gesetzt ist (`backendTarget` in `cloudflare/worker.js`). Weist Vercel den Bypass-Wert ab (Redirect auf `vercel.com/sso-api` bzw. 401-HTML) oder stürzt die Function dort ab (Header `x-vercel-error`, z. B. `FUNCTION_INVOCATION_FAILED` bei fehlendem `SUPABASE_SERVICE_ROLE_KEY`), fällt der Worker für 5 Min. auf `BACKEND_URL` zurück (`isVercelFailure`) — ein falscher Wert oder ein kaputtes neues Backend legt die API also nicht lahm (am 2026-09-25 passiert, bevor es diesen Rückfall gab). Der Wert muss aus dem Projekt stammen, zu dem `VERCEL_BACKEND_URL` gehört. Symptom bei altem Backend: Features, die neue API-Felder brauchen (z. B. `is_superuser` → Admin-Bereich), fehlen trotz aktuellem Frontend. Prüfen: `/api/superadmin/stats` → 404 = altes Backend.
 - ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
 - ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services) — einzige vom Betreiber freigegebene Ausnahme: Clerk als optionaler Zusatz-Login (siehe Auth-Architektur)
 

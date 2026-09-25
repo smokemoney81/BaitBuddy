@@ -2,6 +2,7 @@ import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import Redis from 'ioredis';
 import { resolvePlan } from '../lib/planResolver.js';
+import { isAllToolsFree } from '../lib/appSettings.js';
 
 // Der Edge-Proxy (Cloudflare bzw. frueher Vercel) terminiert die Verbindung:
 // ohne 'trust proxy' ist req.ip immer die interne Proxy-Adresse — damit zaehlten
@@ -93,8 +94,8 @@ export async function checkChatRateLimit(req, res, next) {
 
   const { effectiveId } = resolvePlan(req.user);
 
-  // Nur Free-User limitieren
-  if (effectiveId !== 'free') {
+  // Nur Free-User limitieren — im Modus „alle Tools kostenlos“ niemanden.
+  if (effectiveId !== 'free' || await isAllToolsFree()) {
     return next();
   }
 

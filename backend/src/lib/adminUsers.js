@@ -44,10 +44,12 @@ export async function listAllUsers(supabase) {
  */
 export function toAdminUserSummary(user) {
   const meta = user?.app_metadata || {};
+  // Name/Spitzname stehen in user_metadata, Plan-Felder in app_metadata.
+  const profile = user?.user_metadata || {};
   return {
     id: user.id,
     email: user.email || '',
-    full_name: meta.full_name || meta.nickname || '',
+    full_name: profile.full_name || profile.nickname || '',
     created_at: user.created_at || null,
     last_sign_in_at: user.last_sign_in_at || null,
     premium_plan_id: meta.premium_plan_id || 'free',
