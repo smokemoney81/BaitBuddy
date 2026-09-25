@@ -192,6 +192,20 @@ export function LocationProvider({ children }) {
     );
   };
 
+  // Eigenen Standort entfernen (GPS und manuell gesetzt). fm_gps_fetched bleibt
+  // stehen, damit der naechste App-Start nicht ungefragt wieder GPS abfragt.
+  const clearLocation = () => {
+    setCurrentLocation(null);
+    setGpsLocation(null);
+    setIsGpsEnabled(false);
+    try {
+      localStorage.removeItem("fm_current_location");
+      localStorage.removeItem("fm_gps_location");
+    } catch {
+      // localStorage-Fehler ignorieren (Private-Mode)
+    }
+  };
+
   // Beim Start: Nur gespeicherten Standort laden, NICHT automatisch GPS abrufen
   useEffect(() => {
     try {
@@ -243,7 +257,8 @@ export function LocationProvider({ children }) {
     ensureLocation,
     setSpotAsLocation,
     setManualLocation,
-    setCurrentLocation
+    setCurrentLocation,
+    clearLocation
   };
 
   return (
