@@ -76,6 +76,7 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 - **Frontend**: verteilt über mehrere Stellen (es gibt **kein** `src/components/KiBuddy/`-Verzeichnis):
   - Es gibt **kein** schwebendes Chat-Widget mehr (entfernt im BaitBuddy-2.0-Layout, wie in den Vorlagen). Der Buddy ist über „Hey Buddy“ im Command Center (`src/components/layout/CommandCenter.jsx`), die Dashboard-Schnellzugriffe und das Plus-Menü der Bottom-Nav erreichbar; Fragen werden per `/KiBuddyBeta?question=…` vorbefüllt.
   - `src/pages/KiBuddyBeta.jsx` — eigenständige Voice-Buddy-Seite
+    - **Nicht scrollbar**: `useFitToViewport` (`src/hooks/useFitToViewport.js`) setzt die Seitenhöhe per JS (`--bb-fit-height`, kein `dvh` — fehlt in WebView 90/iOS 14) und sperrt das Dokument-Scrollen (`html.bb-no-page-scroll`); nur der Chatverlauf scrollt intern. Bei wenig Höhe blenden `max-height`-Media-Queries in `baitbuddy-v2.css` stufenweise Beiwerk, Buddy-Kreis und (Tastatur offen) Schnellaktionen/Freisprech-Leiste aus. Neue Elemente auf der Seite müssen in diese Höhenrechnung passen.
   - `src/components/ai/`, `src/components/chatbot/`, `src/components/home/MiniKiBuddy*.jsx`
   - Hooks: `useChatMessages`, `useSpeechRecognition`, `useElevenLabsVoice`
   - `src/lib/buddyGreetings.js` — Start-Begrüßungs-Generator: begrüßt per Sprechblase + TTS, variiert nach Tageszeit/Stimmung/Event-Status (Anti-Wiederholung via localStorage). Wiederholung gesteuert über **Zeitstempel-Cooldown** (`shouldGreet`/`markGreeted`, localStorage `bb_buddy_last_greeting`, Default 15 Min) statt eines Session-Flags — nötig, weil im Capacitor-WebView eine Sitzung das Wiederöffnen (Resume) überlebt. Seit dem Wegfall der schwebenden Buddy-Blase gibt es **keine automatische Start-Begrüßung** mehr; `KiBuddyBeta` nutzt `buildGreeting` beim Öffnen. Die Cooldown-Helfer bleiben für eine spätere Wiederverwendung erhalten. `getVariedPageBubble` rotiert die Seiten-Blase (Seitenfrage/Buddy-Frage/Funktions-Tipp).
@@ -373,6 +374,7 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
   im Layout hinter Kopfzeile und Seitentitel. Seiten-Wrapper dürfen ihn nicht mit
   opakem Hintergrund verdecken — verschachtelte `.bb-app` sind deshalb transparent.
   Vollflächige Seiten (Karte, AR, CatchCam) stehen in `NO_BACKDROP_PAGES`.
+- **Titel in der Kopfzeile statt Logo**: `src/components/layout/pageTopBars.jsx` (`PAGE_TOP_BARS`) gibt einzelnen Unterseiten Titel + Aktion in `AppTopBar` (derzeit Voice Buddy mit Einstellungs-Zahnrad).
 - **Seitentitel** über `PageTitle.jsx` (letztes Wort in Cyan, optional
   Script-Zeile); `SubPageHeader` ist nur noch ein Alias darauf.
 - **Bottom-Nav**: Plus als Cyan-Ring. Icon/Label kommen aus `navigationItems`
