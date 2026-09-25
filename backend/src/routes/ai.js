@@ -22,6 +22,7 @@ import { personalizationContext } from '../lib/personalizationEngine.js';
 import { buildActionPromptSection } from '../lib/buddyActionCatalog.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
+import { runBuddyContextShadow } from '../lib/jevShadow.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -219,6 +220,22 @@ async function buildChatPrompt(req) {
   const wantsPlanning = /trip|ausflug|tour|planung|vorbereitung|ausrüstung|ausruestung|packliste/i.test(lastMsg);
   const wantsSpots = wantsPlanning || /spot|angelplatz|wo angel|gewässer/i.test(lastMsg);
   const wantsWeather = wantsPlanning || /wetter|temperatur|wind|angelzeit|bedingungen/i.test(lastMsg);
+
+  // Jev Shadow Mode (Phase 1, siehe CLAUDE.md „Jev Decision Layer"): vergleicht
+  // die obige regelbasierte Kontext-Auswahl asynchron mit Jevs Einschätzung,
+  // ohne die Antwort zu beeinflussen oder zu verzögern. Ohne JEV_ENABLED ein No-op.
+  if (lastMsg) {
+    runBuddyContextShadow({
+      lastMsg,
+      ruleBasedFlags: {
+        catches: wantsCatches,
+        rules: wantsRules,
+        spots: wantsSpots,
+        weather: wantsWeather,
+        planning: wantsPlanning,
+      },
+    });
+  }
 
   // Kontext-Quellen laufen parallel statt sequenziell — spart Latenz vor dem
   // LLM-Call (Ziel < 2 s). Jede Quelle liefert einen fertigen Kontext-String

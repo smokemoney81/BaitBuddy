@@ -179,6 +179,66 @@ App-Prozess.
 
 ---
 
+## 🧠 Jev Decision Layer (TypeSafe, optional)
+
+**Entscheidung des Projektinhabers (2026-09-25):** TypeSafe Jev (`https://api.typesafe.ai/v1/systemone`)
+ist als **einzige weitere** externe Cloud-Ausnahme neben Clerk zugelassen — ausschließlich
+als schnelle strukturierte Entscheidungsschicht (Intent-/Kontext-/Tool-Routing,
+Confidence-Scoring), **nie** als Chat-Modell und **nie** als Ersatz für Anthropic
+Claude. Jev liefert typisierte Entscheidungen (`noul` = Ja/Nein-Wahrscheinlichkeit,
+`choice` = Auswahl, `score` = Bewertung) zu einem `state`/`questions`-Bundle; die
+eigentliche Ausführung (Tools, DB, LLM-Antwort) bleibt immer in bestehendem
+BaitBuddy-Code.
+
+### Rollout-Phasen
+Der Ausbau erfolgt schrittweise und ausschließlich additiv (kein Entfernen
+funktionierender Bereiche, kein Umbau des Free-Tarifs):
+
+- **Phase 0 (aktuell, umgesetzt):** Infrastruktur — `backend/src/lib/jevClient.js`
+  (Client mit hartem Timeout, fail-open, nie blockierend), Feature-Flags,
+  Shadow Mode. Keine sichtbare App-Änderung.
+- **Phase 1 (aktuell, umgesetzt):** Buddy-Context-Router im **Shadow Mode**
+  (`backend/src/lib/jevShadow.js`, eingebunden in `buildChatPrompt` in
+  `backend/src/routes/ai.js`): Jevs Einschätzung, welcher App-Kontext
+  (Fangbuch/Regeln/Spots/Wetter/Planung) für eine Buddy-Frage relevant ist,
+  läuft **parallel und asynchron** zur bestehenden regelbasierten
+  Kontext-Auswahl (`wantsCatches`/`wantsRules`/`wantsSpots`/`wantsWeather`/
+  `wantsPlanning`). Das Ergebnis wird nur geloggt (`[jev-shadow] buddy-context`),
+  beeinflusst die tatsächliche Antwort **nicht**. Zweck: Qualitätsdaten sammeln,
+  bevor Jev irgendeine Benutzeraktion steuert.
+- **Phase 2+ (noch nicht umgesetzt):** Erst nach Auswertung der Shadow-Mode-Daten
+  darf Jev tatsächlich Kontext-/Tool-/Modell-Auswahl aktiv steuern — pro Modul
+  einzeln hinter einem eigenen Feature-Flag (`JEV_BUDDY`, `JEV_MAP`, `JEV_TRIP` …).
+
+### Feature-Flags (Env)
+- `JEV_ENABLED` — globaler Schalter, Default aus (`false`/nicht gesetzt). Ohne
+  ihn **und** ohne `TYPESAFE_API_KEY` ist `jevClient.js` ein reines No-op, kein
+  Netzwerk-Call.
+- `TYPESAFE_API_KEY` — serverseitiges Secret, wird **niemals** ans Frontend
+  ausgeliefert (analog zur Anthropic-Key-Regel).
+- `JEV_SHADOW_MODE` — Default an (jeder aktivierte Jev-Aufruf ist zunächst
+  Shadow-only), explizit `false` schaltet den Shadow-Vergleich ab.
+
+### Feste Grenzen (siehe auch „Regel: Nur Anthropic Cloud API als Cloud-LLM-Quelle")
+Jev darf **niemals**:
+- Login/Auth, Premium-Entitlements, Zahlungsstatus (Stripe/Play Billing) oder
+  RLS-/Berechtigungslogik kontrollieren — diese bleiben strikt deterministisch.
+- als authoritative Quelle für gesetzliche Angelregeln dienen — Jev darf
+  höchstens auf die passende Regel-Datenbank routen, die Regel selbst kommt
+  immer aus `rule_entries`/`RuleAssistant`.
+- eine Benutzeraktion (Fang speichern, Konto löschen, Nachricht senden) direkt
+  auslösen, ohne dass die bestehende deterministische App-Logik die eigentliche
+  Aktion ausführt.
+- als Ersatz für Anthropic Claude als Text-/Vision-Modell fungieren.
+
+### Ausfallsicherheit
+Jeder Jev-Aufruf hat ein hartes Timeout (`jevClient.js`, 800 ms) und ist
+**fail-open**: Timeout, Netzwerk- oder Upstream-Fehler liefern `null`, der
+Aufrufer fällt automatisch auf die bestehende deterministische/regelbasierte
+Logik zurück. Kein kritischer Screen darf jemals auf Jev warten.
+
+---
+
 ## 🎣 3D-Köderanimation (Seite `Koeder3D`)
 
 Zeigt Kunstköder (Wobbler, Gummifisch am Jigkopf, Spinner, Blinker, Popper/Stickbait) als 3D-Animation mit echtem Laufverhalten (Jiggen, Faulenzen, Stop-and-Go, Twitchen, Walk the Dog).
@@ -592,7 +652,7 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
 - ⚠️ **Zwei Vercel-Projekte:** `BACKEND_URL` (`bait-buddy.vercel.app`, Konto „Sebastian's projects“) ist wegen der Abrechnung gesperrt und steht auf PR #368. Merges deployt das Projekt im Konto `ssbedburg` (`VERCEL_BACKEND_URL`, per Deployment Protection gesperrt). Der Worker schaltet erst dorthin, wenn das Worker-Secret `VERCEL_PROTECTION_BYPASS` gesetzt ist (`backendTarget` in `cloudflare/worker.js`). Weist Vercel den Bypass-Wert ab (Redirect auf `vercel.com/sso-api` bzw. 401-HTML), fällt der Worker für 5 Min. auf `BACKEND_URL` zurück (`isVercelAuthRedirect`) — ein falscher Wert legt die API also nicht mehr lahm (am 2026-09-25 passiert, bevor es diesen Rückfall gab). Der Wert muss aus dem Projekt stammen, zu dem `VERCEL_BACKEND_URL` gehört. Symptom bei altem Backend: Features, die neue API-Felder brauchen (z. B. `is_superuser` → Admin-Bereich), fehlen trotz aktuellem Frontend. Prüfen: `/api/superadmin/stats` → 404 = altes Backend.
 - ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
-- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services) — einzige vom Betreiber freigegebene Ausnahme: Clerk als optionaler Zusatz-Login (siehe Auth-Architektur)
+- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services) — vom Betreiber freigegebene Ausnahmen: Clerk als optionaler Zusatz-Login (siehe Auth-Architektur) und TypeSafe/Jev als Decision-Layer (siehe „Jev Decision Layer", Entscheidung des Projektinhabers, 2026-09-25)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)
 > nutzt optional **Vercel KV** (Upstash Redis, ioredis-kompatibel) als
