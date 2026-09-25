@@ -214,3 +214,105 @@ describe('POST /api/events/:id/submit', () => {
     expect(res.status).toBe(201);
   });
 });
+
+describe('Wettbewerb: Plausibilität, Rangliste, Prüfung, Einspruch', () => {
+  const past = new Date(Date.now() - 86400000).toISOString();
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const running = { id: 'e1', status: 'active', is_active: true, start_date: past, end_date: future, target_species: 'Zander, Hecht', created_by: 'boss@test.de' };
+
+  function mock(fromResults, authUser = ME) {
+    supabaseMock.current = createSupabaseMock({ authUser, fromResults });
+    return supabaseMock.current;
+  }
+
+  it('lehnt eine nicht gewertete Art mit 422 und den Prüfergebnissen ab', async () => {
+    mock({ events: { data: running, error: null }, event_submissions: { data: [], error: null } });
+    await buildApp();
+    const res = await request(app).post('/api/events/e1/submit').set('Authorization', 'Bearer tok')
+      .send({ species: 'Karpfen', length_cm: 60, photo_url: 'https://x/p.jpg' });
+    expect(res.status).toBe(422);
+    expect(res.body.checks.find(c => c.id === 'species').ok).toBe(false);
+  });
+
+  it('nimmt einen Fang ohne Foto an, schickt ihn aber in die Prüfung', async () => {
+    const supabase = mock({
+      events: { data: running, error: null },
+      event_submissions: { data: [], error: null },
+      event_point_configs: { data: null, error: null },
+      event_participants: { data: [], error: null },
+    });
+    await buildApp();
+    const res = await request(app).post('/api/events/e1/submit').set('Authorization', 'Bearer tok')
+      .send({ species: 'Zander', length_cm: 62 });
+    expect(res.status).toBe(201);
+    const inserted = supabase.__builders.event_submissions.insert.mock.calls[0][0];
+    expect(inserted).toMatchObject({ review_status: 'pending', verified: false });
+  });
+
+  it('Rangliste: nur bestätigte Fänge, Anzeigenamen statt E-Mails', async () => {
+    const supabase = mock({
+      event_submissions: { data: [
+        { id: 's1', user_id: 'tom@x.de', species: 'Zander', length_cm: 70, calculated_points: 400 },
+        { id: 's2', user_id: 'tom@x.de', species: 'Hecht', length_cm: 80, calculated_points: 450 },
+        { id: 's3', user_id: 'me@test.de', species: 'Zander', length_cm: 90, calculated_points: 500 },
+        { id: 's4', user_id: 'me@test.de', species: '[ai_chat_interaction]', length_cm: null, calculated_points: 10 },
+      ], error: null },
+      users: { data: [{ email: 'tom@x.de', full_name: 'Tom Schmidt' }], error: null },
+    });
+    await buildApp();
+    const res = await request(app).get('/api/events/e1/standings?metric=total_length').set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(200);
+    expect(supabase.__builders.event_submissions.eq).toHaveBeenCalledWith('review_status', 'confirmed');
+    expect(res.body.entries.map(e => [e.rank, e.name, e.total_length, e.count, e.is_me])).toEqual([
+      [1, 'Tom S.', 150, 2, false],
+      [2, 'Angler', 90, 1, true],
+    ]);
+    expect(JSON.stringify(res.body)).not.toContain('@');
+  });
+
+  it('Teilnehmerliste enthält keine E-Mail-Adressen', async () => {
+    mock({ event_participants: { data: [{ id: 'p1', user_id: 'me@test.de', total_points: 10 }], error: null }, users: { data: [], error: null } });
+    await buildApp();
+    const res = await request(app).get('/api/events/e1/participants');
+    expect(res.body[0]).toMatchObject({ id: 'p1', name: 'Angler', is_me: false });
+    expect(res.body[0]).not.toHaveProperty('user_id');
+  });
+
+  it('nur der Veranstalter darf Einreichungen prüfen', async () => {
+    mock({ events: { data: running, error: null } });
+    await buildApp();
+    const res = await request(app).post('/api/events/e1/submissions/s1/review').set('Authorization', 'Bearer tok').send({ decision: 'confirm' });
+    expect(res.status).toBe(403);
+  });
+
+  it('kein Einspruch gegen den eigenen Fang', async () => {
+    mock({
+      event_submissions: { data: { id: 's3', user_id: 'me@test.de', species: 'Zander', review_status: 'confirmed' }, error: null },
+      event_participants: { data: { id: 'p1' }, error: null },
+    });
+    await buildApp();
+    const res = await request(app).post('/api/events/e1/submissions/s3/dispute').set('Authorization', 'Bearer tok')
+      .send({ reason: 'Das Maßband ist nicht zu sehen.' });
+    expect(res.status).toBe(400);
+  });
+
+  it('legt einen begründeten Einspruch an', async () => {
+    const supabase = mock({
+      event_submissions: { data: { id: 's1', user_id: 'tom@x.de', species: 'Zander', review_status: 'confirmed' }, error: null },
+      event_participants: { data: { id: 'p1' }, error: null },
+      event_disputes: { data: { id: 'd1', status: 'open' }, error: null },
+    });
+    await buildApp();
+    const res = await request(app).post('/api/events/e1/submissions/s1/dispute').set('Authorization', 'Bearer tok')
+      .send({ reason: 'Das Maßband ist auf dem Foto nicht zu sehen.' });
+    expect(res.status).toBe(201);
+    expect(supabase.__builders.event_disputes.insert).toHaveBeenCalledWith(expect.objectContaining({ submission_id: 's1', reporter: 'me@test.de' }));
+  });
+
+  it('sperrt Regeländerungen nach dem Start', async () => {
+    mock({ events: { data: { ...running, created_by: 'me@test.de', scoring_method: 'points' }, error: null } });
+    await buildApp();
+    const res = await request(app).patch('/api/events/e1').set('Authorization', 'Bearer tok').send({ scoring_method: 'length' });
+    expect(res.status).toBe(409);
+  });
+});

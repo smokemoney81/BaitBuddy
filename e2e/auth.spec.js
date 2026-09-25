@@ -6,10 +6,17 @@ import { installApiMocks, dismissSplash, FIXTURE_TOKEN } from './fixtures/apiMoc
 // echte Weg durch: Formular ausfuellen, Backend-Antwort verarbeiten, Token in
 // localStorage schreiben, ins Dashboard navigieren.
 
-async function openLanding(page) {
+// Der Startbildschirm zeigt zuerst die Auswahl (Google, E-Mail, vorhandenes
+// Konto, Gast); das Formular öffnet sich erst über "Vorhandenes Konto".
+async function openLanding(page, { form = true } = {}) {
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await dismissSplash(page);
-  await expect(page.getByPlaceholder('E-Mail Adresse')).toBeVisible({ timeout: 15_000 });
+  const existing = page.getByRole('button', { name: 'Vorhandenes Konto' });
+  await expect(existing).toBeVisible({ timeout: 15_000 });
+  if (form) {
+    await existing.click();
+    await expect(page.getByPlaceholder('E-Mail Adresse')).toBeVisible({ timeout: 15_000 });
+  }
 }
 
 test.describe('Anmeldung', () => {
@@ -169,9 +176,9 @@ test.describe('Passwort und Gastzugang', () => {
 
   test('startet eine Gastsitzung ohne Anmeldung', async ({ page }) => {
     await installApiMocks(page, { authenticated: false });
-    await openLanding(page);
+    await openLanding(page, { form: false });
 
-    await page.getByRole('button', { name: 'Als Gast fortfahren' }).click();
+    await page.getByRole('button', { name: 'Als Gast ausprobieren' }).click();
     await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
 
     // Gastsitzung heisst: kein Auth-Token, aber eine Gast-Markierung. Die

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   X, 
   MapPin, 
@@ -15,8 +14,19 @@ import {
   ExternalLink,
   Waves,
   Fish,
-  Building2
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Share2,
+  ScrollText,
+  CheckCircle2,
+  CloudSun,
+  Star
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { fishImageFor } from '@/lib/fishImages';
+import { useFishingConditions } from '@/hooks/useFishingConditions';
+import { weatherDescription } from '@/lib/fishingConditions';
 import { functions } from "@/api/frontendClient";
 import { Spot } from "@/entities/Spot";
 import { toast } from 'sonner';
@@ -108,29 +118,6 @@ export default function SpotDetailPanel({ spot, onClose, onUpdate }) {
     }
   };
 
-  const getWaterTypeIcon = (waterType) => {
-    const cls = 'w-5 h-5 text-cyan-400 shrink-0';
-    switch (waterType) {
-      case 'see':
-      case 'teich':
-        return <Droplets className={cls} />;
-      case 'fluss':
-      case 'bach':
-      case 'kanal':
-      case 'meer':
-        return <Waves className={cls} />;
-      default:
-        return <Fish className={cls} />;
-    }
-  };
-
-  const getCategoryIcon = (category) => {
-    const cls = 'w-5 h-5 text-cyan-400 shrink-0';
-    if (category === 'club') return <Building2 className={cls} />;
-    if (category === 'spot') return <Fish className={cls} />;
-    return <MapPin className={cls} />;
-  };
-
   if (!spot || !coords) {
     return (
       <motion.div
@@ -161,7 +148,18 @@ export default function SpotDetailPanel({ spot, onClose, onUpdate }) {
 
   // Ist es ein eigener Spot oder ein öffentlicher Ort?
   const isUserSpot = spot.type === 'spot' || (!spot.type && spot.water_type);
-  const isPublicLocation = spot.type === 'club' || spot.type === 'spot';
+  const species = Array.isArray(spot.fische) ? spot.fische : Array.isArray(spot.target_species) ? spot.target_species : [];
+  const city = spot.address && typeof spot.address === 'object' ? spot.address.city : null;
+  const categoryLabel = spot.category === 'club' ? 'Angelverein' : spot.category === 'spot' ? 'Angelpark' : null;
+  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`;
+
+  const share = async () => {
+    const text = `${spot.name}: https://maps.google.com/?q=${coords.lat},${coords.lng}`;
+    try {
+      if (navigator.share) await navigator.share({ title: spot.name, text });
+      else { await navigator.clipboard.writeText(text); toast.success('Link kopiert'); }
+    } catch { /* Teilen abgebrochen */ }
+  };
 
   return (
     <motion.div
@@ -169,209 +167,139 @@ export default function SpotDetailPanel({ spot, onClose, onUpdate }) {
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25 }}
-      className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-900 border-l border-gray-800 shadow-2xl z-[2000] overflow-y-auto"
+      className="bb-spot-sheet"
     >
-      <Card className="h-full rounded-none border-0 bg-transparent">
-        <CardHeader className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 z-10">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-xl font-bold text-cyan-400 flex items-center gap-2">
-                {isUserSpot && getWaterTypeIcon(spot.water_type)}
-                {isPublicLocation && getCategoryIcon(spot.category)}
-                {spot.name}
-              </CardTitle>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {spot.water_type && (
-                  <Badge variant="outline" className="text-xs">
-                    {spot.water_type}
-                  </Badge>
-                )}
-                {spot.category === 'club' && (
-                  <Badge variant="outline" className="text-xs">
-                    Angelverein
-                  </Badge>
-                )}
-                {spot.category === 'spot' && (
-                  <Badge variant="outline" className="text-xs">
-                    Angelpark
-                  </Badge>
-                )}
-                {spot.depth_meters && (
-                  <Badge variant="outline" className="text-xs flex items-center gap-1">
-                    <Droplets className="w-3 h-3" />
-                    {spot.depth_meters}m Tiefe
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {isUserSpot && spot.id && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleFavorite}
-                  className={isFavorite ? 'text-yellow-400' : 'text-gray-400'}
-                >
-                  <Heart className={`w-5 h-5 ${isFavorite ? 'fill-yellow-400' : ''}`} />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
+      <div className="bb-spot-hero">
+        <img src="/assets/buddy/lake-hero.png" alt="" aria-hidden="true" />
+        <div className="bb-spot-hero-bar">
+          <button type="button" onClick={onClose} className="bb-round-btn" aria-label="Schließen"><ChevronLeft size={24} aria-hidden="true" /></button>
+          <span className="bb-spot-hero-title">Gewässer-Infos</span>
+          <div className="flex gap-2">
+            {isUserSpot && spot.id && (
+              <button type="button" onClick={toggleFavorite} className={`bb-round-btn${isFavorite ? ' is-fav' : ''}`} aria-pressed={isFavorite} aria-label="Favorit">
+                <Heart size={20} aria-hidden="true" fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+            )}
+            <button type="button" onClick={share} className="bb-round-btn" aria-label="Teilen"><Share2 size={20} aria-hidden="true" /></button>
           </div>
-        </CardHeader>
-
-        <CardContent className="p-6 space-y-6">
-          {/* Fahrzeit & Entfernung */}
-          {gpsLocation && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-                Anfahrt
-              </h3>
-              
-              {loadingTravel ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
-                </div>
-              ) : travelData ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                      <Clock className="w-4 h-4" />
-                      <span className="text-xs font-medium">Fahrzeit</span>
-                    </div>
-                    <div className="text-2xl font-bold text-white">
-                      {travelData.duration_minutes} min
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex items-center gap-2 text-blue-400 mb-2">
-                      <Ruler className="w-4 h-4" />
-                      <span className="text-xs font-medium">Entfernung</span>
-                    </div>
-                    <div className="text-2xl font-bold text-white">
-                      {travelData.distance_km} km
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-400">
-                  Fahrzeit konnte nicht berechnet werden
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Koordinaten */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-              Koordinaten
-            </h3>
-            <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
-              <div className="flex items-center gap-2 text-cyan-400">
-                <MapPin className="w-4 h-4" />
-                <code className="text-sm">
-                  {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
-                </code>
-              </div>
-            </div>
+        </div>
+        <div className="bb-spot-hero-text">
+          <h2>{spot.name}</h2>
+          <div className="bb-water-chips">
+            {spot.water_type && <span><Waves size={16} aria-hidden="true" />{spot.water_type}</span>}
+            {categoryLabel && <span><Building2 size={16} aria-hidden="true" />{categoryLabel}</span>}
+            {city && <span><MapPin size={16} aria-hidden="true" />{city}</span>}
           </div>
+        </div>
+      </div>
 
-          {/* Adresse (für öffentliche Locations) */}
-          {spot.address && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-                Adresse
-              </h3>
-              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                <p className="text-sm text-gray-300">
-                  {typeof spot.address === 'string' ? spot.address : (
-                    <>
-                      {spot.address.street && <>{spot.address.street}<br /></>}
-                      {spot.address.city && <>{spot.address.city}<br /></>}
-                      {spot.address.country && <>{spot.address.country}</>}
-                    </>
-                  )}
-                </p>
+      <div className="bb-spot-body">
+        <SpotWeather lat={coords.lat} lon={coords.lng} />
+
+        {(species.length > 0 || spot.depth_meters) && (
+          <div className={`grid gap-3${species.length > 0 && spot.depth_meters ? ' grid-cols-[1.4fr_1fr]' : ''}`}>
+            {species.length > 0 && (
+              <div className="bb-water-block">
+                <h3 className="bb-water-block-title"><Fish size={20} aria-hidden="true" />Beliebte Fischarten</h3>
+                <div className="bb-water-fish">
+                  {species.map(name => {
+                    const img = fishImageFor(name);
+                    return (
+                      <span key={name} className="bb-water-fish-item">
+                        {img ? <img src={img} alt="" loading="lazy" /> : <Fish size={24} aria-hidden="true" />}
+                        <span>{name}</span>
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Notizen (für eigene Spots) */}
-          {spot.notes && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-                Notizen
-              </h3>
-              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                <p className="text-sm text-gray-300 leading-relaxed">
-                  {spot.notes}
-                </p>
+            )}
+            {spot.depth_meters && (
+              <div className="bb-water-block">
+                <h3 className="bb-water-block-title"><Droplets size={20} aria-hidden="true" />Tiefe</h3>
+                <p className="bb-spot-depth">{spot.depth_meters} m</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {/* Website (für öffentliche Locations) */}
-          {spot.website && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-                Website
-              </h3>
-              <a
-                href={spot.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm"
-              >
-                {spot.website}
-                <ExternalLink className="w-4 h-4" />
+        {gpsLocation && (
+          <div className="bb-water-block">
+            <h3 className="bb-water-block-title"><Navigation size={20} aria-hidden="true" />Anfahrt</h3>
+            {loadingTravel ? (
+              <p className="flex items-center gap-2 text-sm text-slate-300"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Wird berechnet …</p>
+            ) : travelData ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bb-spot-stat"><Clock size={16} aria-hidden="true" /><strong>{travelData.duration_minutes} min</strong><small>Fahrzeit</small></div>
+                <div className="bb-spot-stat"><Ruler size={16} aria-hidden="true" /><strong>{travelData.distance_km} km</strong><small>Entfernung</small></div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Fahrzeit konnte nicht berechnet werden.</p>
+            )}
+          </div>
+        )}
+
+        {(spot.notes || spot.address) && (
+          <div className="bb-water-block">
+            <h3 className="bb-water-block-title"><ScrollText size={20} aria-hidden="true" />Hinweise</h3>
+            <ul className="bb-water-notes">
+              {spot.notes && <li><CheckCircle2 size={18} aria-hidden="true" />{spot.notes}</li>}
+              {spot.address && (
+                <li><MapPin size={18} aria-hidden="true" />
+                  {typeof spot.address === 'string' ? spot.address : [spot.address.street, spot.address.city, spot.address.country].filter(Boolean).join(', ')}
+                </li>
+              )}
+              <li><MapPin size={18} aria-hidden="true" /><code>{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</code></li>
+            </ul>
+            {spot.website && (
+              <a href={spot.website} target="_blank" rel="noopener noreferrer" className="bb-see-all mt-2">
+                Website <ExternalLink size={14} aria-hidden="true" />
               </a>
-            </div>
-          )}
-
-          {/* Bewertungen & Reviews */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-              Aktuelle Bewertungen
-            </h3>
-            <ReviewsList key={reviewsKey} spotId={spot.id} />
+            )}
           </div>
+        )}
 
-          {/* Bewertungsformular */}
-          {isUserSpot && spot.id && (
-            <RatingForm 
-              spot={spot}
-              onSuccess={() => setReviewsKey(prev => prev + 1)}
-            />
-          )}
+        <div className="bb-water-block">
+          <h3 className="bb-water-block-title"><Star size={20} aria-hidden="true" />Bewertungen</h3>
+          <ReviewsList key={reviewsKey} spotId={spot.id} />
+        </div>
 
-          {/* Quick Actions */}
-           <div className="pt-4 space-y-2">
-             <Button 
-               className="w-full bg-cyan-600 hover:bg-cyan-700"
-               onClick={() => {
-                 const url = `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`;
-                 window.open(url, '_blank');
-               }}
-             >
-               <Navigation className="w-4 h-4 mr-2" />
-               Navigation starten
-             </Button>
-             {isUserSpot && spot.id && (
-               <Button
-                 variant="outline"
-                 className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
-                 onClick={handleDelete}
-               >
-                 <Trash2 className="w-4 h-4 mr-2" />
-                 Spot löschen
-               </Button>
-             )}
-           </div>
-        </CardContent>
-      </Card>
+        {isUserSpot && spot.id && (
+          <RatingForm spot={spot} onSuccess={() => setReviewsKey(prev => prev + 1)} />
+        )}
+
+        {spot.category === 'club' && spot.id != null && (
+          <Link to={`/Vereinsprofil?ref=${encodeURIComponent(spot.id)}`} className="bb-secondary justify-center">
+            <Building2 size={18} aria-hidden="true" /> Vereinsprofil ansehen
+          </Link>
+        )}
+        <a href={navUrl} target="_blank" rel="noopener noreferrer" className="bb-action bb-action-block">
+          <Navigation size={20} aria-hidden="true" className="bb-action-icon" />
+          <span>Navigation starten</span>
+          <ChevronRight size={20} aria-hidden="true" className="bb-action-arrow" />
+        </a>
+        {isUserSpot && spot.id && (
+          <button type="button" className="bb-secondary justify-center text-red-300" onClick={handleDelete}>
+            <Trash2 size={16} aria-hidden="true" />Spot löschen
+          </button>
+        )}
+      </div>
     </motion.div>
+  );
+}
+
+function SpotWeather({ lat, lon }) {
+  const conditions = useFishingConditions(lat, lon);
+  const current = conditions.data?.current;
+  if (!current) return null;
+  return (
+    <Link to="/Weather" className="bb-water-weather">
+      <CloudSun size={30} aria-hidden="true" className="bb-weather-icon" />
+      <span>
+        <strong>{Math.round(current.temperature_2m)}°C</strong>
+        <small>{weatherDescription(current.weather_code)} · Wind {Math.round(current.wind_speed_10m)} km/h</small>
+      </span>
+      <ChevronRight size={18} aria-hidden="true" />
+    </Link>
   );
 }

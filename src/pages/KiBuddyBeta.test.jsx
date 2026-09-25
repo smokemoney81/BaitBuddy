@@ -36,10 +36,12 @@ vi.mock('@/components/utils/elevenLabsTTS', () => ({
   createSpeechQueue: vi.fn(() => ({ push: vi.fn(), flush: vi.fn(), cancel: vi.fn() })),
 }));
 vi.mock('@/functions/catchgbtChat', () => ({ catchgbtChat: vi.fn() }));
+vi.mock('@/utils/buddyActions', () => ({ executeBuddyAction: vi.fn(async () => ({ success: true, message: 'Fang Karpfen wurde im Fangbuch eingetragen.' })) }));
 
 import KiBuddyBeta from './KiBuddyBeta';
 import { catchgbtChat } from '@/functions/catchgbtChat';
 import { ai } from '@/api/frontendClient';
+import { executeBuddyAction } from '@/utils/buddyActions';
 
 function renderBuddy() {
   return render(
@@ -148,6 +150,20 @@ describe('KiBuddyBeta – Live-Streaming', () => {
     expect(await screen.findByText('Klar, Hechte beißen früh am Morgen am besten.')).toBeInTheDocument();
     // Im Streaming-Erfolgsfall wird der gepufferte Pfad nicht mehr angefasst.
     expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('führt die Aktion aus der Antwort aus und meldet das Ergebnis', async () => {
+    const action = { type: 'log_catch', params: { species: 'Karpfen' } };
+    ai.chatStream.mockImplementation(async (_messages, _loc, { onDelta } = {}) => {
+      onDelta?.('Mach ich.');
+      return { reply: 'Mach ich.', action };
+    });
+
+    renderBuddy();
+    await ask('Karpfen ins Fangbuch');
+
+    expect(await screen.findByText('Fang Karpfen wurde im Fangbuch eingetragen.')).toBeInTheDocument();
+    expect(executeBuddyAction).toHaveBeenCalledWith(action, expect.objectContaining({ navigate: expect.any(Function) }));
   });
 });
 

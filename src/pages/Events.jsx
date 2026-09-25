@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
-import { ChevronRight, Zap, Award } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronRight, Zap, Sparkles, Clock, CalendarDays, Users, Globe, Flag, Fish, Trophy, Hourglass, Star, ArrowRight, UserPlus, MapPin } from "lucide-react";
+import { fishImageFor } from "@/lib/fishImages";
 import EventLauncher from "@/components/events/EventLauncher";
 import PageTitle from "@/components/layout/PageTitle";
 
@@ -18,182 +20,131 @@ function getCountdown(endDate) {
   return `${hours}h`;
 }
 
-const PointsBreakdown = ({ totalPoints, participatingEvents }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.6 }}
-    className="bb-card mb-8"
-  >
-    <div className="flex items-center gap-2 mb-6">
-      <Zap size={20} style={{ color: 'var(--bb-cyan)' }} />
-      <h2 className="text-lg font-bold" style={{ color: 'var(--bb-cyan)' }}>Punkte-System</h2>
-    </div>
+const POINT_RULES = [
+  { label: 'Fang eingereicht', points: 100 },
+  { label: 'Länge (pro cm)', points: 5 },
+  { label: 'Community-Like', points: 1 },
+  { label: 'Platz 1', points: 500 },
+];
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {[
-        { label: "Fang-Einreichung", points: 100, color: "cyan" },
-        { label: "Längenbonuson (pro cm)", points: 5, color: "blue" },
-        { label: "Community-Likes", points: 1, color: "purple" },
-        { label: "Platzierungsbonus (1.)", points: 500, color: "amber" },
-      ].map((item, idx) => (
-        <motion.div
-          key={idx}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: idx * 0.1, duration: 0.4 }}
-          className="bb-stat-card"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-sm" style={{ color: 'var(--bb-text-secondary)' }}>{item.label}</span>
-            <span className="font-bold text-lg" style={{ color: 'var(--bb-cyan)' }}>+{item.points}</span>
-          </div>
-        </motion.div>
-      ))}
-    </div>
+const FILTERS = [
+  { id: 'all', label: 'Für dich', icon: Sparkles },
+  { id: 'running', label: 'Laufend', icon: Clock },
+  { id: 'mine', label: 'Meine Events', icon: CalendarDays },
+  { id: 'friends', label: 'Freunde', icon: Users },
+  { id: 'community', label: 'Community', icon: Globe },
+  { id: 'ended', label: 'Beendet', icon: Flag },
+];
 
-    <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--bb-border)' }}>
-      <div className="rounded-xl p-4 flex items-center justify-between" style={{ background: 'rgba(0,0,0,.25)' }}>
-        <div className="flex items-center gap-2">
-          <Award size={16} style={{ color: '#34d399' }} />
-          <span className="text-sm" style={{ color: 'var(--bb-text-secondary)' }}>Deine Gesamtpunkte</span>
-        </div>
-        <span className="text-2xl font-bold tabular-nums" style={{ color: '#34d399' }}>
-          {Math.round(totalPoints || 0)}
-        </span>
-      </div>
-      {participatingEvents > 0 && (
-        <p className="text-xs text-gray-500 mt-2">
-          Aus {participatingEvents} {participatingEvents === 1 ? "Veranstaltung" : "Veranstaltungen"}
-        </p>
-      )}
-    </div>
-  </motion.div>
-);
-
-const EventCard = ({ event, isUserJoined, userEntry, onJoin, leaderboard }) => {
-  const isEnded = new Date() > new Date(event.end_date);
-  const countdown = getCountdown(event.end_date);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -4 }}
-      className="bb-card overflow-hidden"
-      style={{ padding: 0 }}
-    >
-      <div className="px-6 py-4" style={{ background: 'linear-gradient(135deg, rgba(0,229,255,.06), rgba(59,130,246,.06))', borderBottom: '1px solid var(--bb-border)' }}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-white mb-1">{event.name}</h3>
-            {event.description && (
-              <p className="text-sm text-gray-400">{event.description}</p>
-            )}
-          </div>
-          <motion.span
-            animate={{ opacity: [1, 0.6, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-              isEnded
-                ? "bg-gray-700/30 text-gray-400 border border-gray-700/50"
-                : "bg-green-500/20 text-green-400 border border-green-500/40"
-            }`}
-          >
-            {isEnded ? "Beendet" : "Laufend"}
-          </motion.span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6 space-y-5">
-        <div className="bb-stat-row">
-          {[
-            { label: 'Zeit', value: countdown, color: 'var(--bb-cyan)' },
-            { label: 'Teilnehmer', value: leaderboard.length, color: '#60a5fa' },
-            { label: 'Basispunkte', value: event.base_points || 100, color: '#a78bfa' },
-          ].map(s => (
-            <div key={s.label} className="bb-stat-card">
-              <div className="bb-stat-label">{s.label}</div>
-              <div className="bb-stat-value" style={{ color: s.color }}>{s.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {isUserJoined && userEntry && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-xl p-4 text-center"
-            style={{ background: 'linear-gradient(135deg, rgba(0,229,255,.1), rgba(59,130,246,.1))', border: '1px solid rgba(0,229,255,.3)' }}
-          >
-            <div className="bb-stat-label" style={{ color: 'var(--bb-cyan)' }}>Deine Punkte</div>
-            <div className="text-3xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
-              {Math.round(userEntry.total_points || 0)}
-            </div>
-          </motion.div>
-        )}
-
-        {!isUserJoined && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onJoin(event.id)}
-            className="bb-action w-full flex items-center justify-center gap-2"
-          >
-            Beitreten
-            <ChevronRight size={16} />
-          </motion.button>
-        )}
-
-        {/* Leaderboard */}
-        {leaderboard.length > 0 && (
-          <div className="pt-4" style={{ borderTop: '1px solid var(--bb-border)' }}>
-            <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--bb-text-secondary)' }}>
-              <Award size={16} style={{ color: '#fbbf24' }} />
-              Rangliste (Top 5)
-            </h4>
-            <div className="grid gap-2">
-              {leaderboard.slice(0, 5).map((entry, idx) => {
-                const isMe = entry.is_user;
-                const rank = idx + 1;
-                const rankColors = { 1: '#fbbf24', 2: '#94a3b8', 3: '#fb923c' };
-                return (
-                  <motion.div
-                    key={entry.user_id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="flex items-center gap-3 p-2.5 rounded-xl"
-                    style={{
-                      background: isMe ? 'rgba(0,229,255,.08)' : 'rgba(0,0,0,.2)',
-                      border: isMe ? '1px solid rgba(0,229,255,.3)' : '1px solid var(--bb-border)',
-                    }}
-                  >
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(255,255,255,.06)', color: rankColors[rank] || 'var(--bb-muted)' }}>
-                      {rank}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {isMe ? "Du" : entry.user_id.split("@")[0]}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold" style={{ color: 'var(--bb-cyan)' }}>
-                        {Math.round(entry.total_points || 0)}
-                      </p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
+const eventTitle = (event) => event.name || event.title || 'Event';
+const eventStart = (event) => event.start_date || event.starts_at;
+const eventEnd = (event) => event.end_date || event.ends_at;
+const isEnded = (event) => {
+  const end = eventEnd(event);
+  return end ? new Date() > new Date(end) : event.status === 'ended';
 };
+
+function formatDay(value) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+}
+function formatTime(value) {
+  if (!value) return null;
+  return new Date(value).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function EventFacts({ event, participants }) {
+  const species = event.target_species;
+  const fish = fishImageFor(species);
+  return (
+    <div className="bb-event-facts">
+      <div className="bb-event-fact">
+        {fish ? <img src={fish} alt="" loading="lazy" /> : <Fish size={22} aria-hidden="true" />}
+        <span><small>Zielarten</small>{species || 'Alle Arten'}</span>
+      </div>
+      <div className="bb-event-fact">
+        <Users size={22} aria-hidden="true" />
+        <span><small>Teilnehmer</small>{participants}</span>
+      </div>
+      <div className="bb-event-fact">
+        <Trophy size={22} aria-hidden="true" className="text-amber-300" />
+        <span><small>Rewards</small>{event.prize_description || `${event.base_points || 100} Punkte je Fang`}</span>
+      </div>
+    </div>
+  );
+}
+
+function EventMeta({ event }) {
+  const start = eventStart(event);
+  const end = eventEnd(event);
+  return (
+    <div className="bb-event-meta">
+      {start && <span><CalendarDays size={16} aria-hidden="true" />{formatDay(start)}</span>}
+      {start && <span><Clock size={16} aria-hidden="true" />{formatTime(start)}</span>}
+      {end && !isEnded(event) && <span><Hourglass size={16} aria-hidden="true" />noch {getCountdown(end)}</span>}
+      {isEnded(event) && <span><Flag size={16} aria-hidden="true" />Beendet</span>}
+    </div>
+  );
+}
+
+function FeaturedEvent({ event, participants, joined, onJoin }) {
+  const fish = fishImageFor(event.target_species);
+  return (
+    <section className="bb-event-featured" aria-label="Empfohlenes Event">
+      <div className="bb-event-featured-media">
+        <img src="/assets/buddy/lake-hero.png" alt="" className="bb-event-featured-bg" />
+        {fish && <img src={fish} alt="" className="bb-event-featured-fish" />}
+        <span className="bb-event-chip is-green"><Star size={14} aria-hidden="true" />Empfohlen für dich</span>
+        {event.prize_description && <span className="bb-event-chip is-gold is-right"><Trophy size={14} aria-hidden="true" />Preise</span>}
+        <div className="bb-event-featured-text">
+          <h2>{eventTitle(event)}</h2>
+          <EventMeta event={event} />
+        </div>
+      </div>
+      <div className="bb-event-featured-body">
+        <EventFacts event={event} participants={participants} />
+        {joined ? (
+          <Link to={`/events/${event.id}`} className="bb-action bb-action-block">
+            <Trophy size={18} aria-hidden="true" className="bb-action-icon" />
+            <span>Zur Rangliste</span>
+            <ArrowRight size={18} aria-hidden="true" className="bb-action-arrow" />
+          </Link>
+        ) : (
+          <button type="button" onClick={() => onJoin(event.id)} className="bb-action bb-action-block">
+            <UserPlus size={18} aria-hidden="true" className="bb-action-icon" />
+            <span>Beitreten</span>
+            <ArrowRight size={18} aria-hidden="true" className="bb-action-arrow" />
+          </button>
+        )}
+        <Link to="/TripPlanner?new=1" className="bb-secondary justify-center">
+          <MapPin size={16} aria-hidden="true" />Trip zum Event planen
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function EventRow({ event, participants, joined }) {
+  const fish = fishImageFor(event.target_species);
+  const typeLabel = event.visibility === 'friends' ? 'Freunde-Event' : event.event_type === 'template' ? 'Turnier' : 'Community Event';
+  return (
+    <Link to={`/events/${event.id}`} className="bb-event-row">
+      <div className="bb-event-row-media">
+        <img src="/assets/buddy/lake-hero.png" alt="" className="bb-event-row-bg" loading="lazy" />
+        {fish && <img src={fish} alt="" className="bb-event-row-fish" loading="lazy" />}
+        <span className="bb-event-chip is-small">{joined ? 'Dabei' : typeLabel}</span>
+      </div>
+      <div className="bb-event-row-body">
+        <div className="flex items-start justify-between gap-2">
+          <h3>{eventTitle(event)}</h3>
+          <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-slate-300" />
+        </div>
+        <EventMeta event={event} />
+        <EventFacts event={event} participants={participants} />
+      </div>
+    </Link>
+  );
+}
 
 export default function Events() {
   const _navigate = useNavigate();
@@ -203,6 +154,7 @@ export default function Events() {
   const [joined, setJoined] = useState(new Set());
   const [leaderboards, setLeaderboards] = useState({});
   const [pointsSummary, setPointsSummary] = useState({ total_points: 0, participating_events: 0 });
+  const [filter, setFilter] = useState('all');
 
   const loadData = useCallback(async () => {
     try {
@@ -221,11 +173,9 @@ export default function Events() {
         const joinedSet = new Set();
         await Promise.all(comps.map(async (comp) => {
           const lb = await api.get(`/api/events/${comp.id}/leaderboard`).catch(() => []);
-          leaderboardsMap[comp.id] = Array.isArray(lb) ? lb.map((e) => ({
-            ...e,
-            is_user: e.user_id === user.email
-          })) : [];
-          const userJoined = (leaderboardsMap[comp.id] || []).some(entry => entry.user_id === user.email);
+          // Der Server liefert Anzeigenamen + is_me statt E-Mail-Adressen.
+          leaderboardsMap[comp.id] = Array.isArray(lb) ? lb : [];
+          const userJoined = leaderboardsMap[comp.id].some(entry => entry.is_me);
           if (userJoined) joinedSet.add(comp.id);
         }));
         setLeaderboards(leaderboardsMap);
@@ -254,7 +204,7 @@ export default function Events() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bb-bg)' }}>
+      <div className="min-h-[60vh] flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -265,48 +215,91 @@ export default function Events() {
     );
   }
 
+  const participantsOf = (event) => (leaderboards[event.id] || []).length;
+  const visible = competitions.filter(event => {
+    switch (filter) {
+      case 'running': return !isEnded(event);
+      case 'ended': return isEnded(event);
+      case 'mine': return joined.has(event.id) || (currentUser?.email && event.created_by === currentUser.email);
+      case 'friends': return event.visibility === 'friends';
+      case 'community': return event.visibility !== 'friends';
+      default: return true;
+    }
+  });
+  const running = visible.filter(event => !isEnded(event));
+  const featured = running.length
+    ? [...running].sort((a, b) => participantsOf(b) - participantsOf(a))[0]
+    : null;
+  const rest = visible.filter(event => event !== featured);
+
   return (
     <div className="bb-page">
-      <PageTitle title="BaitBuddy Events" subtitle="Gemeinsam mehr erleben. Nimm an Wettbewerben teil und sammle Punkte." />
+      <PageTitle title="BaitBuddy Events" subtitle="Gemeinsam mehr erleben. Angeln verbindet." />
 
-      {/* Points System */}
-      <PointsBreakdown
-        totalPoints={pointsSummary.total_points}
-        participatingEvents={pointsSummary.participating_events}
-      />
-
-      {/* Event-Auswahl: Vorlage wählen und Event starten */}
-      <div className="mb-8">
-        <EventLauncher currentUser={currentUser} onStarted={loadData} />
+      <div className="bb-tab-bar" role="tablist" aria-label="Events filtern">
+        {FILTERS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={filter === id}
+            onClick={() => setFilter(id)}
+            className={`bb-event-filter${filter === id ? ' is-active' : ''}`}
+          >
+            <Icon size={18} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
 
-      {/* Events */}
-      {competitions.length > 0 ? (
-        <div className="grid gap-6">
-          {competitions.map((event, _idx) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              isUserJoined={joined.has(event.id)}
-              userEntry={(leaderboards[event.id] || []).find(e => e.user_id === currentUser?.email)}
-              onJoin={handleJoin}
-              leaderboard={leaderboards[event.id] || []}
-            />
+      {featured && (
+        <FeaturedEvent
+          event={featured}
+          participants={participantsOf(featured)}
+          joined={joined.has(featured.id)}
+          onJoin={handleJoin}
+        />
+      )}
+
+      {rest.length > 0 && (
+        <div className="grid gap-3">
+          {rest.map(event => (
+            <EventRow key={event.id} event={event} participants={participantsOf(event)} joined={joined.has(event.id)} />
           ))}
         </div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12"
-        >
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bb-surface)' }}>
-            <Zap size={32} style={{ color: 'var(--bb-muted)' }} />
-          </div>
-          <p style={{ color: 'var(--bb-muted)' }} className="text-lg">Keine aktiven Veranstaltungen</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--bb-muted)', opacity: 0.7 }}>Komm später zurück für neue Wettbewerbe</p>
-        </motion.div>
       )}
+
+      {visible.length === 0 && (
+        <div className="bb-card text-center py-8">
+          <Trophy size={32} aria-hidden="true" className="mx-auto mb-3 text-slate-400" />
+          <p className="text-slate-200 font-semibold">Keine Events in dieser Auswahl</p>
+          <p className="bb-muted text-sm mt-1">Starte selbst ein Event aus einer Vorlage – unten.</p>
+        </div>
+      )}
+
+      {/* Punkte-System */}
+      <section className="bb-card" aria-labelledby="points-title">
+        <div className="bb-section-head">
+          <h2 id="points-title" className="bb-section-title"><Zap size={20} aria-hidden="true" />So sammelst du Punkte</h2>
+          <span className="text-sm font-bold text-emerald-300 tabular-nums">{Math.round(pointsSummary.total_points || 0)} Punkte</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {POINT_RULES.map(rule => (
+            <div key={rule.label} className="bb-stat-card flex items-center justify-between">
+              <span className="text-xs" style={{ color: 'var(--bb-text-secondary)' }}>{rule.label}</span>
+              <span className="font-bold" style={{ color: 'var(--bb-cyan)' }}>+{rule.points}</span>
+            </div>
+          ))}
+        </div>
+        {pointsSummary.participating_events > 0 && (
+          <p className="text-xs text-slate-400 mt-2">
+            Aus {pointsSummary.participating_events} {pointsSummary.participating_events === 1 ? 'Event' : 'Events'}
+          </p>
+        )}
+      </section>
+
+      {/* Event-Auswahl: Vorlage wählen und Event starten */}
+      <EventLauncher currentUser={currentUser} onStarted={loadData} />
     </div>
   );
 }

@@ -150,8 +150,8 @@ export default function Tutorials() {
             </CarouselItem>
 
           </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
+          <CarouselPrevious className="left-1 sm:-left-12" />
+          <CarouselNext className="right-1 sm:-right-12" />
         </Carousel>
       </div>
     </div>

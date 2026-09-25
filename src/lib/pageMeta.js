@@ -1,7 +1,7 @@
 import {
   Home, Map, Brain, Mic, CloudSun, BookOpen, CalendarDays, Users, Trophy, Backpack,
   User, Settings, Crown, BarChart3, GraduationCap, LifeBuoy, Fish, Compass, Camera,
-  Bell, Download, ScrollText, ShoppingBag, Smartphone, Sparkles, Waves, Satellite, ChefHat,
+  Bell, Download, ScrollText, ShoppingBag, Smartphone, Sparkles, Waves, Satellite, ChefHat, ShieldCheck,
 } from 'lucide-react';
 
 // Anzeigename + Icon je Route. Grundlage für Seitentitel, "Zuletzt verwendet"
@@ -41,6 +41,11 @@ export const PAGE_META = {
   Help: { title: 'Hilfe', icon: LifeBuoy },
   NotificationCenter: { title: 'Benachrichtigungen', icon: Bell },
   OfflineFishingPack: { title: 'Offline-Paket', icon: Download },
+  Privatsphaere: { title: 'Privatsphäre', icon: ShieldCheck },
+  HandsFreeBuddy: { title: 'Hands-free Buddy', icon: Mic },
+  GastdatenUebernehmen: { title: 'Gastdaten übernehmen', icon: Download },
+  LevelRewards: { title: 'Level & Rewards', icon: Trophy },
+  Vereinsprofil: { title: 'Angelvereine', icon: Users },
 };
 
 const RECENT_KEY = 'bb_recent_pages';

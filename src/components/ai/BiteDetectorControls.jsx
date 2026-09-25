@@ -19,11 +19,7 @@ export default function BiteDetectorControls({
       <div className="space-y-4">
         <Button
           onClick={onStartStop}
-          className={`w-full min-h-[44px] font-semibold transition-all duration-200 ${
-            running
-              ? 'bg-red-600 hover:bg-red-700 active:scale-95 active:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2'
-              : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 active:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2'
-          }`}
+          className={running ? 'bb-sos-btn w-full min-h-[52px] text-base' : 'bb-action bb-action-block'}
           aria-label={running ? 'Bissanzeiger stoppen und Kamera-Stream beenden' : 'Kamera starten und Bissanzeiger aktivieren'}
           aria-pressed={running}
         >

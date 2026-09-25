@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { resolvePlan } from './planResolver.js';
+import { resolvePlan, planRank } from './planResolver.js';
 import { resolveToolAccess } from './entitlementResolver.js';
 
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/;
@@ -11,8 +11,12 @@ const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/;
  *
  * Usage limits intentionally remain a separate concern. Callers may pass a
  * server-defined limit and current usage when quota enforcement is introduced.
+ *
+ * `requiredPlanRank` (planResolver.PLAN_RANK) limits the plan path to a minimum
+ * tier, e.g. the female voice is Ultimate-only (rank 3). Basic/Pro then count as
+ * "no Premium" for this tool; only a server-owned ledger grant can open it.
  */
-export async function resolveServerToolAccess({ user, toolId, monthlyLimit = null, monthlyUsed = 0 }) {
+export async function resolveServerToolAccess({ user, toolId, requiredPlanRank = 1, monthlyLimit = null, monthlyUsed = 0 }) {
   if (!user?.id) throw new Error('Authenticated user is required');
   if (typeof toolId !== 'string' || !TOOL_ID_PATTERN.test(toolId)) {
     throw new Error('Invalid tool identifier');
@@ -42,7 +46,8 @@ export async function resolveServerToolAccess({ user, toolId, monthlyLimit = nul
     permanentUnlock = data;
   }
 
-  const { isActive: premiumActive } = resolvePlan(user);
+  const { isActive, effectiveId } = resolvePlan(user);
+  const premiumActive = isActive && planRank(effectiveId) >= requiredPlanRank;
   return resolveToolAccess({
     premiumActive,
     permanentUnlock: Boolean(permanentUnlock),

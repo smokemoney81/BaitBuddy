@@ -16,6 +16,7 @@ export const ALLOWED_PAGES = [
   "VoiceLecture", "BuddyKnowsYou",
   "FishRecipes", "GearRecognition", "NotificationCenter",
   "GearMaintenance", "OfflineFishingPack", "RuleAssistant",
+  "HandsFreeBuddy", "LevelRewards", "Vereinsprofil", "Privatsphaere", "GastdatenUebernehmen",
 ];
 
 // Aliase (immer kleingeschrieben) kanonischer Key.
@@ -40,6 +41,20 @@ const PAGE_ALIASES = {
   // Wetter-Warnungen leben auf der Wetter-Seite, "voice" meint den Sprachchat.
   warnung: "Weather", warnungen: "Weather", wetterwarnung: "Weather",
   voice: "VoiceChat",
+
+  handsfree: "HandsFreeBuddy", "hands-free": "HandsFreeBuddy", freisprech: "HandsFreeBuddy",
+  freisprechmodus: "HandsFreeBuddy", "hey buddy": "HandsFreeBuddy",
+
+  level: "LevelRewards", rewards: "LevelRewards", belohnungen: "LevelRewards",
+  abzeichen: "LevelRewards", xp: "LevelRewards", erfolge: "LevelRewards",
+
+  vereine: "Vereinsprofil", verein: "Vereinsprofil", angelverein: "Vereinsprofil",
+  vereinsprofil: "Vereinsprofil", angelvereine: "Vereinsprofil",
+
+  privatsphäre: "Privatsphaere", privatsphaere: "Privatsphaere", berechtigungen: "Privatsphaere",
+  datenschutzeinstellungen: "Privatsphaere",
+
+  gastdaten: "GastdatenUebernehmen", "gastdaten übernehmen": "GastdatenUebernehmen",
 
   community: "Community", forum: "Community", feed: "Community",
 

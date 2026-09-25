@@ -10,6 +10,10 @@ import {
   clearGuestData,
   hasGuestData,
   migrateGuestData,
+  guestDataSummary,
+  postLoginPath,
+  readGuestMigrationResult,
+  GUEST_MIGRATION_EVENT,
 } from './guestStore';
 
 beforeEach(() => {
@@ -95,7 +99,7 @@ describe('migrateGuestData', () => {
 
     const result = await migrateGuestData({ Catch: { create }, Spot: { create } });
 
-    expect(result).toEqual({ migrated: 2, failed: 0 });
+    expect(result).toEqual({ migrated: 2, failed: 0, byEntity: { Catch: 1, Spot: 1 } });
     expect(create).toHaveBeenCalledTimes(2);
     expect(hasGuestData()).toBe(false);
   });
@@ -122,7 +126,7 @@ describe('migrateGuestData', () => {
 
     const result = await migrateGuestData({ Catch: { create } });
 
-    expect(result).toEqual({ migrated: 1, failed: 1 });
+    expect(result).toEqual({ migrated: 1, failed: 1, byEntity: { Catch: 1 } });
     // Zuerst angelegt wird zuletzt übertragen: der erfolgreiche ist 'Zander'.
     expect(guestList('Catch').map((c) => c.species)).toEqual(['Hecht']);
   });
@@ -138,7 +142,7 @@ describe('migrateGuestData', () => {
     release();
     await first;
 
-    expect(second).toEqual({ migrated: 0, failed: 0 });
+    expect(second).toEqual({ migrated: 0, failed: 0, byEntity: {} });
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -147,7 +151,32 @@ describe('migrateGuestData', () => {
 
     const result = await migrateGuestData({});
 
-    expect(result).toEqual({ migrated: 0, failed: 1 });
+    expect(result).toEqual({ migrated: 0, failed: 1, byEntity: {} });
     expect(hasGuestData()).toBe(true);
+  });
+
+  it('merkt sich das Ergebnis und meldet es per Event', async () => {
+    guestCreate('Spot', { name: 'Buhne 12' });
+    const listener = vi.fn();
+    window.addEventListener(GUEST_MIGRATION_EVENT, listener);
+    await migrateGuestData({ Spot: { create: vi.fn().mockResolvedValue({}) } });
+    window.removeEventListener(GUEST_MIGRATION_EVENT, listener);
+
+    expect(readGuestMigrationResult()).toMatchObject({ migrated: 1, failed: 0, byEntity: { Spot: 1 } });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('guestDataSummary / postLoginPath', () => {
+  it('zählt Gastdaten je Entity', () => {
+    guestCreate('Catch', { species: 'Hecht' });
+    guestCreate('Catch', { species: 'Zander' });
+    guestCreate('Spot', { name: 'Buhne 12' });
+    expect(guestDataSummary()).toEqual({ Catch: 2, Spot: 1, total: 3 });
+    expect(postLoginPath()).toBe('/GastdatenUebernehmen');
+  });
+
+  it('führt ohne Gastdaten ins Dashboard', () => {
+    expect(postLoginPath()).toBe('/Dashboard');
   });
 });

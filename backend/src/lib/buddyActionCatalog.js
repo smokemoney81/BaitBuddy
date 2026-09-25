@@ -19,7 +19,7 @@ export const NAVIGATE_PAGES = [
   'ausruestung', 'chat', 'ki', 'trip', 'profil', 'einstellungen', 'rang',
   'wasser', 'angelschein', 'quiz', 'lizenzen', 'events', 'koeder', 'statistik',
   'knoten', 'shop', 'premium', 'hilfe', 'tutorial', 'geraete', 'voice',
-  'personalisierung',
+  'personalisierung', 'handsfree', 'level', 'vereine', 'privatsphaere', 'gastdaten',
 ];
 
 /**

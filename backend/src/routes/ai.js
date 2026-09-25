@@ -13,7 +13,7 @@ import {
 import { buildFaqPromptSection } from '../lib/buddyFaq.js';
 import { isInClosedSeason } from '../lib/closedSeason.js';
 import { isAllowedFetchUrl } from '../lib/urlSafety.js';
-import { resolvePlan } from '../lib/planResolver.js';
+import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 import { getTTSAudio } from '../lib/multiProviderTTS.js';
@@ -659,7 +659,7 @@ router.post('/ai/tts', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Text is required' });
   }
 
-  // Premium Voice is granted by an active Premium plan OR a permanent,
+  // Premium Voice is granted by an active Ultimate plan OR a permanent,
   // server-owned level/purchase unlock. The client can only request a voice;
   // it cannot claim ownership. Monthly quota consumption remains a separate
   // server-side concern and will be enabled once production limits are set.
@@ -668,6 +668,7 @@ router.post('/ai/tts', requireAuth, async (req, res) => {
     const access = await resolveServerToolAccess({
       user: req.user,
       toolId: 'premium_voice',
+      requiredPlanRank: PLAN_RANK.elite,
     });
     if (!access.allowed) voiceUsed = 'male';
   }
