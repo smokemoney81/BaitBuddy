@@ -931,6 +931,8 @@ export const progress = {
 export const events = {
   // Event Management
   list:              ()                => api.get('/api/events'),
+  // Nach 1 Woche archivierte Events (mit finaler Rangliste)
+  archive:           ()                => api.get('/api/events/archive'),
   get:               (id)              => api.get(`/api/events/${id}`),
   create:            (data)            => api.post('/api/events', data),
   update:            (id, data)        => api.patch(`/api/events/${id}`, data),
@@ -971,6 +973,21 @@ export const events = {
 
   // Community Competition Integration
   startCompetition:  (templateId)      => api.post('/api/community/competitions/start', { template_id: templateId }),
+};
+
+// Admin-Bereich des Superusers (Seite /Admin, backend/src/routes/superAdmin.js).
+export const superAdmin = {
+  toolStats:       (days = 30)           => api.get(`/api/superadmin/stats/tools?days=${days}`),
+  communityPosts:  ()                    => api.get('/api/superadmin/community/posts'),
+  deletePost:      (id)                  => api.del(`/api/superadmin/community/posts/${id}`),
+  events:          ()                    => api.get('/api/superadmin/events'),
+  deleteEvent:     (id)                  => api.del(`/api/superadmin/events/${id}`),
+  restartEvent:    (id)                  => api.post(`/api/superadmin/events/${id}/restart`),
+  tickets:         ()                    => api.get('/api/superadmin/tickets'),
+  updateTicket:    (id, data)            => api.patch(`/api/superadmin/tickets/${id}`, data),
+  deleteTicket:    (id)                  => api.del(`/api/superadmin/tickets/${id}`),
+  mailStatus:      ()                    => api.get('/api/superadmin/mail/status'),
+  broadcast:       (subject, message)    => api.post('/api/superadmin/mail/broadcast', { subject, message }),
 };
 
 export const leaderboards = {

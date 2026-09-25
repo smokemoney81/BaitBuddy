@@ -16,6 +16,7 @@ import { DETAIL_OPTIONS } from "@/lib/buddyPreferences";
 import { useTool } from "@/hooks/useTool";
 import { getPlanLevel } from "@/components/premium/planHierarchy";
 import { PLAN_TIERS, capabilityRows } from "@/lib/planAiCapabilities";
+import { SUPPORT_EMAIL } from "@/lib/supportContact";
 
 // Offener Stripe-Kauf, dessen Aktivierung noch nicht bestätigt ist. Zwischen
 // "bei Stripe bezahlt" und "serverseitig freigeschaltet" liegt ein API-Aufruf;
@@ -639,7 +640,7 @@ export default function PremiumPlans() {
           </p>
           <button
             onClick={() => {
-              window.location.href = `mailto:support@catchgbt.app?subject=Premium Anfrage&body=Hallo,%0D%0A%0D%0AIch interessiere mich für einen Premium-Plan.%0D%0A%0D%0AMeine E-Mail: ${user?.email || ''}`;
+              window.location.href = `mailto:${SUPPORT_EMAIL}?subject=Premium Anfrage&body=Hallo,%0D%0A%0D%0AIch interessiere mich für einen Premium-Plan.%0D%0A%0D%0AMeine E-Mail: ${user?.email || ''}`;
             }}
             className="bb-secondary justify-self-center"
           >

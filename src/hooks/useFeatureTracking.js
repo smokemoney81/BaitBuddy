@@ -13,13 +13,11 @@ export function useFeatureTracking(featureId) {
     if (!featureId) return;
 
     let cancelled = false;
-    let _userEmail = null;
 
     const startSession = async () => {
       try {
         const user = await auth.me();
         if (!user?.email || cancelled) return;
-        userEmail = user.email;
 
         const sessionId = `${featureId}_${user.email}_${Date.now()}`;
         const session = await entities.UsageSession.create({

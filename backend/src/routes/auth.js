@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { supabase, supabaseUrl, supabaseKey } from '../lib/supabase.js';
-import { requireAuth, isAdminEmail, getFreshUser, invalidateCachedUser } from '../middleware/auth.js';
+import { requireAuth, isAdminEmail, isSuperuserEmail, getFreshUser, invalidateCachedUser } from '../middleware/auth.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 
@@ -139,6 +139,7 @@ router.get('/auth/me', requireAuth, (req, res) => {
     // Nach dem Spread, damit die Metadaten den Admin-Status nicht faelschen
     // koennen (user_metadata ist teilweise vom Client beschreibbar).
     is_admin: isAdminEmail(req.user.email),
+    is_superuser: isSuperuserEmail(req.user.email),
   });
 });
 
@@ -193,6 +194,7 @@ router.patch('/auth/me', requireAuth, async (req, res) => {
     created_at: u.created_at,
     ...u.user_metadata,
     is_admin: isAdminEmail(u.email),
+    is_superuser: isSuperuserEmail(u.email),
   });
 });
 

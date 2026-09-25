@@ -208,9 +208,9 @@ Start via `POST /api/events`). Sie ist **nicht** mehr in der Community-Sektion
 1. Abgelaufene aktive Events (`status='active'` & `end_date < now`) werden mit
    finalen Rankings archiviert (`status='ended'`), bleiben aber sichtbar
    (finale Rangliste einsehbar).
-2. Beendete Events, deren Ende länger als `EVENT_AUTO_DELETE_DAYS` (Default 3 Tage)
-   zurückliegt, werden per **Soft-Delete** (`is_active=false`) aus der Liste
-   ausgeblendet. `GET /api/events` filtert nur `is_active=true`. Kein Hard-Delete —
+2. Beendete Events, deren Ende länger als `EVENT_ARCHIVE_DAYS` (Default 7 Tage)
+   zurückliegt, wandern per **Soft-Delete** (`is_active=false`) ins Archiv
+   (`GET /api/events/archive`). `GET /api/events` filtert nur `is_active=true`. Kein Hard-Delete —
    `event_participants`/`event_submissions`/Punkte-Historie bleiben erhalten.
 
 ## 📱 Device-Features (Pflicht)

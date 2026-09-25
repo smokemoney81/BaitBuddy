@@ -26,6 +26,7 @@ import { initNetworkStatus } from '@/utils/networkStatus';
 import { prefetchAllPages } from '@/lib/prefetchPages';
 import { lazyPage } from '@/lib/lazyPage';
 const CatchStats = lazyPage(() => import('@/pages/CatchStats'));
+const Admin = lazyPage(() => import('@/pages/Admin'));
 const AdminTracking = lazyPage(() => import('@/pages/AdminTracking'));
 const Help = lazyPage(() => import('@/pages/Help'));
 const EventCatalog = lazyPage(() => import('@/pages/EventCatalog'));
@@ -102,6 +103,9 @@ const AnimatedRoutes = () => {
           ))}
           <Route path="/CatchStats" element={
             <ErrorBoundary><CatchStats /></ErrorBoundary>
+          } />
+          <Route path="/Admin" element={
+            <ErrorBoundary><Admin /></ErrorBoundary>
           } />
           <Route path="/AdminTracking" element={
             <ErrorBoundary><AdminTracking /></ErrorBoundary>

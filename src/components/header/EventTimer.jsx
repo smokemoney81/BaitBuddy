@@ -1,77 +1,75 @@
-import React, { useState, useEffect, useRef } from "react";
-import { entities } from "@/api/frontendClient";
-import { auth } from "@/api/auth";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { Trophy } from "lucide-react";
+import { events } from "@/api/frontendClient";
+import { auth } from "@/api/auth";
 
-function formatTime(totalSeconds) {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+const REFRESH_MS = 5 * 60 * 1000;
+
+// Restzeit als „2T 04:12:09“ bzw. „04:12:09“ unter einem Tag.
+export function formatRemaining(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const clock = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return days > 0 ? `${days}T ${clock}` : clock;
 }
 
+// Countdown bis zum Ende des laufenden Events (das als nächstes endet) samt
+// Event-Namen. Die Restzeit wird jede Sekunde aus end_date neu berechnet —
+// kein hochzählender Zähler, der nach Hintergrund/Standby falsch läuft.
 function EventTimer() {
-  const [totalSeconds, setTotalSeconds] = useState(0);
-  const [visible, setVisible] = useState(false);
-  const intervalRef = useRef(null);
+  const [event, setEvent] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    loadEventTime();
+    let cancelled = false;
+    const load = async () => {
+      try {
+        if (!(await auth.isAuthenticated())) return;
+        const res = await events.getActiveEvent();
+        if (!cancelled) setEvent(res?.active_event?.end_date ? res.active_event : null);
+      } catch {
+        // Kein Timer ist besser als ein falscher — still ausblenden.
+        if (!cancelled) setEvent(null);
+      }
+    };
+    load();
+    const refresh = setInterval(load, REFRESH_MS);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      cancelled = true;
+      clearInterval(refresh);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
-  const loadEventTime = async () => {
-    try {
-      const isAuth = await auth.isAuthenticated();
-      if (!isAuth) return;
+  useEffect(() => {
+    if (!event) return undefined;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [event]);
 
-      const user = await auth.me();
-      const events = await entities.AppEvent.filter({ is_active: true });
-      if (!events || events.length === 0) return;
+  if (!event) return null;
+  const remaining = new Date(event.end_date).getTime() - now;
+  if (!Number.isFinite(remaining) || remaining <= 0) return null;
 
-      const event = events[0];
-      const now = new Date();
-      const eventStart = new Date(event.start_date);
-      const eventEnd = new Date(event.end_date);
-      if (now < eventStart || now > eventEnd) return;
-
-      const sessions = await entities.UsageSession.filter({ user_id: user.email });
-
-      let seconds = 0;
-      for (const session of sessions) {
-        const start = new Date(session.started_at);
-        if (start < eventStart || start > eventEnd) continue;
-        if (session.status === 'stopped' && session.stopped_at) {
-          seconds += Math.floor((new Date(session.stopped_at) - start) / 1000);
-        } else if (session.status === 'active') {
-          seconds += Math.floor((new Date() - start) / 1000);
-        }
-      }
-
-      setTotalSeconds(seconds);
-      setVisible(true);
-
-      intervalRef.current = setInterval(() => {
-        setTotalSeconds(prev => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error("Fehler beim Laden der Event-Zeit:", error);
-    }
-  };
-
-  if (!visible) return null;
+  const name = event.name || "Event";
+  const time = formatRemaining(remaining);
 
   return (
-    <Link to={createPageUrl("Events")}>
-      <div className="flex items-center gap-1 bg-gray-900/80 border border-cyan-500/30 rounded px-1.5 py-0.5 cursor-pointer hover:border-cyan-400/60 transition-colors">
-        <span className="text-[9px] text-cyan-300/70 font-medium">Event:</span>
-        <span className="font-mono text-[10px] text-cyan-400 tracking-wide">
-          {formatTime(totalSeconds)}
-        </span>
-      </div>
+    <Link
+      to={`/events/${event.id}`}
+      className="bb-event-timer"
+      aria-label={`Event ${name} endet in ${time}`}
+      title={`${name} – endet am ${new Date(event.end_date).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}`}
+    >
+      <Trophy size={14} aria-hidden="true" />
+      <span className="bb-event-timer-name">{name}</span>
+      <span className="bb-event-timer-time">· endet in {time}</span>
     </Link>
   );
 }

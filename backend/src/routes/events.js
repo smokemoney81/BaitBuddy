@@ -181,6 +181,35 @@ router.get('/events', optionalAuth, async (req, res) => {
   }
 });
 
+// Archiv: beendete Events, die der tägliche Cron nach EVENT_ARCHIVE_DAYS
+// (Default 7 Tage) aus der Hauptliste genommen hat — mit finaler Rangliste
+// weiter einsehbar. Vom Superuser gelöschte Events (status='deleted') fehlen.
+// Muss vor '/events/:id' stehen, sonst fängt die ID-Route "archive" ab.
+router.get('/events/archive', optionalAuth, async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    let query = supabase
+      .from('events')
+      .select('*')
+      .eq('status', 'ended')
+      .eq('is_active', false);
+
+    if (req.user?.id) {
+      const friendEmails = await resolveFriendEmails(req.user.id);
+      query = query.or(buildVisibilityOrExpr([req.user.email, ...friendEmails]));
+    } else {
+      query = query.eq('visibility', 'public');
+    }
+
+    const { data, error } = await query.order('end_date', { ascending: false }).limit(limit);
+    if (error) return sendDbError(res, error);
+    return res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching event archive:', error);
+    res.status(500).json({ error: 'Fehler beim Laden des Event-Archivs' });
+  }
+});
+
 router.get('/events/:id', optionalAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -1077,7 +1106,7 @@ router.get('/admin/events/auto-archive', async (req, res) => {
     }
 
     const now = new Date();
-    const retentionDays = Number(process.env.EVENT_AUTO_DELETE_DAYS) || 3;
+    const retentionDays = Number(process.env.EVENT_ARCHIVE_DAYS) || 7;
 
     // Schritt A: Finde alle gerade abgelaufenen, noch aktiven Events und archiviere sie
     const { data: expiredEvents, error: fetchError } = await supabase
@@ -1105,8 +1134,9 @@ router.get('/admin/events/auto-archive', async (req, res) => {
       archived++;
     }
 
-    // Schritt B: Blende beendete Events nach Ablauf der Nachlauffrist aus der Liste aus.
-    // Soft-Delete (is_active=false) statt Hard-Delete: Punkte-/Teilnehmer-Historie bleibt erhalten.
+    // Schritt B: Beendete Events wandern nach Ablauf der Nachlauffrist (1 Woche)
+    // ins Archiv (GET /events/archive): is_active=false nimmt sie aus der
+    // Hauptliste, kein Hard-Delete — Punkte-/Teilnehmer-Historie bleibt erhalten.
     const retentionCutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
     const { data: retiredEvents, error: retireFetchError } = await supabase
       .from('events')
@@ -1351,16 +1381,20 @@ router.get('/events/user/active-event', requireAuth, async (req, res) => {
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Finde das aktuell laufende (live) Event, das als naechstes endet
+    // Finde das aktuell laufende (live) Event, das als naechstes endet — nur
+    // sichtbare (is_active) und für diesen Nutzer freigegebene (visibility).
+    const friendEmails = await resolveFriendEmails(req.user.id);
     const { data: activeEvent } = await supabase
       .from('events')
       .select('id, name, end_date, start_date')
       .eq('status', 'active')
+      .eq('is_active', true)
+      .or(buildVisibilityOrExpr([req.user.email, ...friendEmails]))
       .lte('start_date', nowIso)
       .gt('end_date', nowIso)
       .order('end_date', { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (!activeEvent) {
       return res.json({ active_event: null });

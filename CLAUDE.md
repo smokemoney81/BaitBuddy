@@ -289,10 +289,18 @@ Start via `POST /api/events`). Sie ist **nicht** mehr in der Community-Sektion
 1. Abgelaufene aktive Events (`status='active'` & `end_date < now`) werden mit
    finalen Rankings archiviert (`status='ended'`), bleiben aber sichtbar
    (finale Rangliste einsehbar).
-2. Beendete Events, deren Ende länger als `EVENT_AUTO_DELETE_DAYS` (Default 3 Tage)
-   zurückliegt, werden per **Soft-Delete** (`is_active=false`) aus der Liste
-   ausgeblendet. `GET /api/events` filtert nur `is_active=true`. Kein Hard-Delete —
-   `event_participants`/`event_submissions`/Punkte-Historie bleiben erhalten.
+2. Beendete Events, deren Ende länger als `EVENT_ARCHIVE_DAYS` (Default **7 Tage**)
+   zurückliegt, wandern per **Soft-Delete** (`is_active=false`) ins **Archiv**:
+   `GET /api/events` filtert nur `is_active=true`, `GET /api/events/archive`
+   liefert `status='ended'` + `is_active=false` (Reiter „Archiv“ in `Events.jsx`).
+   Kein Hard-Delete — `event_participants`/`event_submissions`/Punkte-Historie
+   bleiben erhalten. Vom Superuser gelöschte Events tragen `status='deleted'` und
+   fehlen auch im Archiv.
+
+**Event-Countdown** (`src/components/header/EventTimer.jsx`): eigene Zeile unter
+der Kopfzeile mit Event-Name + Restzeit bis `end_date` des laufenden Events, das
+als nächstes endet (`GET /api/events/user/active-event`, nur sichtbare Events).
+Die Restzeit wird jede Sekunde aus `end_date` berechnet, nicht hochgezählt.
 
 ## 🗄️ Datenbank-Migrationen (automatisierter Deploy)
 
@@ -382,6 +390,30 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
 - „Zuletzt verwendet“ im Command Center: `recordRecentPage` in `src/lib/pageMeta.js`
   (localStorage `bb_recent_pages`).
 - Hintergrundfarbe `#0B1324` (Issue-Vorgabe), zentral in `baitbuddy-v2.css`.
+
+## 🛡️ Admin-Bereich (Superuser)
+
+- **Nur ein Konto:** `kaisaschnitt99@gmail.com` (per Env `SUPERUSER_EMAIL`
+  überschreibbar). Gate serverseitig über `requireSuperuser`
+  (`backend/src/middleware/auth.js`) für alle `/api/superadmin/*`-Routen
+  (`backend/src/routes/superAdmin.js`); `/api/auth/me` liefert `is_superuser`.
+  Der Superuser ist zusätzlich immer Admin (`isAdminEmail`); `ADMIN_EMAILS`
+  gilt weiter für die älteren Admin-Werkzeuge, **nicht** für `/Admin`.
+- **Seite `/Admin`** (`src/pages/Admin.jsx`, Einstieg im Command Center nur bei
+  `is_superuser`): Top-10-Tools, Community-Beiträge löschen, Events löschen
+  (weich, `status='deleted'`) und neu starten (neue Runde ab jetzt, gleiche
+  Laufzeit/Regeln, altes Event bleibt im Archiv), Support-Tickets beantworten
+  (Antwort geht per Mail an den Nutzer und erscheint in „Meine Tickets“),
+  Status setzen, löschen, Rundmail an alle Nutzer (BCC-Pakete à 50).
+- **Top-10-Tools** zählen Seitenaufrufe: `trackPageView` (`tracker.jsx`) legt pro
+  Seitenwechsel angemeldeter Nutzer eine `usage_sessions`-Zeile mit
+  `status='view'`, `feature_id='page:<Route>'` an; `Admin.jsx` ordnet Routen über
+  `TOOLS` (`toolRegistry.ts`) Tools zu (ohne Einstellungs-/Rechtsseiten und ohne
+  `?tab=`-Tools, die sich per Pfad nicht unterscheiden lassen).
+- **Mailversand** zentral in `backend/src/lib/mailer.js` (SMTP_HOST/USER/PASSWORD).
+  Support-Adresse `supportEmail()` = `SUPPORT_EMAIL` bzw. `kaisaschnitt99@gmail.com`,
+  Frontend-Gegenstück `src/lib/supportContact.js`. Ticket-Benachrichtigungen gehen
+  an `DEVELOPER_EMAIL`, sonst an die Support-Adresse.
 
 ## 🧩 Screens mit eigener Logik (BaitBuddy 2.0, Teil 2)
 

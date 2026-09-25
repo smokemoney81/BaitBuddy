@@ -75,7 +75,6 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, t
 
   const right = (
     <div className="bb-topbar-right">
-      <EventTimer />
       {isDemo && <span className="bb-header-badge" style={{ '--badge-bg': 'rgba(245,158,11,.20)', '--badge-color': '#fbbf24' }}>DEMO</span>}
       {isRoot && (
         <Link to="/NotificationCenter" className="bb-topbar-icon" aria-label="Benachrichtigungen">
@@ -92,6 +91,7 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, t
       <header className="bb-topbar bb-topbar-root">
         <BrandLogo size="lg" align="left" withMark={false} />
         {right}
+        <EventTimer />
       </header>
     );
   }
@@ -103,6 +103,7 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, t
       </button>
       {title ? <h1 className="bb-topbar-title">{title}</h1> : <BrandLogo size="md" align="center" />}
       {right}
+      <EventTimer />
     </header>
   );
 }
