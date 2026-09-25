@@ -94,9 +94,22 @@ Die produktive Web-App-Domain ist **`catchgbt.com`** (Apex). Erwartete Origins:
 2. Cloudflare "Workers Builds" (Projekt `baitbuddy`) konfigurieren:
    Build command `npm install --legacy-peer-deps && npm run build`, Deploy ueber
    die Root-`wrangler.toml` (`npx wrangler deploy`).
-3. Am Worker setzen: Variable `BACKEND_URL` (aktuell das **neue Vercel-Projekt**,
-   Konto `ssbedburg` — exakten Produktions-Alias im Vercel-Dashboard verifizieren;
-   spaeter die Container-URL) und Secret `CRON_SECRET` (identisch zum Backend).
+3. Am Worker setzen: Secret `CRON_SECRET` (identisch zum Backend) und das Backend-Ziel.
+   **Stand 2026-09-25:** `BACKEND_URL` (`bait-buddy.vercel.app`) gehoert zum alten
+   Vercel-Konto, das wegen der Abrechnung gesperrt ist und seit PR #368 (2026-08-02)
+   nicht mehr deployt. Jeder Merge landet im **neuen Projekt** (Konto `ssbedburg`,
+   Alias `VERCEL_BACKEND_URL` in `wrangler.toml`), das per Deployment Protection
+   gesperrt ist. Umschalten:
+   1. Vercel (Konto ssbedburg) → Projekt `bait-buddy` → Settings → Deployment
+      Protection → **Protection Bypass for Automation** → Secret erzeugen.
+   2. Cloudflare → Worker `baitbuddy` → Settings → Variables and Secrets →
+      Secret **`VERCEL_PROTECTION_BYPASS`** mit diesem Wert anlegen.
+   3. Pruefen: `https://catchgbt.com/api/superadmin/stats` antwortet mit 401
+      (vorher 404 = altes Backend).
+   Der Worker (`backendTarget` in `cloudflare/worker.js`) nutzt den neuen Alias nur mit
+   gesetztem Secret und schickt es als `x-vercel-protection-bypass` mit (auch bei den
+   Crons). Secret loeschen = sofort zurueck auf `BACKEND_URL`.
+   Spaeter ersetzt die Container-URL beide.
    Hinweis: Der Backend-Container (`docker/backend.Dockerfile`, `[[containers]]`)
    ist die Ziel-Architektur, aber **zurueckgestellt** — er braucht den Workers
    Paid Plan. Bis dahin proxyt der Front-Door `/api/*` an das Vercel-Backend.
