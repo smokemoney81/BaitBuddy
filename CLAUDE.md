@@ -477,11 +477,19 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
   Der Superuser ist zusätzlich immer Admin (`isAdminEmail`); `ADMIN_EMAILS`
   gilt weiter für die älteren Admin-Werkzeuge, **nicht** für `/Admin`.
 - **Seite `/Admin`** (`src/pages/Admin.jsx`, Einstieg im Command Center nur bei
-  `is_superuser`): Top-10-Tools, Community-Beiträge löschen, Events löschen
+  `is_superuser`): Nutzerliste mit Plan-Zuweisung, Top-10-Tools, Community-Beiträge löschen, Events löschen
   (weich, `status='deleted'`) und neu starten (neue Runde ab jetzt, gleiche
   Laufzeit/Regeln, altes Event bleibt im Archiv), Support-Tickets beantworten
   (Antwort geht per Mail an den Nutzer und erscheint in „Meine Tickets“),
   Status setzen, löschen, Rundmail an alle Nutzer (BCC-Pakete à 50).
+- **Reiter „Nutzer“** (`GET /api/superadmin/users`, `POST /api/superadmin/users/:id/plan`):
+  alle Konten, zuletzt angemeldete zuerst, mit letztem Login, Anmeldeweg,
+  E-Mail-Bestätigung und dem **tatsächlich geltenden** Plan (`resolvePlan`: Abo,
+  Testphase oder Pass); weicht das gespeicherte Abo ab, steht es daneben. Plan
+  zuweisen/entziehen läuft über `assignPlan` (`backend/src/lib/planAssignment.js`,
+  geteilt mit `POST /api/admin/plans/assign`): schreibt nur `app_metadata`
+  (`premium_payment_method='admin'`, `premium_assigned_by`) und leert den
+  Token-Cache. „Abo entziehen“ beendet keinen laufenden Pass und keine Testphase.
 - **Top-10-Tools** zählen Seitenaufrufe: `trackPageView` (`tracker.jsx`) legt pro
   Seitenwechsel angemeldeter Nutzer eine `usage_sessions`-Zeile mit
   `status='view'`, `feature_id='page:<Route>'` an; `Admin.jsx` ordnet Routen über

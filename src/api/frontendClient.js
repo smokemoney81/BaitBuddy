@@ -988,6 +988,8 @@ export const superAdmin = {
   deleteTicket:    (id)                  => api.del(`/api/superadmin/tickets/${id}`),
   mailStatus:      ()                    => api.get('/api/superadmin/mail/status'),
   broadcast:       (subject, message)    => api.post('/api/superadmin/mail/broadcast', { subject, message }),
+  users:           ()                    => api.get('/api/superadmin/users'),
+  assignPlan:      (id, planId, days)    => api.post(`/api/superadmin/users/${encodeURIComponent(id)}/plan`, { plan_id: planId, duration_days: days }),
 };
 
 export const leaderboards = {
