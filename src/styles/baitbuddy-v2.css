@@ -759,29 +759,58 @@
   pointer-events: none;
 }
 
-/* Quick-action sheet (Schnellaktionen der Bottom-Nav).
+/* Quick-action sheet (Schnellaktionen der Bottom-Nav), nach Design-Vorlage.
    Eigene Klasse statt .bb-app: .bb-app erzwingt min-height:100dvh, wodurch das
-   Blatt die ganze Bildschirmhoehe fuellte, und liess den Hintergrund vom
-   Theme abhaengen. Farben hier fest im App-Design (#0B1324 + Cyan). */
+   Blatt die ganze Bildschirmhoehe fuellte. Hintergrund = Seefoto des Layouts
+   (bereits im Cache) unter dunklem Verlauf, Farben fest im App-Design. */
 .bb-quick-sheet {
-  background: linear-gradient(180deg, #13243a 0%, #0B1324 100%) !important;
+  background:
+    linear-gradient(180deg, rgba(11, 19, 36, .55) 0%, rgba(11, 19, 36, .88) 38%, #0B1324 100%),
+    url('/assets/buddy/lake-hero.png') center top / cover no-repeat,
+    #0B1324 !important;
   color: #eef5fa;
   border: 0 !important;
-  border-top: 1px solid var(--bb-border) !important;
+  border-top: 1px solid var(--bb-border-hover) !important;
   border-radius: 28px 28px 0 0;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, .6), 0 -1px 18px rgba(0, 229, 255, .12);
-  max-height: 85vh;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, .6), 0 -1px 22px rgba(0, 229, 255, .18);
+  max-height: 92vh;
   overflow-y: auto;
-  padding: 12px 16px calc(24px + env(safe-area-inset-bottom)) !important;
+  overscroll-behavior: contain;
+  padding: 10px 16px calc(20px + env(safe-area-inset-bottom)) !important;
 }
 .bb-quick-sheet-handle {
   width: 44px;
   height: 5px;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
   border-radius: 999px;
   background: rgba(0, 229, 255, .35);
 }
-/* Schliessen-Taste der Sheet-Komponente an die App anpassen (44px Touch-Ziel) */
+.bb-quick-sheet-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--bb-cyan);
+  margin-bottom: 12px;
+}
+.bb-quick-sheet-brand .bb-brand-word { font-size: 24px; }
+.bb-quick-sheet .bb-quick-sheet-title {
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: #f4f8fb;
+}
+.bb-quick-sheet .bb-quick-sheet-subtitle { font-size: 15px; color: #b9cbdb; }
+.bb-quick-sheet-divider {
+  width: 64px;
+  height: 3px;
+  margin: 12px auto 16px;
+  border-radius: 999px;
+  background: var(--bb-cyan);
+  box-shadow: var(--bb-glow-cyan);
+}
+/* Schliessen-Taste der Sheet-Komponente (44px Touch-Ziel) */
 .bb-quick-sheet > button {
   top: 14px;
   right: 14px;
@@ -790,8 +819,8 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .06) !important;
-  border: 1px solid var(--bb-border);
+  background: rgba(11, 19, 36, .7) !important;
+  border: 1px solid var(--bb-border-hover);
   color: #eef5fa;
   opacity: 1;
 }
@@ -799,40 +828,114 @@
   outline: 2px solid var(--bb-cyan);
   outline-offset: 2px;
 }
-.bb-quick-sheet .bb-quick-action-card {
-  background: var(--bb-surface-grad);
-  min-height: 112px;
-  justify-content: center;
+.bb-quick-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 36rem;
+  margin: 0 auto;
 }
-.bb-quick-sheet .bb-quick-action-card:active {
-  transform: scale(.97);
-  border-color: var(--bb-border-hover);
-}
-
-/* Quick-action sheet cards */
-.bb-quick-action-card {
+.bb-quick-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 12px;
-  border-radius: 16px;
-  background: var(--bb-surface);
-  border: 1px solid var(--bb-border);
+  min-width: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  text-align: left;
   text-decoration: none;
   color: #eef5fa;
-  transition: border-color .15s, background .15s;
+  background: linear-gradient(180deg, rgba(16, 34, 52, .92), rgba(10, 22, 36, .96));
+  border: 1px solid rgba(0, 229, 255, .35);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .7), inset 0 0 18px rgba(0, 229, 255, .06);
+  transition: border-color var(--bb-motion), transform var(--bb-motion), box-shadow var(--bb-motion);
+  -webkit-tap-highlight-color: transparent;
 }
-.bb-quick-action-card:hover {
-  border-color: var(--bb-border-hover);
-  background: rgba(0,229,255,.06);
+.bb-quick-sheet .bb-quick-tile { align-items: stretch; justify-content: flex-start; }
+.bb-quick-tile:not(.is-locked):hover,
+.bb-quick-tile:not(.is-locked):focus-visible {
+  border-color: var(--bb-cyan);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .7), 0 0 16px rgba(0, 229, 255, .3);
+  outline: none;
 }
-.bb-quick-action-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+.bb-quick-tile:not(.is-locked):active { transform: scale(.97); }
+.bb-quick-tile.is-locked { cursor: not-allowed; }
+.bb-quick-tile.is-locked .bb-quick-tile-media { filter: grayscale(1) brightness(.5); }
+.bb-quick-tile-media {
+  position: relative;
+  display: block;
+  height: 88px;
+  overflow: hidden;
+}
+.bb-quick-tile-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Bild weich in die Kartenflaeche auslaufen lassen */
+.bb-quick-tile-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 22, 36, 0) 45%, rgba(12, 26, 42, .95) 100%);
+}
+.bb-quick-tile-icon {
+  position: relative;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  margin: -24px 0 0 12px;
+  align-self: flex-start;
   display: grid;
   place-items: center;
+  border-radius: 12px;
+  background: rgba(8, 18, 30, .92);
+  border: 1px solid currentColor;
+  box-shadow: 0 0 12px -2px currentColor;
+}
+.bb-tone-cyan   { color: var(--bb-cyan); }
+.bb-tone-green  { color: var(--bb-green); }
+.bb-tone-orange { color: var(--bb-orange); }
+.bb-tone-muted  { color: #64748b; }
+.bb-quick-tile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 48px 14px 12px;
+  min-width: 0;
+}
+.bb-quick-tile-label {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #f4f8fb;
+}
+.bb-quick-tile-hint {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #b9cbdb;
+}
+.bb-quick-tile-go {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--bb-cyan);
+  border: 1.5px solid var(--bb-cyan);
+  box-shadow: 0 0 10px rgba(0, 229, 255, .35);
+}
+@media (min-width: 480px) {
+  .bb-quick-tile-media { height: 112px; }
+  .bb-quick-tile-label { font-size: 18px; }
+}
+@media (max-width: 340px) {
+  .bb-quick-tile-text { padding-right: 12px; }
+  .bb-quick-tile-go { display: none; }
 }
 
 /* Legacy aliases (keep old pages working until migrated) */
