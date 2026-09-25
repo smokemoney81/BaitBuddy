@@ -1,0 +1,73 @@
+name: Deploy Backend to Cloudflare
+
+# Express-Backend als Cloudflare Container (Worker `baitbuddy-api`,
+# cloudflare/backend/wrangler.toml). Getrennt vom Frontend-Deploy: Solange
+# BACKEND_URL in der Root-wrangler.toml auf Vercel zeigt, bekommt dieser Worker
+# keinen Nutzer-Traffic.
+#
+# Voraussetzungen: Workers Paid Plan (Containers) und die Backend-Secrets am
+# Worker (Liste: cloudflare/backend/containerEnv.js). Automatische Deploys bei
+# Backend-Änderungen erst, wenn die Repo-Variable CLOUDFLARE_BACKEND_ENABLED=true
+# gesetzt ist — sonst wäre jeder Push auf main rot, solange der Plan fehlt.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'scripts/**'
+      - 'docker/backend.Dockerfile'
+      - 'cloudflare/backend/**'
+      - '.github/workflows/deploy-cloudflare-backend.yml'
+
+concurrency:
+  group: deploy-cloudflare-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.CLOUDFLARE_BACKEND_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HEALTH_URL: ${{ vars.CLOUDFLARE_BACKEND_URL || 'https://baitbuddy-api.kaisaschnitt99.workers.dev' }}/api/health
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # @cloudflare/containers wird für das Worker-Bundle gebraucht.
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # Baut docker/backend.Dockerfile (Docker ist auf ubuntu-latest vorhanden),
+      # pusht das Image in die Cloudflare-Registry und rollt den Container aus.
+      - name: Deploy Worker + Container
+        run: npx wrangler deploy --config cloudflare/backend/wrangler.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Der erste Deploy kann einige Minuten brauchen, bis das Image bereitsteht.
+      - name: Verify backend health
+        run: |
+          for i in $(seq 1 40); do
+            body=$(curl -s --max-time 20 "$HEALTH_URL" || true)
+            if echo "$body" | grep -q '"ok":true'; then
+              echo "Backend antwortet: $body"
+              exit 0
+            fi
+            echo "Versuch $i/40: noch keine Antwort ($body)"
+            sleep 15
+          done
+          echo "Backend-Container antwortet nicht unter $HEALTH_URL"
+          exit 1

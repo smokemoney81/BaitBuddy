@@ -1,0 +1,41 @@
+# BaitBuddy Backend (Express) als Cloudflare Container — eigener Worker.
+# Deploy: GitHub Actions "Deploy Backend to Cloudflare" bzw.
+#   npx wrangler deploy --config cloudflare/backend/wrangler.toml
+# Voraussetzung: Workers Paid Plan (Containers). Secrets setzen mit
+#   npx wrangler secret put <NAME> --config cloudflare/backend/wrangler.toml
+# Welche Namen durchgereicht werden: cloudflare/backend/containerEnv.js.
+name = "baitbuddy-api"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[containers]]
+class_name = "BackendContainer"
+image = "../../docker/backend.Dockerfile"
+# Das Dockerfile kopiert backend/ und scripts/ — Build-Kontext ist das Repo-Root.
+image_build_context = "../.."
+# 1 GiB RAM / 1/4 vCPU: "lite" (256 MiB) ist zu knapp für die Express-App.
+instance_type = "basic"
+max_instances = 2
+# EU-Nutzer und Supabase in eu-west-2: Container in Westeuropa halten.
+[containers.constraints]
+regions = ["WEUR"]
+
+[[durable_objects.bindings]]
+name = "BACKEND"
+class_name = "BackendContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BackendContainer"]
+
+# Nicht-geheime Werte. Alles Geheime (SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY,
+# STRIPE_*, SMTP_PASSWORD, CRON_SECRET …) als Secret setzen, nie hier eintragen.
+[vars]
+SUPABASE_URL = "https://yejiqenqdzupauddjcyi.supabase.co"
+APP_URL = "https://catchgbt.com"
+# Ergänzt die Standard-Origins (catchgbt.com, capacitor://localhost …) um die
+# workers.dev-Adresse des Front-Door-Workers. Bewusst KEIN ALLOWED_ORIGINS: das
+# ersetzt die Standardliste komplett und sperrte die Android-App aus.
+APP_BASE_URL = "https://baitbuddy.kaisaschnitt99.workers.dev"

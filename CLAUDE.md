@@ -231,6 +231,17 @@ ausschließlich serverseitig (`CHECKOUT_PLANS`); der Client sendet nur die
   `BillingManager` gepuffert und ausgeführt, sobald die Details da sind
   (Timeout 15 s) — kein sofortiger „Billing service not ready"-Fehler.
 
+## 📲 Android-App direkt installieren (APK)
+
+`AndroidInstallButton` (Login-Auswahl in `LandingAuthPanel.jsx`) lädt die APK aus
+dem neuesten GitHub-Release (Asset `baitbuddy.apk`, `src/lib/androidApk.js`, öffentliche
+GitHub-API, 1 h Cache). Ohne Release/Asset erscheint kein Button; in der installierten
+App und auf iOS nie. Das Release erzeugt `build-android.yml` (signierte Release-APK,
+nur mit Keystore-Secret) bei `v*`-Tags bzw. manuellem Lauf. Die APK ist mit dem
+Upload-Schlüssel signiert; mit Play App Signing (Standard bei AAB-Apps) signiert Google
+die Play-Version mit einem eigenen Schlüssel — dann lassen sich Sideload- und
+Play-Installation nicht gegenseitig aktualisieren (vorher deinstallieren).
+
 ## 🎁 Freundschafts-Empfehlung (Login-Popup)
 
 Nach dem Einloggen erscheint auf dem Dashboard das `ReferralInvitePopup`
@@ -513,6 +524,7 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ✅ Cloudflare (Hosting, Worker/Container, Deploy) — Zielplattform
 - ✅ Supabase (DB, Auth, Storage)
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
+- ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
 - ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)

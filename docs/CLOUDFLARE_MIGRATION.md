@@ -43,6 +43,44 @@ umsatzkritischen Premium-/KI-Pfad.
 - `public/_headers` — Cache-Header (Aequivalent zu `vercel.json > headers`).
 - `docker/backend.Dockerfile` — Backend-Image fuer den Cloudflare-Container.
 
+## Backend-Container (Phase 3) — im Repo vorbereitet
+
+Das Express-Backend läuft als **eigener Worker `baitbuddy-api`** mit Container,
+getrennt vom Front-Door-Worker. So hängt die Live-Seite nicht am Container, und
+ein fehlender Paid Plan bricht den Frontend-Deploy nicht.
+
+- `cloudflare/backend/wrangler.toml` — Worker + `[[containers]]` (Image aus
+  `docker/backend.Dockerfile`, Build-Kontext Repo-Root, `instance_type = "basic"`,
+  Region WEUR), nicht-geheime Vars (`SUPABASE_URL`, `APP_URL`, `APP_BASE_URL`).
+- `cloudflare/backend/worker.js` — reicht jede Anfrage an die Container-Instanz
+  `primary` weiter (eine Instanz: In-Memory-Caches/Rate-Limit bleiben konsistent).
+- `cloudflare/backend/containerEnv.js` — welche Worker-Secrets als Umgebung in den
+  Container gehen (Test prüft, dass `backend/.env.example` vollständig abgedeckt ist).
+- `.github/workflows/deploy-cloudflare-backend.yml` — manuell oder (mit Repo-Variable
+  `CLOUDFLARE_BACKEND_ENABLED=true`) bei Backend-Änderungen auf `main`; prüft danach
+  `https://baitbuddy-api.kaisaschnitt99.workers.dev/api/health`.
+
+**Nicht `ALLOWED_ORIGINS` setzen**, solange die Android-App `capacitor://localhost`
+braucht: die Variable ersetzt die Standardliste komplett.
+
+### Umschalten (in dieser Reihenfolge)
+
+1. Workers Paid Plan im Cloudflare-Konto aktivieren.
+2. Secrets am Worker setzen (Dashboard → Workers → `baitbuddy-api` → Settings →
+   Variables, oder `npx wrangler secret put NAME --config cloudflare/backend/wrangler.toml`):
+   mindestens `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET`
+   (identisch zum Front-Door-Worker), dazu je nach Funktion `STRIPE_*`,
+   `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `ELEVENLABS_*`/`OPENAI_API_KEY`, `SMTP_*`.
+3. GitHub → Actions → „Deploy Backend to Cloudflare“ → Run workflow. Grün heißt:
+   `/api/health` antwortet aus dem Container.
+4. Login, KI-Chat (auch Streaming) und einen Kauf-Check gegen
+   `https://baitbuddy-api.kaisaschnitt99.workers.dev` testen.
+5. `BACKEND_URL` in der Root-`wrangler.toml` auf
+   `https://baitbuddy-api.kaisaschnitt99.workers.dev` umstellen und mergen.
+   Rückweg bei Problemen: denselben Wert zurück auf `https://bait-buddy.vercel.app`.
+6. Repo-Variable `CLOUDFLARE_BACKEND_ENABLED=true` setzen, damit Backend-Änderungen
+   automatisch deployt werden. Stripe-Webhook-URL erst danach umziehen.
+
 ## Ziel-Domain
 
 Die produktive Web-App-Domain ist **`catchgbt.com`** (Apex). Erwartete Origins:
