@@ -6,6 +6,7 @@ import { getAdCapabilities, isAdAllowedOnRoute, MAIN_TOOL_ROUTES } from '@/lib/a
 import { canShowInterstitial, } from '@/components/ads/InterstitialAd';
 import { getAdConfig, loadAdConfig } from '@/lib/adConfig';
 import { trackAdEvent } from '@/lib/adAnalytics';
+import { APP_SETTINGS_EVENT } from '@/lib/appSettings';
 
 const AdGateContext = createContext(null);
 
@@ -21,15 +22,30 @@ export function AdGateProvider({ children }) {
   const [pendingInterstitial, setPendingInterstitial] = useState(null);
   const prevPathRef = useRef(location.pathname);
   const configRef = useRef(null);
+  // Hauptschalter aus dem Admin-Bereich (/api/ads/config → ads_enabled).
+  const [adsEnabled, setAdsEnabled] = useState(() => getAdConfig().ads_enabled !== false);
 
   // Config laden
   useEffect(() => {
-    loadAdConfig().then(cfg => { configRef.current = cfg; });
+    let active = true;
+    loadAdConfig().then(cfg => {
+      configRef.current = cfg;
+      if (active) setAdsEnabled(cfg.ads_enabled !== false);
+    });
+    // Schaltet der Superuser um, gilt es auf seinem Gerät sofort.
+    const onSettings = (event) => {
+      if (typeof event.detail?.ads_enabled === 'boolean') setAdsEnabled(event.detail.ads_enabled);
+    };
+    window.addEventListener(APP_SETTINGS_EVENT, onSettings);
+    return () => {
+      active = false;
+      window.removeEventListener(APP_SETTINGS_EVENT, onSettings);
+    };
   }, []);
 
   const capabilities = React.useMemo(
-    () => getAdCapabilities(plan?.id ?? 'free', isAuthenticated),
-    [plan?.id, isAuthenticated]
+    () => getAdCapabilities(plan?.id ?? 'free', isAuthenticated, { adsEnabled }),
+    [plan?.id, isAuthenticated, adsEnabled]
   );
 
   // Interstitial-Guard bei Navigation

@@ -3,14 +3,17 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   BarChart3, MessageSquare, Trophy, LifeBuoy, Mail, Trash2, RotateCcw, Loader2, ShieldAlert, Send, Users, Crown, Fish, Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import PageTitle from "@/components/layout/PageTitle";
 import { auth } from "@/api/auth";
 import { superAdmin } from "@/api/frontendClient";
 import { TOOLS } from "@/lib/toolRegistry";
+import { publishAppSettings } from "@/lib/appSettings";
 
 // Admin-Bereich des Superusers. Die Oberfläche blendet sich für alle anderen
 // aus; die eigentliche Sperre sitzt serverseitig (requireSuperuser).
@@ -685,6 +688,88 @@ function UsersAdmin() {
   );
 }
 
+// ── App-Schalter ───────────────────────────────────────────────────────────
+// Gelten sofort für alle Nutzer (Server-Cache 30 s, Werbe-Konfiguration im
+// Browser bis 5 Min.). Gespeichert in app_config (lib/appSettings.js).
+const APP_SWITCHES = [
+  {
+    key: "ads_enabled",
+    title: "Werbung anzeigen",
+    on: "Werbung läuft wie im Tarif vorgesehen (Gäste, Kostenlos, Basic).",
+    off: "Keine Werbung für niemanden.",
+  },
+  {
+    key: "all_tools_free",
+    title: "Alle Tools kostenlos",
+    on: "Jede Funktion ist für alle freigeschaltet, auch ohne Plan. Das KI-Tageslimit für kostenlose Konten entfällt.",
+    off: "Funktionen richten sich nach dem gebuchten Plan.",
+    confirmOn: "Alle Tools für alle Nutzer freischalten? Das gilt, bis du es wieder ausschaltest.",
+  },
+];
+
+function AppSettingsAdmin() {
+  const [settings, setSettings] = useState(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState("");
+
+  useEffect(() => {
+    superAdmin.settings()
+      .then(setSettings)
+      .catch(e => setError(errorText(e, "Einstellungen konnten nicht geladen werden")));
+  }, []);
+
+  const toggle = async (sw, value) => {
+    if (value && sw.confirmOn && !window.confirm(sw.confirmOn)) return;
+    setSaving(sw.key);
+    try {
+      const next = await superAdmin.updateSettings({ [sw.key]: value });
+      setSettings(next);
+      publishAppSettings(next);
+      toast.success(`${sw.title}: ${value ? "an" : "aus"}`);
+    } catch (e) {
+      toast.error(errorText(e, "Speichern fehlgeschlagen"));
+    }
+    setSaving("");
+  };
+
+  return (
+    <section className="bb-card">
+      <div className="bb-section-head">
+        <h2 className="bb-section-title"><SlidersHorizontal size={20} aria-hidden="true" />App-Schalter</h2>
+      </div>
+      {error ? <Empty>{error}</Empty> : !settings ? <Busy /> : (
+        <>
+          <ul className="grid gap-3">
+            {APP_SWITCHES.map(sw => {
+              const value = settings[sw.key] === true;
+              return (
+                <li key={sw.key} className="bb-admin-item items-center justify-between">
+                  <div className="min-w-0">
+                    <p id={`switch-${sw.key}`} className="text-sm font-semibold text-slate-100">{sw.title}</p>
+                    <p className="text-xs bb-muted">{value ? sw.on : sw.off}</p>
+                  </div>
+                  <Switch
+                    className="bb-switch"
+                    checked={value}
+                    disabled={saving === sw.key}
+                    onCheckedChange={(next) => toggle(sw, next)}
+                    aria-labelledby={`switch-${sw.key}`}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          {settings.updated_at && (
+            <p className="text-xs bb-muted mt-3">
+              Zuletzt geändert {formatDate(settings.updated_at)}{settings.updated_by ? ` von ${settings.updated_by}` : ""}.
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 // ── Rundmail ───────────────────────────────────────────────────────────────
 function BroadcastMail() {
   const [status, setStatus] = useState(null);
@@ -776,6 +861,7 @@ export default function Admin() {
         <TabsList className="flex w-full justify-start overflow-x-auto scrollbar-hide">
           <TabsTrigger value="stats">Statistik</TabsTrigger>
           <TabsTrigger value="users">Nutzer</TabsTrigger>
+          <TabsTrigger value="app">App</TabsTrigger>
           <TabsTrigger value="community">Community</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
@@ -783,6 +869,7 @@ export default function Admin() {
         </TabsList>
         <TabsContent value="stats" className="mt-4"><Statistics /></TabsContent>
         <TabsContent value="users" className="mt-4"><UsersAdmin /></TabsContent>
+        <TabsContent value="app" className="mt-4"><AppSettingsAdmin /></TabsContent>
         <TabsContent value="community" className="mt-4"><CommunityAdmin /></TabsContent>
         <TabsContent value="events" className="mt-4"><EventsAdmin /></TabsContent>
         <TabsContent value="tickets" className="mt-4"><TicketsAdmin /></TabsContent>

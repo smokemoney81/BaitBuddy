@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { verifyGooglePlayPurchase, verifyStripePayment, createStripeCheckoutSession, constructStripeWebhookEvent } from '../lib/purchaseVerification.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
+import { isAllToolsFree } from '../lib/appSettings.js';
 
 const router = Router();
 
@@ -226,7 +227,8 @@ router.post('/premium/check-feature', requireAuth, async (req, res) => {
   const { effectiveId } = resolvePlan(req.user);
 
   const requiredPlan = feature ? FEATURE_MIN_PLAN[feature] : null;
-  const allowed = Boolean(requiredPlan) && PLAN_RANK[effectiveId] >= PLAN_RANK[requiredPlan];
+  const allowed = Boolean(requiredPlan)
+    && (PLAN_RANK[effectiveId] >= PLAN_RANK[requiredPlan] || await isAllToolsFree());
 
   return res.json({ ok: true, allowed, plan: effectiveId, required_plan: requiredPlan || null });
 });

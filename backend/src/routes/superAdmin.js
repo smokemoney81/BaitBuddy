@@ -4,6 +4,7 @@ import { requireAuth, requireSuperuser } from '../middleware/auth.js';
 import { listAllUsers } from '../lib/adminUsers.js';
 import { resolvePlan } from '../lib/planResolver.js';
 import { assignPlan } from '../lib/planAssignment.js';
+import { getAppSettings, updateAppSettings } from '../lib/appSettings.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { getMailTransporter, mailFrom, supportEmail, escapeHtml, textToHtml } from '../lib/mailer.js';
 
@@ -507,6 +508,30 @@ router.post('/superadmin/users/:id/plan', safe(async (req, res) => {
   if (result.error) return sendDbError(res, result.error);
   if (result.status !== 200) return res.status(result.status).json(result.body);
   return res.json({ ...result.body, user: toSuperadminUser(result.user, new Date()) });
+}));
+
+// ── App-Schalter ────────────────────────────────────────────────────────────
+// Werbung an/aus und „alle Tools kostenlos“ für alle Nutzer (lib/appSettings.js).
+router.get('/superadmin/settings', safe(async (req, res) => {
+  return res.json(await getAppSettings({ fresh: true }));
+}));
+
+router.patch('/superadmin/settings', safe(async (req, res) => {
+  const patch = {};
+  for (const key of ['ads_enabled', 'all_tools_free']) {
+    if (key in (req.body || {})) {
+      if (typeof req.body[key] !== 'boolean') return res.status(400).json({ error: `${key} muss true oder false sein` });
+      patch[key] = req.body[key];
+    }
+  }
+  if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Keine Einstellung angegeben' });
+  const { settings, error } = await updateAppSettings(patch, req.user.email);
+  if (error) {
+    console.error('[superadmin] Einstellungen speichern fehlgeschlagen:', error.message || error);
+    return res.status(503).json({ error: 'Einstellungen konnten nicht gespeichert werden (Tabelle app_config fehlt? Migrationen prüfen).' });
+  }
+  console.log(`[superadmin] ${req.user.email} setzt App-Schalter`, patch);
+  return res.json(settings);
 }));
 
 router.get('/superadmin/mail/status', safe(async (req, res) => {

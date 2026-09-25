@@ -46,7 +46,8 @@ function fallbackTarget(env) {
 }
 
 export function backendTarget(env, now = Date.now()) {
-  const bypass = (env.VERCEL_PROTECTION_BYPASS || '').trim();
+  // VERCEL_PROTECTION: so wurde das Secret im Cloudflare-Dashboard angelegt.
+  const bypass = (env.VERCEL_PROTECTION_BYPASS || env.VERCEL_PROTECTION || '').trim();
   const vercelBase = (env.VERCEL_BACKEND_URL || '').replace(/\/+$/, '');
   if (bypass && vercelBase && now >= vercelRejectedUntil) {
     const hasFallback = Boolean((env.BACKEND_URL || '').trim());

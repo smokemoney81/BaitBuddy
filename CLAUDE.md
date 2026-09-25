@@ -399,6 +399,10 @@ Details in `supabase/README.md`.
   `IF NOT EXISTS` nur den **Namen**, nicht die Spalten-Abdeckung.
 - Secrets `SUPABASE_ACCESS_TOKEN` und `SUPABASE_DB_PASSWORD` müssen in den
   Repository-Secrets gesetzt sein, sonst schlägt der Deploy bewusst fehl.
+  **Stand 2026-09-25:** `SUPABASE_DB_PASSWORD` fehlt — seit `20260916110000`
+  wurde keine Migration mehr eingespielt (u. a. `app_config`, Vereinsprofile,
+  Wettbewerbs-Freigabe fehlen live). Prüfen: `list_migrations` gegen
+  `supabase/migrations/`.
 
 > ⚠️ **Regel: `USING (true)` ist bei personenbezogenen Daten ein Datenleck.**
 > Eine SELECT-Policy ohne `to`-Klausel gilt für die Rolle `public` — also auch
@@ -490,6 +494,20 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
   geteilt mit `POST /api/admin/plans/assign`): schreibt nur `app_metadata`
   (`premium_payment_method='admin'`, `premium_assigned_by`) und leert den
   Token-Cache. „Abo entziehen“ beendet keinen laufenden Pass und keine Testphase.
+- **Reiter „App“ — globale Schalter** (`GET/PATCH /api/superadmin/settings`,
+  öffentlich lesbar über `GET /api/app/settings`), gespeichert in `app_config`
+  (`key='app_settings'`, `backend/src/lib/appSettings.js`, 30 s Server-Cache):
+  - `ads_enabled` — Werbung für alle an/aus. Wirkt über `/api/ads/config`
+    (`ads_enabled`) → `AdGate`/`getAdCapabilities(…, { adsEnabled })`; Rewarded
+    Ads werden serverseitig mit abgelehnt. Werbe-Config-Cache im Browser 5 Min.
+  - `all_tools_free` — alle Tools für alle frei: `PlanContext.hasFeature` → immer
+    `true`, `planLevel` ≥ Friends; serverseitig `resolveServerToolAccess`,
+    `/premium/check-feature` und das KI-Tageslimit für Free (`checkChatRateLimit`).
+    Der gespeicherte Plan bleibt unverändert (Werbung richtet sich weiter danach).
+  - Fehlt `app_config` oder scheitert das Lesen, gelten die Standardwerte
+    (Werbung an, nichts gratis) — nie umgekehrt.
+  - Neue Plan-Sperren im Frontend über `hasFeature`/`PlanGuard`, nicht über
+    `plan.id` direkt, sonst greift der Schalter dort nicht.
 - **Top-10-Tools** zählen Seitenaufrufe: `trackPageView` (`tracker.jsx`) legt pro
   Seitenwechsel angemeldeter Nutzer eine `usage_sessions`-Zeile mit
   `status='view'`, `feature_id='page:<Route>'` an; `Admin.jsx` ordnet Routen über

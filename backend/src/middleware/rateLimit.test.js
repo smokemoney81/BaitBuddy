@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Steuerbarer Zählerstand für den gemockten redisClient.incr — Tests setzen
 // redisState.incrValue, um Free-User über/unter das Limit zu bringen.
-const { redisState } = vi.hoisted(() => ({ redisState: { incrValue: 1 } }));
+const { redisState } = vi.hoisted(() => ({ redisState: { incrValue: 1, allToolsFree: false } }));
+
+// Admin-Schalter „alle Tools kostenlos“ (lib/appSettings.js) — ohne Mock würde
+// jeder Test eine echte Supabase-Abfrage starten.
+vi.mock('../lib/appSettings.js', () => ({
+  isAllToolsFree: vi.fn(async () => redisState.allToolsFree),
+}));
 
 // ioredis wird gemockt — die Tests laufen ohne echten Netz-/Redis-Zugriff.
 // Der Client selbst wird im Modul-Scope nur erzeugt, wenn KV_URL gesetzt ist;
@@ -41,6 +47,7 @@ beforeEach(() => {
   delete process.env.KV_URL;
   delete process.env.REDIS_URL;
   redisState.incrValue = 1;
+  redisState.allToolsFree = false;
 });
 
 afterEach(() => {
@@ -136,6 +143,19 @@ describe('checkChatRateLimit', () => {
     expect(res.captured.status).toBe(429);
     expect(res.captured.body?.error).toContain('5/5');
     expect(nextCalled).toBe(false);
+  });
+
+  it('hebt das Tageslimit im Modus „alle Tools kostenlos“ auf', async () => {
+    process.env.KV_URL = 'redis://localhost:6379';
+    redisState.incrValue = 6;
+    redisState.allToolsFree = true;
+    const { checkChatRateLimit } = await import('./rateLimit.js');
+    const req = { user: { id: 'u-free', user_metadata: {} } };
+    const res = makeRes();
+    let nextCalled = false;
+    await checkChatRateLimit(req, res, () => { nextCalled = true; });
+    expect(nextCalled).toBe(true);
+    expect(res.captured.status).toBeNull();
   });
 
   it('faellt bei Redis-Fehler offen durch (next statt Block)', async () => {

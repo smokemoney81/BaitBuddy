@@ -24,6 +24,11 @@ describe('backendTarget', () => {
       .toEqual({ base: NEW, headers: { 'x-vercel-protection-bypass': 'abc' }, canFallback: true });
   });
 
+  it('akzeptiert das Secret auch unter dem Namen VERCEL_PROTECTION', () => {
+    expect(backendTarget({ BACKEND_URL: OLD, VERCEL_BACKEND_URL: NEW, VERCEL_PROTECTION: 'abc' }))
+      .toEqual({ base: NEW, headers: { 'x-vercel-protection-bypass': 'abc' }, canFallback: true });
+  });
+
   it('ignoriert das Secret, solange keine neue Adresse gesetzt ist', () => {
     expect(backendTarget({ BACKEND_URL: OLD, VERCEL_PROTECTION_BYPASS: 'abc' }).base).toBe(OLD);
   });

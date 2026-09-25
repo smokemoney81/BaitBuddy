@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, invalidateCachedUser } from '../middleware/auth.js';
 import { supabase } from '../lib/supabase.js';
 import { resolvePlan } from '../lib/planResolver.js';
+import { getAppSettings } from '../lib/appSettings.js';
 
 const router = Router();
 
@@ -28,8 +29,14 @@ const DEFAULT_CONFIG = {
 };
 
 // Optionale DB-Overrides über eine app_config-Tabelle, falls vorhanden.
-// Bei Fehler: Defaults verwenden (fail-open).
+// Bei Fehler: Defaults verwenden (fail-open). Dazu der Hauptschalter
+// `ads_enabled` aus dem Admin-Bereich (lib/appSettings.js).
 async function getConfig() {
+  const { ads_enabled } = await getAppSettings();
+  return { ...(await getAdConfigRow()), ads_enabled };
+}
+
+async function getAdConfigRow() {
   try {
     const { data } = await supabase
       .from('app_config')
@@ -111,7 +118,7 @@ router.post('/reward/complete', requireAuth, async (req, res) => {
 
   // Config prüfen ob Rewarded Ads aktiv
   const cfg = await getConfig();
-  if (!cfg.basic_rewarded_enabled) {
+  if (!cfg.ads_enabled || !cfg.basic_rewarded_enabled) {
     return res.status(503).json({ error: 'Rewarded Ads momentan nicht verfügbar' });
   }
 

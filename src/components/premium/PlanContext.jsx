@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { functions } from "@/api/frontendClient";
 import { planMeetsRequirement, getPlanLevel } from './planHierarchy';
 import { startGooglePlayReconciliation } from './googlePlayBilling';
+import { loadAppSettings, APP_SETTINGS_EVENT } from '@/lib/appSettings';
 
 const PlanContext = createContext();
 
@@ -16,6 +17,9 @@ export function usePlan() {
 export function PlanProvider({ children }) {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Admin-Schalter „alle Tools kostenlos“: gibt jedem jede Funktion frei,
+  // ohne den gespeicherten Plan (und damit Werbung/Anzeige) zu verändern.
+  const [allToolsFree, setAllToolsFree] = useState(false);
   const loadingRef = useRef(false);
 
   const loadPlan = useCallback(async () => {
@@ -65,15 +69,29 @@ export function PlanProvider({ children }) {
   // Play-Billing ist das ein No-op.
   useEffect(() => startGooglePlayReconciliation(), []);
 
+  useEffect(() => {
+    let active = true;
+    const apply = (settings) => { if (active) setAllToolsFree(settings?.all_tools_free === true); };
+    loadAppSettings().then(apply);
+    const onUpdate = (event) => apply(event.detail);
+    window.addEventListener(APP_SETTINGS_EVENT, onUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener(APP_SETTINGS_EVENT, onUpdate);
+    };
+  }, []);
+
   const hasFeature = (requiredPlan = 'basic') => {
+    if (allToolsFree) return true;
     const currentPlanId = plan?.id || 'free';
     return planMeetsRequirement(currentPlanId, requiredPlan);
   };
 
-  const planLevel = getPlanLevel(plan?.id || 'free');
+  const basePlanLevel = getPlanLevel(plan?.id || 'free');
+  const planLevel = allToolsFree ? Math.max(basePlanLevel, getPlanLevel('friends')) : basePlanLevel;
 
   return (
-    <PlanContext.Provider value={{ plan, loading, hasFeature, planLevel, reload: loadPlan }}>
+    <PlanContext.Provider value={{ plan, loading, hasFeature, planLevel, allToolsFree, reload: loadPlan }}>
       {children}
     </PlanContext.Provider>
   );

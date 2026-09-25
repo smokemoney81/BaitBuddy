@@ -322,3 +322,58 @@ describe('Nutzer & Pläne', () => {
     expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
 });
+
+describe('App-Schalter (Werbung, alle Tools kostenlos)', () => {
+  const row = (value) => ({ app_config: { data: { value, updated_at: '2026-09-25T10:00:00Z' }, error: null } });
+
+  it('liefert öffentlich die Standardwerte, solange nichts gespeichert ist', async () => {
+    await boot({ authUser: null });
+    const res = await request(app).get('/api/app/settings');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ads_enabled: true, all_tools_free: false });
+  });
+
+  it('fällt bei fehlender Tabelle auf die Standardwerte zurück (nie Werbung aus oder alles gratis)', async () => {
+    await boot({ authUser: null, fromResults: { app_config: { data: null, error: { message: 'relation "app_config" does not exist' } } } });
+    const res = await request(app).get('/api/app/settings');
+    expect(res.body).toEqual({ ads_enabled: true, all_tools_free: false });
+  });
+
+  it('liefert gespeicherte Werte aus', async () => {
+    await boot({ authUser: null, fromResults: row({ ads_enabled: false, all_tools_free: true }) });
+    const res = await request(app).get('/api/app/settings');
+    expect(res.body).toEqual({ ads_enabled: false, all_tools_free: true });
+    const ads = await request(app).get('/api/ads/config');
+    expect(ads.body.ads_enabled).toBe(false);
+  });
+
+  it('lässt nur den Superuser umschalten und speichert nur Booleans', async () => {
+    await boot({ authUser: ADMIN });
+    const denied = await auth(request(app).patch('/api/superadmin/settings').send({ ads_enabled: false }));
+    expect(denied.status).toBe(403);
+
+    await boot();
+    const bad = await auth(request(app).patch('/api/superadmin/settings').send({ all_tools_free: 'ja' }));
+    expect(bad.status).toBe(400);
+    const empty = await auth(request(app).patch('/api/superadmin/settings').send({}));
+    expect(empty.status).toBe(400);
+
+    const ok = await auth(request(app).patch('/api/superadmin/settings').send({ all_tools_free: true }));
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ ads_enabled: true, all_tools_free: true, updated_by: 'Kaisaschnitt99@gmail.com' });
+    const upsert = supabaseMock.current.__builders.app_config.upsert;
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'app_settings', value: { ads_enabled: true, all_tools_free: true, updated_by: 'Kaisaschnitt99@gmail.com' } }),
+      { onConflict: 'key' },
+    );
+    // Sofort wirksam, ohne auf den Cache zu warten.
+    const pub = await request(app).get('/api/app/settings');
+    expect(pub.body.all_tools_free).toBe(true);
+  });
+
+  it('meldet 503, wenn nicht gespeichert werden kann', async () => {
+    await boot({ fromResults: { app_config: { data: null, error: { message: 'relation "app_config" does not exist' } } } });
+    const res = await auth(request(app).patch('/api/superadmin/settings').send({ ads_enabled: false }));
+    expect(res.status).toBe(503);
+  });
+});

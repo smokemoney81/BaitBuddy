@@ -23,6 +23,8 @@ const superAdminMock = {
   users: vi.fn(async () => ({ total: users.length, users })),
   assignPlan: vi.fn(),
   stats: vi.fn(() => new Promise(() => {})),
+  settings: vi.fn(async () => ({ ads_enabled: true, all_tools_free: false, updated_at: null, updated_by: null })),
+  updateSettings: vi.fn(),
 };
 vi.mock('@/api/auth', () => ({ auth: { me: vi.fn(async () => ({ is_superuser: true })) } }));
 vi.mock('@/api/frontendClient', () => ({ superAdmin: superAdminMock }));
@@ -95,5 +97,43 @@ describe('Admin — Nutzer', () => {
     await user.click(within(kai).getByRole('button', { name: 'Plan zuweisen' }));
     await user.click(within(kai).getByRole('button', { name: 'Speichern' }));
     expect(superAdminMock.assignPlan).not.toHaveBeenCalled();
+  });
+});
+
+describe('Admin — App-Schalter', () => {
+  async function openApp(user) {
+    render(<MemoryRouter><Admin /></MemoryRouter>);
+    await user.click(await screen.findByRole('tab', { name: 'App' }));
+    return screen.findByRole('switch', { name: 'Werbung anzeigen' });
+  }
+
+  it('schaltet Werbung ab und meldet den neuen Stand an die App', async () => {
+    superAdminMock.updateSettings.mockResolvedValue({ ads_enabled: false, all_tools_free: false, updated_at: '2026-09-25T20:00:00Z', updated_by: 'kaisaschnitt99@gmail.com' });
+    const events = [];
+    const onEvent = (e) => events.push(e.detail);
+    window.addEventListener('app-settings-updated', onEvent);
+    const user = userEvent.setup();
+    const ads = await openApp(user);
+    expect(ads).toBeChecked();
+    await user.click(ads);
+    await waitFor(() => expect(superAdminMock.updateSettings).toHaveBeenCalledWith({ ads_enabled: false }));
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Werbung anzeigen' })).not.toBeChecked());
+    expect(events).toEqual([{ ads_enabled: false, all_tools_free: false }]);
+    expect(screen.getByText(/von kaisaschnitt99@gmail.com/)).toBeInTheDocument();
+    window.removeEventListener('app-settings-updated', onEvent);
+  });
+
+  it('fragt vor „Alle Tools kostenlos“ nach', async () => {
+    window.confirm.mockReturnValue(false);
+    const user = userEvent.setup();
+    await openApp(user);
+    await user.click(screen.getByRole('switch', { name: 'Alle Tools kostenlos' }));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(superAdminMock.updateSettings).not.toHaveBeenCalled();
+
+    window.confirm.mockReturnValue(true);
+    superAdminMock.updateSettings.mockResolvedValue({ ads_enabled: true, all_tools_free: true });
+    await user.click(screen.getByRole('switch', { name: 'Alle Tools kostenlos' }));
+    await waitFor(() => expect(superAdminMock.updateSettings).toHaveBeenCalledWith({ all_tools_free: true }));
   });
 });
