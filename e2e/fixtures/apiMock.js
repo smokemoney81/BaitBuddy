@@ -246,7 +246,7 @@ export async function installApiMocks(page, options = {}) {
 // jeden Klick ab — ohne dieses Warten schlagen Interaktionstests sporadisch fehl.
 export async function dismissSplash(page) {
   await page
-    .locator('.bb-splash')
+    .locator('[data-testid="splash-intro"]')
     .waitFor({ state: 'detached', timeout: 15_000 })
     .catch(() => {});
 }

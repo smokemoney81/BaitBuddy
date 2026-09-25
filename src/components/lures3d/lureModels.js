@@ -144,9 +144,34 @@ function makeTrebleHook(size, material) {
   }
   const eye = new THREE.Mesh(new THREE.TorusGeometry(size * 0.16, size * 0.05, 6, 12), material);
   eye.position.y = size * 1.05;
+  // Öse quer zum Sprengring stellen, damit beide Ringe ineinandergreifen.
+  eye.rotation.y = Math.PI / 2;
   group.add(eye);
   return group;
 }
+
+// Hängt einen Drilling mit der Öse in einen Sprengring bzw. ans Achsende
+// (`anchor` = Vector3/Position des Aufhängepunkts). `angle` ist die
+// Richtung von der Öse zu den Hakenbögen (Weltwinkel in der XY-Ebene):
+// -PI/2 = senkrecht nach unten (Bauchhaken), PI + x = nach hinten und leicht
+// abwärts (Schwanzhaken, schleppt im Wasserdruck hinterher). Im lokalen
+// Hakenmodell liegt die Öse oben (+Y) und die Bögen unten — deshalb ist die
+// Rotation `angle + PI/2`; so zeigen die Spitzen nie zum Köderkörper.
+function hangTrebleHook(hook, size, anchor, angle) {
+  const dirX = Math.cos(angle);
+  const dirY = Math.sin(angle);
+  const eyeRadius = size * 0.16;
+  const eyeX = anchor.x + dirX * eyeRadius;
+  const eyeY = anchor.y + dirY * eyeRadius;
+  hook.rotation.z = angle + Math.PI / 2;
+  hook.position.set(eyeX + dirX * size * 1.05, eyeY + dirY * size * 1.05, 0);
+  return hook;
+}
+
+// Bauchhaken hängen senkrecht, leicht nach hinten gezogen; Schwanzhaken
+// schleppen hinter dem Köder her.
+const BELLY_HOOK_ANGLE = -Math.PI / 2 - 0.2;
+const TAIL_HOOK_ANGLE = Math.PI + 0.35;
 
 function makeSplitRing(radius, material) {
   return new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.22, 6, 16), material);
@@ -236,14 +261,10 @@ export function buildWobbler() {
   const hookMat = makeMetalMaterial(HOOK_COLOR, 0.35);
   const bellyRing = makeSplitRing(0.035, hookMat);
   bellyRing.position.set(0.16, -0.14, 0);
-  const bellyHook = makeTrebleHook(0.11, hookMat);
-  bellyHook.rotation.z = Math.PI;
-  bellyHook.position.set(0.16, -0.2, 0);
+  const bellyHook = hangTrebleHook(makeTrebleHook(0.11, hookMat), 0.11, bellyRing.position, BELLY_HOOK_ANGLE);
   const tailRing = makeSplitRing(0.035, hookMat);
   tailRing.position.set(-0.52, 0, 0);
-  const tailHook = makeTrebleHook(0.11, hookMat);
-  tailHook.rotation.z = Math.PI / 2 + 0.35;
-  tailHook.position.set(-0.62, -0.05, 0);
+  const tailHook = hangTrebleHook(makeTrebleHook(0.11, hookMat), 0.11, tailRing.position, TAIL_HOOK_ANGLE);
   group.add(bellyRing, bellyHook, tailRing, tailHook);
 
   trackDisposables(disposables, group);
@@ -311,10 +332,13 @@ export function buildGummifisch() {
   addEyes(group, 0.55, 0.04, 0.075, 1.15);
 
   const hookMat = makeMetalMaterial(HOOK_COLOR, 0.3);
+  // Schenkel liegt waagerecht im Körper (Öse im Bleikopf), der Bogen führt
+  // nach oben und die Spitze tritt aus dem Rücken aus und zeigt zum Kopf.
+  // Lokal: Öse oben (+Y), Spitze auf +X — Rz(-PI/2) legt den Schenkel nach
+  // hinten, Rx(PI) klappt Bogen und Spitze auf die Rückenseite.
   const hook = makeSingleHookMesh(0.26, hookMat);
-  hook.rotation.z = Math.PI;
-  hook.rotation.y = Math.PI / 2;
-  hook.position.set(0.28, 0.18, 0);
+  hook.rotation.set(Math.PI, 0, -Math.PI / 2);
+  hook.position.set(0.28, -0.04, 0);
   const eyelet = makeSplitRing(0.03, hookMat);
   eyelet.position.set(0.52, 0.12, 0);
   eyelet.rotation.y = Math.PI / 2;
@@ -375,9 +399,9 @@ export function buildSpinner() {
   );
   tuft.rotation.z = Math.PI / 2;
   tuft.position.x = -0.4;
-  const hook = makeTrebleHook(0.1, hookMat);
-  hook.rotation.z = Math.PI / 2 + 0.3;
-  hook.position.set(-0.46, -0.03, 0);
+  // Drilling hängt direkt an der Drahtöse am Achsende (x = -0.36), in
+  // Verlängerung der Achse nach hinten.
+  const hook = hangTrebleHook(makeTrebleHook(0.1, hookMat), 0.1, new THREE.Vector3(-0.36, 0, 0), Math.PI + 0.1);
   group.add(tuft, hook);
 
   trackDisposables(disposables, group);
@@ -418,9 +442,7 @@ export function buildBlinker() {
   frontRing.position.x = 0.42;
   const rearRing = makeSplitRing(0.035, hookMat);
   rearRing.position.x = -0.42;
-  const hook = makeTrebleHook(0.11, hookMat);
-  hook.rotation.z = Math.PI / 2 + 0.3;
-  hook.position.set(-0.52, -0.04, 0);
+  const hook = hangTrebleHook(makeTrebleHook(0.11, hookMat), 0.11, rearRing.position, TAIL_HOOK_ANGLE);
   group.add(frontRing, rearRing, hook);
 
   trackDisposables(disposables, group);
@@ -474,14 +496,10 @@ export function buildTopwater() {
   const hookMat = makeMetalMaterial(HOOK_COLOR, 0.3);
   const bellyRing = makeSplitRing(0.035, hookMat);
   bellyRing.position.set(0.1, -0.1, 0);
-  const bellyHook = makeTrebleHook(0.1, hookMat);
-  bellyHook.rotation.z = Math.PI;
-  bellyHook.position.set(0.1, -0.17, 0);
+  const bellyHook = hangTrebleHook(makeTrebleHook(0.1, hookMat), 0.1, bellyRing.position, BELLY_HOOK_ANGLE);
   const tailRing = makeSplitRing(0.035, hookMat);
   tailRing.position.set(-0.49, 0, 0);
-  const tailHook = makeTrebleHook(0.1, hookMat);
-  tailHook.rotation.z = Math.PI / 2 + 0.35;
-  tailHook.position.set(-0.58, -0.04, 0);
+  const tailHook = hangTrebleHook(makeTrebleHook(0.1, hookMat), 0.1, tailRing.position, TAIL_HOOK_ANGLE);
   group.add(bellyRing, bellyHook, tailRing, tailHook);
 
   trackDisposables(disposables, group);

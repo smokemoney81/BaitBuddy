@@ -17,7 +17,7 @@ test.describe('KI-Buddy Einstieg', () => {
 
     // Splash-Intro abwarten — solange es liegt, faengt es jeden Klick ab.
     await page
-      .locator('.bb-splash')
+      .locator('[data-testid="splash-intro"]')
       .waitFor({ state: 'detached', timeout: 15_000 })
       .catch(() => {});
 
@@ -45,7 +45,7 @@ test.describe('KI-Buddy Einstieg', () => {
     await installApiMocks(page, { authenticated: true });
     await page.goto('/Dashboard', { waitUntil: 'domcontentloaded', timeout: 30_000 });
     await page
-      .locator('.bb-splash')
+      .locator('[data-testid="splash-intro"]')
       .waitFor({ state: 'detached', timeout: 15_000 })
       .catch(() => {});
 

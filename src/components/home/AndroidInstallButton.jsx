@@ -27,17 +27,20 @@ export default function AndroidInstallButton() {
       <a
         href={apk.url}
         onClick={() => setStarted(true)}
-        className="bb-landing-btn is-outline"
+        className="bb-landing-btn is-dark"
         rel="noopener"
         download
       >
-        <Smartphone className="bb-landing-btn-icon" aria-hidden="true" />
+        <Smartphone className="bb-landing-btn-icon text-cyan-300" aria-hidden="true" />
         <span>Android-App installieren</span>
         <Download className="bb-landing-btn-arrow" aria-hidden="true" />
       </a>
       <p className="bb-landing-apk-meta">
-        {apk.version && `Version ${apk.version}`}{apk.version && apk.sizeMb ? ' · ' : ''}{apk.sizeMb ? `${apk.sizeMb.toLocaleString('de-DE')} MB` : ''}
-        {!android && ' · für Android-Handys'}
+        {[
+          apk.version && `Version ${apk.version}`,
+          apk.sizeMb && `${apk.sizeMb.toLocaleString('de-DE')} MB`,
+          !android && 'für Android-Handys',
+        ].filter(Boolean).join(' · ')}
       </p>
       {started && (
         <p role="status" className="bb-landing-msg is-info">
