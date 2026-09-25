@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import worker, { backendTarget, isVercelAuthRedirect, _resetVercelRejection } from './worker.js';
+import worker, { backendTarget, isVercelFailure, _resetVercelRejection } from './worker.js';
 
 const OLD = 'https://bait-buddy.vercel.app';
 const NEW = 'https://bait-buddy-ssbedburg-2361s-projects.vercel.app';
@@ -90,11 +90,11 @@ describe('Rückfall bei abgewiesenem Bypass', () => {
   const env = { BACKEND_URL: OLD, VERCEL_BACKEND_URL: NEW, VERCEL_PROTECTION_BYPASS: 'falsch' };
 
   it('erkennt die Vercel-Anmeldung, aber keine Antworten der App', () => {
-    expect(isVercelAuthRedirect(ssoRedirect())).toBe(true);
-    expect(isVercelAuthRedirect(new Response('<html>', { status: 401, headers: { server: 'Vercel', 'content-type': 'text/html' } }))).toBe(true);
-    expect(isVercelAuthRedirect(new Response('{"error":"Kein Token"}', { status: 401, headers: { server: 'Vercel', 'content-type': 'application/json' } }))).toBe(false);
-    expect(isVercelAuthRedirect(new Response(null, { status: 302, headers: { location: 'https://catchgbt.com/Dashboard' } }))).toBe(false);
-    expect(isVercelAuthRedirect(new Response('{}'))).toBe(false);
+    expect(isVercelFailure(ssoRedirect())).toBe(true);
+    expect(isVercelFailure(new Response('<html>', { status: 401, headers: { server: 'Vercel', 'content-type': 'text/html' } }))).toBe(true);
+    expect(isVercelFailure(new Response('{"error":"Kein Token"}', { status: 401, headers: { server: 'Vercel', 'content-type': 'application/json' } }))).toBe(false);
+    expect(isVercelFailure(new Response(null, { status: 302, headers: { location: 'https://catchgbt.com/Dashboard' } }))).toBe(false);
+    expect(isVercelFailure(new Response('{}'))).toBe(false);
   });
 
   it('beantwortet die Anfrage über BACKEND_URL (inkl. Body) statt die Vercel-Anmeldung durchzureichen', async () => {
@@ -121,6 +121,25 @@ describe('Rückfall bei abgewiesenem Bypass', () => {
     expect(fetchMock.mock.calls.map((c) => c[0].url)).toEqual([
       `${NEW}/api/health`, `${OLD}/api/health`, `${OLD}/api/health`,
     ]);
+  });
+
+  it('weicht auch aus, wenn die Function des neuen Backends abstürzt', async () => {
+    const crash = () => new Response('A server error has occurred', {
+      status: 500, headers: { server: 'Vercel', 'x-vercel-error': 'FUNCTION_INVOCATION_FAILED' },
+    });
+    const fetchMock = vi.fn(async (req) => (req.url.startsWith(NEW) ? crash() : new Response('{"ok":true}')));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await worker.fetch(new Request('https://catchgbt.com/api/health'), env);
+    expect(res.status).toBe(200);
+    expect(fetchMock.mock.calls.map((c) => c[0].url)).toEqual([`${NEW}/api/health`, `${OLD}/api/health`]);
+  });
+
+  it('reicht Fehler der App selbst (ohne x-vercel-error) durch', async () => {
+    const fetchMock = vi.fn(async () => new Response('{"error":"Datenbankfehler"}', { status: 500, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await worker.fetch(new Request('https://catchgbt.com/api/catches'), env);
+    expect(res.status).toBe(500);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('reicht echte App-Antworten des neuen Backends unverändert durch', async () => {
