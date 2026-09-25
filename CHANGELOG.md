@@ -11,7 +11,7 @@
 - Der LLM-Prompt enthält statt der kompletten FAQ-Liste (~30 000 Zeichen, viele Ein-Wort-Antworten) nur noch die bis zu drei zur Frage passenden, geprüften Einträge; die Realtime-Voice-Session kommt ohne die Liste aus.
 
 ### Entfernt
-- `src/lib/offlineBuddyQuestions.js` (ersetzt durch die FAQ-Datenbank) und die 200 Kurz-Einträge `FISHING_FAQ` in `buddyKnowledge.js`.
+- `src/lib/offlineBuddyQuestions.js` (ersetzt durch die FAQ-Datenbank) und die 199 Kurz-Einträge `FISHING_FAQ` in `buddyKnowledge.js`.
 
 ## Bug-Fix-Sprint (Juli 2026)
 
