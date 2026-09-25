@@ -224,8 +224,10 @@ function HandsFreeInner() {
             }
           },
         });
-      } catch {
+      } catch (streamErr) {
         if (controller.signal.aborted) return;
+        // Dauerhafter KI-Fehler (Guthaben, Schlüssel): zweiter Versuch sinnlos.
+        if (streamErr?.retryable === false) throw streamErr;
         spokenLen = 0;
         result = await ai.chat(historyRef.current, userLocation);
       }
@@ -253,12 +255,20 @@ function HandsFreeInner() {
     } catch (error) {
       if (controller.signal.aborted || !activeRef.current) return;
       queue?.cancel();
+      // Hat der Server geantwortet, steht der echte Grund in seiner Antwort
+      // (z. B. KI-Guthaben aufgebraucht) — nicht als Verbindungsfehler tarnen.
+      const serverReason = error?.data?.reply || error?.data?.error || (error?.code ? error.message : '');
+      const permanent = error?.status === 429 || error?.retryable === false || error?.data?.retryable === false;
       const message = error?.status === 429
         ? 'Dein Tageslimit für den KI-Buddy ist erreicht.'
-        : 'Keine Verbindung zum Buddy. Ich höre weiter zu.';
-      setLog(prev => [...prev.slice(-5), { role: 'system', text: message }]);
-      if (error?.status === 429) stopHandsFree(message);
-      else resumeListening();
+        : serverReason || 'Keine Verbindung zum Buddy.';
+      if (permanent) {
+        setLog(prev => [...prev.slice(-5), { role: 'system', text: message }]);
+        stopHandsFree(message);
+      } else {
+        setLog(prev => [...prev.slice(-5), { role: 'system', text: `${message} Ich höre weiter zu.` }]);
+        resumeListening();
+      }
     }
   }, [buddy.voiceEnabled, navigate, resumeListening, setPhaseBoth, stopHandsFree, stopRecognition]);
 

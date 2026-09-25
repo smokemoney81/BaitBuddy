@@ -264,7 +264,7 @@ export function resolveLocalAnswer(question, { online = true, inConversation = f
   if (coverage === 0) return null;
   let answer = pickFaqAnswer(entry);
   if (isActionRequest(question)) {
-    answer = `Ohne Verbindung kann ich gerade nichts in der App anlegen oder öffnen — das klappt wieder, sobald die Verbindung steht. Soweit ich es aus meinem eingebauten Wissen sagen kann: ${answer}`;
+    answer = `Solange meine Online-KI nicht erreichbar ist, kann ich nichts in der App anlegen oder öffnen — das klappt wieder, sobald sie antwortet. Soweit ich es aus meinem eingebauten Wissen sagen kann: ${answer}`;
   } else if (coverage < INSTANT_MIN_COVERAGE || needsPersonalContext(question)) {
     answer = `Meine Online-KI ist gerade nicht erreichbar, deshalb antworte ich nur allgemein, nicht auf deine Daten, deinen Ort oder die aktuelle Lage bezogen: ${answer}`;
   }
@@ -276,6 +276,19 @@ export function getOfflineFallback(random = Math.random) {
   const variants = [
     'Meine Online-KI ist gerade nicht erreichbar, und dazu weiß ich ohne sie leider nichts Passendes. Frag mich zu Fischarten wie Hecht, Zander oder Karpfen, zu Ködern, Montagen, Knoten, Wetter oder Schonzeiten — das kann ich auch ohne Netz beantworten.',
     'Ohne Verbindung komme ich bei dieser Frage nicht weiter. Mein eingebautes Wissen deckt Köderführung, Montagen, Knoten, Fischarten, Jahreszeiten, Wetter-Grundlagen und Regeln ab — probier es gern damit, oder frag noch einmal, sobald du wieder Netz hast.',
+  ];
+  return variants[Math.floor(random() * variants.length) % variants.length];
+}
+
+/**
+ * Antwort, wenn das Netz steht, die Online-KI aber nicht antwortet (Guthaben,
+ * Konfiguration, Überlast) und kein Eintrag passt. Anders als
+ * getOfflineFallback darf sie nicht "ohne Verbindung" behaupten.
+ */
+export function getUnavailableFallback(random = Math.random) {
+  const variants = [
+    'Meine Online-KI antwortet gerade nicht, und dazu weiß ich ohne sie leider nichts Passendes. Frag mich zu Fischarten wie Hecht, Zander oder Karpfen, zu Ködern, Montagen, Knoten, Wetter oder Schonzeiten — das beantworte ich aus meinem eingebauten Wissen.',
+    'Bei dieser Frage brauche ich meine Online-KI, und die ist gerade nicht verfügbar. Mein eingebautes Wissen deckt Köderführung, Montagen, Knoten, Fischarten, Jahreszeiten, Wetter-Grundlagen und Regeln ab — probier es gern damit, oder frag später noch einmal.',
   ];
   return variants[Math.floor(random() * variants.length) % variants.length];
 }

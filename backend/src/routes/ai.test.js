@@ -103,6 +103,18 @@ describe('POST /api/ai/chat', () => {
     expect(res.status).toBe(500);
   });
 
+  it('meldet ein aufgebrauchtes KI-Guthaben als 503 mit Code statt als Verbindungsproblem', async () => {
+    llmMock.invokeLLM = vi.fn().mockRejectedValue(new Error('Claude API Fehler 400: {"error":{"message":"Your credit balance is too low to access the Anthropic API."}}'));
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content: 'Angeln an der Erft' }] });
+
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ ok: false, code: 'llm_billing', retryable: false });
+    expect(res.body.reply).toMatch(/Guthaben/);
+  });
+
   it('lehnt messages ab, die kein Array sind (400 statt 500)', async () => {
     llmMock.invokeLLM = vi.fn();
     const res = await request(app)
@@ -243,6 +255,19 @@ describe('POST /api/ai/chat/stream (SSE)', () => {
     // Header sind bereits raus (200) → Fehler kommt als SSE-Event, nicht als HTTP-Status.
     expect(res.status).toBe(200);
     expect(res.text).toContain('event: error');
+  });
+
+  it('liefert im error-Event Code und retryable für dauerhafte KI-Fehler', async () => {
+    llmMock.invokeLLMStream = vi.fn().mockRejectedValue(new Error('Claude API Fehler 400: Your credit balance is too low'));
+
+    const res = await request(app)
+      .post('/api/ai/chat/stream')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content: 'Hallo' }] });
+
+    const errLine = res.text.split('\n').find((l) => l.startsWith('data:') && l.includes('llm_billing'));
+    expect(errLine).toBeTruthy();
+    expect(JSON.parse(errLine.slice(5).trim())).toMatchObject({ ok: false, code: 'llm_billing', retryable: false });
   });
 });
 

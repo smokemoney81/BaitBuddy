@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { checkChatRateLimit } from '../middleware/rateLimit.js';
 import { supabase } from '../lib/supabase.js';
 import { invokeLLM, invokeLLMStream, getAnthropicKey } from '../lib/llm.js';
+import { classifyLLMError, logLLMError } from '../lib/llmErrors.js';
 import {
   FISHING_KNOWLEDGE,
   PRACTICAL_GUIDE_RULES,
@@ -187,7 +188,7 @@ async function buildChatPrompt(req) {
   // Nur in Produktion — Tests mocken den LLM und brauchen diese frühe Prüfung nicht.
   if (process.env.NODE_ENV !== 'test' && !getAnthropicKey()) {
     const msg = 'Meine KI-Services sind gerade nicht konfiguriert (fehlender API-Schlüssel). Der Admin muss das fixen.';
-    return { ok: false, status: 503, body: { ok: false, error: msg, reply: msg, message: msg } };
+    return { ok: false, status: 503, body: { ok: false, error: msg, reply: msg, message: msg, code: 'llm_not_configured', retryable: false } };
   }
 
   // Eingabe hart validieren: Ein Nicht-Array führte zuvor beim Spread
@@ -329,32 +330,18 @@ router.post('/ai/chat', requireAuth, checkChatRateLimit, async (req, res) => {
 
     return res.json({ ok: true, reply: finalReply, message: finalReply, action });
   } catch (e) {
-    // Gegen Nicht-Error-Throws absichern: e.message könnte undefined sein und
-    // .includes() würde dann selbst werfen (verschluckter Fehler → 500 ohne Log).
-    const msg = e && typeof e.message === 'string' ? e.message : String(e);
-    console.error('[AI Chat Error]', msg, e?.stack);
-
-    // User-sichtbare Fehlermeldung: wird als Bot-Antwort angezeigt (für bessere UX)
-    let userMessage = 'Entschuldige, ich habe gerade Verbindungsprobleme. Versuch es gleich nochmal!';
-    let httpStatus = 500;
-
-    if (msg.includes('ANTHROPIC_API_KEY')) {
-      userMessage = 'Meine KI-Services sind gerade nicht konfiguriert (fehlender API-Schlüssel). Der Admin muss das fixen.';
-      httpStatus = 503;
-      console.warn('[AI] ANTHROPIC_API_KEY nicht gesetzt');
-    } else if (msg.includes('429') || msg.includes('rate limit') || msg.includes('Rate limit')) {
-      userMessage = 'Ich bin gerade überlastet. Versuch es in ein paar Sekunden nochmal!';
-      httpStatus = 429;
-    } else if (msg.includes('timeout') || msg.includes('Timeout')) {
-      userMessage = 'Die Anfrage hat zu lange gedauert. Versuch es nochmal!';
-      httpStatus = 504;
-    }
-
-    return res.status(httpStatus).json({
+    // Guthaben-, Schlüssel- und Rate-Limit-Fehler nicht als "Verbindungsproblem"
+    // tarnen: Der Client braucht Status + Code, um nicht sinnlos zu wiederholen
+    // und dem Nutzer den echten Grund zu zeigen.
+    const classified = classifyLLMError(e);
+    logLLMError('[AI Chat Error]', e, classified);
+    return res.status(classified.status).json({
       ok: false,
-      error: userMessage,
-      reply: userMessage,
-      message: userMessage
+      error: classified.message,
+      reply: classified.message,
+      message: classified.message,
+      code: classified.code,
+      retryable: classified.retryable,
     });
   }
 });
@@ -409,10 +396,12 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, async (req, res)
       try { res.end(); } catch { /* noop */ }
       return;
     }
-    const msg = e && typeof e.message === 'string' ? e.message : String(e);
-    console.error('[AI Chat Stream Error]', msg);
+    const classified = classifyLLMError(e);
+    logLLMError('[AI Chat Stream Error]', e, classified);
     // Header sind schon raus → Fehler als SSE-Event, nicht als HTTP-Status.
-    send('error', { ok: false, error: 'Verbindungsproblem beim Streaming' });
+    // Code/retryable lassen den Client bei Guthaben-/Konfigurationsfehlern den
+    // zweiten (gepufferten) Versuch sparen.
+    send('error', { ok: false, error: classified.message, code: classified.code, retryable: classified.retryable });
     res.end();
   }
 });

@@ -228,4 +228,30 @@ describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
     expect(await screen.findByText(/Meine Online-KI ist gerade nicht erreichbar/)).toBeInTheDocument();
     expect(ai.chatStream).toHaveBeenCalledTimes(1);
   });
+
+  it('zeigt bei aufgebrauchtem KI-Guthaben den echten Grund, ohne Retries und ohne "Ohne Verbindung"', async () => {
+    const reason = 'Meine Online-KI ist gerade gesperrt, weil das KI-Guthaben der App aufgebraucht ist.';
+    ai.chatStream.mockRejectedValue(Object.assign(new Error(reason), { code: 'llm_billing', retryable: false }));
+    renderBuddy();
+    await ask('Angeln an der Erft');
+
+    expect(await screen.findByText(reason)).toBeInTheDocument();
+    expect(screen.getByText('Antwort aus dem Buddy-Wissen (Online-KI nicht verfügbar)')).toBeInTheDocument();
+    expect(screen.queryByText(/Ohne Verbindung/)).not.toBeInTheDocument();
+    expect(screen.queryByText('KI-Dienst gerade nicht erreichbar.')).not.toBeInTheDocument();
+    // Kein zweiter (gepufferter) Aufruf und keine Retries.
+    expect(ai.chatStream).toHaveBeenCalledTimes(1);
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('wiederholt ein erreichtes Tageslimit (429) nicht', async () => {
+    catchgbtChat.mockRejectedValue(Object.assign(new Error('5/5 tägliche KI-Anfragen verbraucht.'), {
+      status: 429, data: { error: '5/5 tägliche KI-Anfragen verbraucht. Upgrade zu Basic für unbegrenzten Zugang.' },
+    }));
+    renderBuddy();
+    await ask('Angeln an der Erft');
+
+    expect(await screen.findByText(/tägliche KI-Anfragen verbraucht/)).toBeInTheDocument();
+    expect(catchgbtChat).toHaveBeenCalledTimes(1);
+  });
 });

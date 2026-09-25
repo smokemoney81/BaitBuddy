@@ -9,12 +9,38 @@ import { useEventActivityTracking } from "@/hooks/useEventActivityTracking";
 import { events, ai } from "@/api/frontendClient";
 import { createSpeechQueue } from "@/components/utils/elevenLabsTTS";
 import { stripActionMarker } from "@/lib/streamingReply";
-import { resolveLocalAnswer, getOfflineFallback, faqPageLabel } from "@/lib/buddyFaq";
+import { resolveLocalAnswer, getOfflineFallback, getUnavailableFallback, faqPageLabel } from "@/lib/buddyFaq";
 import { buildGreeting } from "@/lib/buddyGreetings";
 import { executeBuddyAction } from "@/utils/buddyActions";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
+
+const SOURCE_LABELS = {
+  instant: "Sofort-Antwort aus dem Buddy-Wissen",
+  offline: "Offline-Antwort aus dem Buddy-Wissen",
+  fallback: "Antwort aus dem Buddy-Wissen (Online-KI nicht verfügbar)",
+};
+
+// 4xx-Antworten (außer 408 Timeout) ändern sich durch Wiederholen nicht:
+// 401 Sitzung abgelaufen, 403 Plan, 429 Tageslimit, 400 ungültige Anfrage.
+function isPermanentStatus(status) {
+  return typeof status === "number" && status >= 400 && status < 500 && status !== 408;
+}
+
+// Server hat per `retryable: false` (Guthaben, Schlüssel) oder per 4xx gemeldet,
+// dass ein erneuter Versuch nichts ändert.
+function isPermanentError(error) {
+  return error?.retryable === false || error?.data?.retryable === false || isPermanentStatus(error?.status);
+}
+
+// Vom Server gemeldeter Grund (null = kein Server-Fehler, sondern Netz/Timeout).
+function serverErrorReason(error) {
+  if (typeof error?.status !== "number" && !error?.code) return null;
+  if (error?.status === 401) return "Deine Anmeldung ist abgelaufen. Melde dich neu an, damit ich dir mit der Online-KI antworten kann.";
+  const text = error?.data?.reply || error?.data?.error || (error?.code ? error?.message : "");
+  return typeof text === "string" && text.trim() ? text.trim() : "KI-Dienst gerade nicht erreichbar.";
+}
 
 export default function KiBuddyBeta() {
   return (
@@ -199,24 +225,29 @@ function KiBuddyBetaInner() {
   }
 
   // Antwort aus der lokalen FAQ-Datenbank (ohne API). `local` = null heißt:
-  // offline und nichts Passendes gefunden → ehrliche Fallback-Nachricht.
-  function answerLocally(local) {
+  // nichts Passendes gefunden → ehrliche Fallback-Nachricht. `reason` ist der
+  // Grund vom Server, wenn das Netz steht, die Online-KI aber nicht antwortet
+  // (Guthaben, Konfiguration, Limit) — dann nie "ohne Verbindung" behaupten.
+  function answerLocally(local, { reason = null } = {}) {
     retryRef.current = 0;
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    const notes = reason ? [{ role: "system", text: reason }] : [];
     if (!local) {
       setStatus("");
       appendMessages(
-        {
+        ...(notes.length ? notes : [{
           role: "system",
-          text: typeof navigator !== "undefined" && navigator.onLine === false
-            ? "Offline-Modus: Keine Internetverbindung."
-            : "KI-Dienst gerade nicht erreichbar.",
-        },
-        { role: "assistant", text: getOfflineFallback(), source: "offline" }
+          text: offline ? "Offline-Modus: Keine Internetverbindung." : "KI-Dienst gerade nicht erreichbar.",
+        }]),
+        offline
+          ? { role: "assistant", text: getOfflineFallback(), source: "offline" }
+          : { role: "assistant", text: getUnavailableFallback(), source: "fallback" }
       );
       maybeContinueConversation();
       return;
     }
-    appendMessages({ role: "assistant", text: local.answer, source: local.mode, page: local.page });
+    const source = local.mode === "offline" && !offline ? "fallback" : local.mode;
+    appendMessages(...notes, { role: "assistant", text: local.answer, source, page: local.page });
     if (activeEventId && local.mode === "instant" && local.entry.category !== "smalltalk") {
       trackAIChat(activeEventId);
     }
@@ -296,10 +327,14 @@ function KiBuddyBetaInner() {
         streamedOk = true;
       } catch (streamErr) {
         if (streamErr?.name === "AbortError" || signal?.aborted) { queue?.cancel(); return; }
+        queue?.cancel();
+        // Meldet der Server einen dauerhaften KI-Fehler (Guthaben, Schlüssel,
+        // Limit), scheitert der gepufferte Pfad genauso — direkt zur
+        // Fehlerbehandlung statt einen zweiten Upstream-Aufruf zu verbrennen.
+        if (isPermanentError(streamErr)) throw streamErr;
         // Streaming nicht verfügbar (SSE ungeeignet, Server-Fehler) → gepufferter
         // Standard-Pfad. Ein echter Netzwerkfehler wirft hier erneut und landet
         // im äußeren catch (Offline-/Retry-Logik).
-        queue?.cancel();
         const res = await catchgbtChat({
           messages: chatMessages,
           context: "ki_buddy_beta",
@@ -347,16 +382,22 @@ function KiBuddyBetaInner() {
         setMessages(trimmed);
       }
 
-      // Bei Verbindungsfehlern: passende Antwort aus der lokalen FAQ-Datenbank
+      // Hat der Server geantwortet (HTTP-Status oder Fehlercode), ist das Netz
+      // da — der Grund steht in seiner Antwort. Nur Netz-/Timeout-Fehler und
+      // transiente Serverfehler lohnen einen erneuten Versuch.
+      const reason = serverErrorReason(error);
+      const retryable = reason === null || !isPermanentError(error);
+
+      // Passende Antwort aus der lokalen FAQ-Datenbank (auch nur allgemein)
       const offlineAnswer = resolveLocalAnswer(q, { online: false });
 
       if (offlineAnswer) {
-        answerLocally(offlineAnswer);
+        answerLocally(offlineAnswer, { reason });
         return;
       }
 
       // Auto-Retry (bis zu 2x) bei Verbindungsfehlern
-      if (retryRef.current < 2) {
+      if (retryable && retryRef.current < 2) {
         retryRef.current += 1;
         setStatus("thinking");
         await new Promise(r => setTimeout(r, 800));
@@ -365,7 +406,7 @@ function KiBuddyBetaInner() {
       }
 
       // Keine passende lokale Antwort und Retries erschöpft: Fallback-Nachricht
-      answerLocally(null);
+      answerLocally(null, { reason });
     }
   }
 
@@ -527,7 +568,7 @@ function KiBuddyBetaInner() {
                 {m.text}
                 {m.source && (
                   <span className="bb-voice-source">
-                    <span>{m.source === "offline" ? "Offline-Antwort aus dem Buddy-Wissen" : "Sofort-Antwort aus dem Buddy-Wissen"}</span>
+                    <span>{SOURCE_LABELS[m.source] || SOURCE_LABELS.instant}</span>
                     {m.page && <Link to={`/${m.page}`}>{faqPageLabel(m.page)} öffnen</Link>}
                   </span>
                 )}

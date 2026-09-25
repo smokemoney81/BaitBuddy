@@ -10,6 +10,7 @@ export {
   findFaqMatch,
   resolveLocalAnswer,
   getOfflineFallback,
+  getUnavailableFallback,
   pickFaqAnswer,
   normalizeText,
   isActionRequest,

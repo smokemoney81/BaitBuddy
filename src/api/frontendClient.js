@@ -843,7 +843,14 @@ export const ai = {
         } else if (event === 'done') {
           result = data;
         } else if (event === 'error') {
-          streamError = new Error(data?.error || 'Stream-Fehler');
+          // code/retryable vom Server durchreichen: Bei Guthaben-/Konfig-
+          // Fehlern spart der Aufrufer sich den zweiten, gepufferten Versuch.
+          streamError = /** @type {Error & { code?: string, retryable?: boolean, data?: any }} */ (
+            new Error(data?.error || 'Stream-Fehler')
+          );
+          streamError.code = data?.code;
+          streamError.retryable = data?.retryable;
+          streamError.data = data;
         }
       },
     });
