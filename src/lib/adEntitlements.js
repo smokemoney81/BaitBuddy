@@ -26,6 +26,7 @@ export const AD_BLACKLIST_ROUTES = new Set([
   '/Login',
   '/Register',
   '/AuthCallback',
+  '/ClerkCallback',
   '/ResetPassword',
   '/Checkout',
   '/PremiumPlans',

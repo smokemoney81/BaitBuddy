@@ -29,6 +29,15 @@ vi.mock('@/lib/loginEventPopup', () => ({
   EVENT_POPUP_DWELL_MS: 0,
 }));
 vi.mock('@capacitor/browser', () => ({ Browser: { open: vi.fn(async () => {}) } }));
+const clerkMock = {
+  clerkPublishableKey: vi.fn(() => ''),
+  isClerkLoginAvailable: vi.fn(async () => false),
+  isClerkHashRoute: vi.fn((hash) => typeof hash === 'string' && hash.startsWith('#/')),
+};
+vi.mock('@/lib/clerkLogin', () => clerkMock);
+vi.mock('@/components/auth/ClerkSignInPanel', () => ({
+  default: () => <div data-testid="clerk-sign-in">Clerk</div>,
+}));
 
 const { default: LandingAuthPanel } = await import('./LandingAuthPanel');
 
@@ -40,6 +49,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   isOnlineMock.mockReturnValue(true);
   maybeShowEventPopupMock.mockResolvedValue(false);
+  clerkMock.clerkPublishableKey.mockReturnValue('');
+  clerkMock.isClerkLoginAvailable.mockResolvedValue(false);
   assignedHref = undefined;
   delete window.location;
   window.location = {
@@ -311,5 +322,35 @@ describe('LandingAuthPanel — Passwort-Sichtbarkeit', () => {
 
     await user.click(screen.getByLabelText('Passwort verbergen'));
     expect(field).toHaveAttribute('type', 'password');
+  });
+});
+
+describe('LandingAuthPanel — Clerk', () => {
+  it('bietet Clerk nicht an, solange es nicht eingerichtet ist', async () => {
+    const user = userEvent.setup();
+    render(<LandingAuthPanel />);
+    await openChoice(user);
+    await waitFor(() => expect(clerkMock.isClerkLoginAvailable).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Weitere Anmeldeoptionen' })).toBeNull();
+  });
+
+  it('öffnet die eingebettete Clerk-Anmeldung und führt zurück zur Auswahl', async () => {
+    clerkMock.clerkPublishableKey.mockReturnValue('pk_test_x');
+    clerkMock.isClerkLoginAvailable.mockResolvedValue(true);
+    const user = userEvent.setup();
+    render(<LandingAuthPanel />);
+    await openChoice(user);
+    await user.click(await screen.findByRole('button', { name: 'Weitere Anmeldeoptionen' }));
+    expect(await screen.findByTestId('clerk-sign-in')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Anmelden' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Zurück zur Auswahl' }));
+    expect(screen.getByRole('button', { name: 'Als Gast loslegen' })).toBeInTheDocument();
+  });
+
+  it('öffnet Clerk direkt, wenn die Seite mit einem Clerk-Hash zurückkehrt', async () => {
+    clerkMock.clerkPublishableKey.mockReturnValue('pk_test_x');
+    window.location.hash = '#/sso-callback';
+    render(<LandingAuthPanel />);
+    expect(await screen.findByTestId('clerk-sign-in')).toBeInTheDocument();
   });
 });
