@@ -595,6 +595,23 @@ export default function Admin() {
 
   if (me === undefined) return <div className="bb-page"><Busy /></div>;
 
+  // Ein Backend ohne Admin-Bereich liefert das Feld gar nicht. Dann ist nicht
+  // das Konto gesperrt, sondern der verbundene Server veraltet.
+  if (me && !("is_superuser" in me)) {
+    return (
+      <div className="bb-page">
+        <div className="bb-card text-center py-10">
+          <ShieldAlert size={36} className="mx-auto mb-3 text-amber-400" aria-hidden="true" />
+          <p className="text-slate-100 font-semibold">Server ohne Admin-Bereich</p>
+          <p className="bb-muted text-sm mt-1">
+            Der verbundene Server läuft noch auf einem älteren Stand und kennt den Admin-Bereich nicht.
+            Sobald das aktuelle Backend live ist, erscheint er hier automatisch.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (me?.is_superuser !== true) {
     return (
       <div className="bb-page">

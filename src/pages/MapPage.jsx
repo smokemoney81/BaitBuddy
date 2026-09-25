@@ -18,7 +18,7 @@ import AdvancedCacheManager from "@/components/map/v2/AdvancedCacheManager";
 import MapNavigationHub from "@/components/map/MapNavigationHub";
 import MapModeManager from "@/components/map/MapModeManager";
 import { RadarLayer, useRainviewerRadar, RADAR_MODES } from "@/components/map/RadarOverlay";
-import { MapPin, CloudRain, Crosshair, Play, Pause, ChevronDown, Sunrise, Ticket } from "lucide-react";
+import { MapPin, MapPinOff, CloudRain, Crosshair, Play, Pause, ChevronDown, Sunrise, Ticket, Plus, LocateFixed } from "lucide-react";
 import SunriseSunsetPanel from "@/components/map/SunriseSunsetPanel";
 import PublicSpotsClusterLayer from "@/components/map/PublicSpotsClusterLayer";
 import { PERMIT_LOCATIONS, CATEGORY_LABELS, GERMAN_STATES } from "@/data/permitLocations";
@@ -97,6 +97,11 @@ function MapClickHandler({ onMapClick }) {
   
   useEffect(() => {
     const handleClick = (e) => {
+      // Ein Button im Popup entfernt sein Popup schon beim Klick. Leaflet findet
+      // am abgehängten Ziel die Klicksperre des Popups nicht mehr und meldet den
+      // Klick sonst zusätzlich als Kartenklick (neues Auswahl-Popup).
+      const target = e.originalEvent?.target;
+      if (target && (target.isConnected === false || target.closest?.('.leaflet-popup'))) return;
       onMapClick(e.latlng);
     };
     
@@ -113,12 +118,16 @@ function MapClickHandler({ onMapClick }) {
 export default function MapPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   useFeatureTracking("map");
-  const { currentLocation, gpsLocation, requestGpsLocation } = useLocation();
+  const { currentLocation, gpsLocation, requestGpsLocation, setManualLocation, clearLocation } = useLocation();
   const [spots, setSpots] = useState([]);
   const [publicLocations, setPublicLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [clickedCoords, setClickedCoords] = useState(null);
+  // Angetippter Kartenpunkt [lat, lng]: Auswahl "Spot speichern" oder
+  // "Als meinen Standort setzen". Array aus dem State = stabile Referenz fuer
+  // die Popup-Position (react-leaflet oeffnet das Popup sonst bei jedem Render neu).
+  const [pendingPoint, setPendingPoint] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState([51.1657, 10.4515]);
   const [mapZoom, setMapZoom] = useState(6);
@@ -159,14 +168,20 @@ export default function MapPage() {
     requestGpsLocation?.();
   }, [requestGpsLocation]);
 
+  // Eigener Standort auf der Karte: der aktive Standort der App (GPS, manuell
+  // gesetzt oder Spot), sonst der letzte GPS-Fix.
+  const ownLocation = currentLocation ?? gpsLocation;
+
   useEffect(() => {
+    if (ownLocation) {
+      setMapCenter([ownLocation.lat, ownLocation.lon]);
+      setMapZoom(13);
+    }
     if (gpsLocation) {
-      setMapCenter([gpsLocation.lat, gpsLocation.lon]);
-      setMapZoom(13);
       findNearestSpot();
-    } else if (currentLocation) {
-      setMapCenter([currentLocation.lat, currentLocation.lon]);
-      setMapZoom(13);
+    } else {
+      setNearestSpot(null);
+      setTravelInfo(null);
     }
   }, [gpsLocation, currentLocation]);
 
@@ -338,9 +353,27 @@ export default function MapPage() {
   }, []);
 
   const handleMapClick = useCallback((latlng) => {
-    setClickedCoords({ lat: latlng.lat, lng: latlng.lng });
-    setShowAddModal(true);
+    setPendingPoint([latlng.lat, latlng.lng]);
   }, []);
+
+  const handleAddSpotAtPoint = useCallback(() => {
+    if (!pendingPoint) return;
+    setClickedCoords({ lat: pendingPoint[0], lng: pendingPoint[1] });
+    setShowAddModal(true);
+    setPendingPoint(null);
+  }, [pendingPoint]);
+
+  const handleSetOwnLocationAtPoint = useCallback(() => {
+    if (!pendingPoint) return;
+    setManualLocation(pendingPoint[0], pendingPoint[1], "Auf der Karte gesetzt");
+    setPendingPoint(null);
+  }, [pendingPoint, setManualLocation]);
+
+  const handleRemoveOwnLocation = useCallback(() => {
+    if (!window.confirm("Deinen Standort entfernen? Wetter, Beißzeiten und KI-Analysen fragen dann erst wieder nach einem Standort.")) return;
+    clearLocation();
+    toast.success("Standort entfernt");
+  }, [clearLocation]);
 
   const handleAddSpot = useCallback(async () => {
     await loadMapData();
@@ -645,20 +678,58 @@ export default function MapPage() {
             <MapController center={mapCenter} zoom={mapZoom} />
             <MapClickHandler onMapClick={handleMapClick} />
 
-            {gpsLocation && (
+            {ownLocation && (
               <Marker
-                position={[gpsLocation.lat, gpsLocation.lon]}
+                position={[Number(ownLocation.lat), Number(ownLocation.lon)]}
                 icon={userIcon}
               >
                 <Popup>
-                  <div className="text-center">
+                  <div className="text-center min-w-[180px]">
                     <div className="font-semibold">Dein Standort</div>
+                    {ownLocation.source !== "gps" && ownLocation.name && (
+                      <div className="text-xs text-gray-700">{ownLocation.name}</div>
+                    )}
                     <div className="text-xs text-gray-600">
-                      {gpsLocation.lat.toFixed(4)}, {gpsLocation.lon.toFixed(4)}
+                      {Number(ownLocation.lat).toFixed(4)}, {Number(ownLocation.lon).toFixed(4)}
                     </div>
+                    <button type="button"
+                      onClick={handleRemoveOwnLocation}
+                      className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-semibold bg-red-600 text-white hover:bg-red-700"
+                    >
+                      <MapPinOff className="w-3.5 h-3.5" aria-hidden="true" />
+                      Standort entfernen
+                    </button>
                   </div>
                 </Popup>
               </Marker>
+            )}
+
+            {pendingPoint && (
+              <Popup
+                key={pendingPoint.join(",")}
+                position={pendingPoint}
+                eventHandlers={{ remove: () => setPendingPoint((p) => (p === pendingPoint ? null : p)) }}
+              >
+                <div className="min-w-[200px] space-y-1.5">
+                  <div className="text-xs text-gray-600 text-center">
+                    {pendingPoint[0].toFixed(4)}, {pendingPoint[1].toFixed(4)}
+                  </div>
+                  <button type="button"
+                    onClick={handleAddSpotAtPoint}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-semibold bg-cyan-600 text-white hover:bg-cyan-700"
+                  >
+                    <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                    Spot hier speichern
+                  </button>
+                  <button type="button"
+                    onClick={handleSetOwnLocationAtPoint}
+                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    <LocateFixed className="w-3.5 h-3.5" aria-hidden="true" />
+                    Als meinen Standort setzen
+                  </button>
+                </div>
+              </Popup>
             )}
 
             {validSpots.map((spot) => (
@@ -743,6 +814,16 @@ export default function MapPage() {
           >
             <Crosshair className="w-5 h-5" />
           </button>
+          {ownLocation && (
+            <button type="button"
+              onClick={handleRemoveOwnLocation}
+              aria-label="Meinen Standort entfernen"
+              title="Meinen Standort entfernen"
+              className="absolute top-16 right-3 z-[1000] w-11 h-11 flex items-center justify-center rounded-full bg-gray-900/85 border border-gray-700 text-red-300 shadow-lg backdrop-blur-sm active:scale-95 transition-transform"
+            >
+              <MapPinOff className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Radar-Steuerung (Zeitleiste, Play/Pause, Transparenz) */}
           {mapView === 'radar' && (
