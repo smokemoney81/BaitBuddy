@@ -81,7 +81,7 @@ Der **KI-Buddy** ist zentrales Feature mit oberster Priorität. Muss reibungslos
 
 ### Architektur
 - **Frontend**: verteilt über mehrere Stellen (es gibt **kein** `src/components/KiBuddy/`-Verzeichnis):
-  - Es gibt **kein** schwebendes Chat-Widget mehr (entfernt im BaitBuddy-2.0-Layout, wie in den Vorlagen). Der Buddy ist über „Hey Buddy“ im Command Center (`src/components/layout/CommandCenter.jsx`), die Dashboard-Schnellzugriffe und das Plus-Menü der Bottom-Nav erreichbar; Fragen werden per `/KiBuddyBeta?question=…` vorbefüllt.
+  - Es gibt **kein** schwebendes Chat-Widget mehr (entfernt im BaitBuddy-2.0-Layout, wie in den Vorlagen). Der Buddy ist über „Hey Buddy“ im Command Center (`src/components/layout/CommandCenter.jsx`), die Dashboard-Schnellzugriffe und den Logo-Button der Bottom-Nav (Tippen = Schnellaktionen-Menü, Gedrückthalten ≥ 500 ms = direkt `/KiBuddyBeta`) erreichbar; Fragen werden per `/KiBuddyBeta?question=…` vorbefüllt.
   - `src/pages/KiBuddyBeta.jsx` — eigenständige Voice-Buddy-Seite
     - **Nicht scrollbar**: `useFitToViewport` (`src/hooks/useFitToViewport.js`) setzt die Seitenhöhe per JS (`--bb-fit-height`, kein `dvh` — fehlt in WebView 90/iOS 14) und sperrt das Dokument-Scrollen (`html.bb-no-page-scroll`); nur der Chatverlauf scrollt intern. Bei wenig Höhe blenden `max-height`-Media-Queries in `baitbuddy-v2.css` stufenweise Beiwerk, Buddy-Kreis und (Tastatur offen) Schnellaktionen/Freisprech-Leiste aus. Neue Elemente auf der Seite müssen in diese Höhenrechnung passen.
   - `src/components/ai/`, `src/components/chatbot/`, `src/components/home/MiniKiBuddy*.jsx`
@@ -406,7 +406,7 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
 - **Titel in der Kopfzeile statt Logo**: `src/components/layout/pageTopBars.jsx` (`PAGE_TOP_BARS`) gibt einzelnen Unterseiten Titel + Aktion in `AppTopBar` (derzeit Voice Buddy mit Einstellungs-Zahnrad).
 - **Seitentitel** über `PageTitle.jsx` (letztes Wort in Cyan, optional
   Script-Zeile); `SubPageHeader` ist nur noch ein Alias darauf.
-- **Bottom-Nav**: Plus als Cyan-Ring. Icon/Label kommen aus `navigationItems`
+- **Bottom-Nav**: Mittlerer Button zeigt das BaitBuddy-Logo (`public/assets/buddy/fab-logo.webp`) im Cyan-Ring. Tippen öffnet die Schnellaktionen, Gedrückthalten (500 ms, Wischen bricht ab) öffnet den KI-Buddy-Chat (`BottomTabs.jsx`). Icon/Label kommen aus `navigationItems`
   (die Tool-Registry liefert Icons nur als Namen-String).
 - „Zuletzt verwendet“ im Command Center: `recordRecentPage` in `src/lib/pageMeta.js`
   (localStorage `bb_recent_pages`).

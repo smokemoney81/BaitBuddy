@@ -742,6 +742,22 @@
 }
 .bb-fab:hover  { box-shadow: 0 0 30px rgba(0,229,255,.6), inset 0 0 16px rgba(0,229,255,.25), 0 0 0 5px rgba(11,19,36,.9); }
 .bb-fab:active { transform: scale(.94); }
+/* BaitBuddy-Logo statt Plus: Tippen = Schnellaktionen, Halten = KI-Buddy */
+.bb-fab-logo {
+  overflow: hidden;
+  padding: 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.bb-fab-logo > img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  pointer-events: none;
+}
 
 /* Quick-action sheet cards */
 .bb-quick-action-card {

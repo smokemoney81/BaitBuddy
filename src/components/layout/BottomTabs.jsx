@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Fish, MapPin, Calendar, Brain, Lock, Camera, Mic } from 'lucide-react';
+import { Fish, MapPin, Calendar, Brain, Lock, Camera, Mic } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useNavigationContext } from '@/lib/NavigationContext';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { navigationItems } from '@/components/navigation/navigationItems';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
+
+// Gedrückt halten auf dem Logo-Button öffnet direkt den KI-Buddy-Chat.
+const LONG_PRESS_MS = 500;
+// Fingerbewegung (px), ab der das Halten als Scrollen/Wischen gilt.
+const LONG_PRESS_MOVE_TOLERANCE = 12;
 
 const ARIA_LABELS = {
   Dashboard: 'Dashboard',
@@ -30,6 +35,54 @@ export default function BottomTabs() {
   const [open, setOpen] = useState(false);
   const { getToolByRoute, isToolAccessible } = useTool();
   const activePage = location.pathname.split('/')[1] || 'Dashboard';
+  const pressTimer = useRef(null);
+  const pressStart = useRef(null);
+  const longPressFired = useRef(false);
+
+  const cancelPress = () => {
+    clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    pressStart.current = null;
+  };
+
+  useEffect(() => cancelPress, []);
+
+  const openBuddyChat = () => {
+    const tool = getToolByRoute('/KiBuddyBeta');
+    if (tool && !isToolAccessible(tool.id)) return false;
+    try { navigator.vibrate?.(30); } catch { /* nicht unterstützt */ }
+    trackFeatureClick('KiBuddyBeta', { source: 'bottom_tabs_long_press' });
+    setOpen(false);
+    navigate('/KiBuddyBeta');
+    return true;
+  };
+
+  const handlePressStart = event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    longPressFired.current = false;
+    pressStart.current = { x: event.clientX, y: event.clientY };
+    clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => {
+      pressTimer.current = null;
+      longPressFired.current = openBuddyChat();
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePressMove = event => {
+    if (!pressStart.current) return;
+    const dx = event.clientX - pressStart.current.x;
+    const dy = event.clientY - pressStart.current.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE) cancelPress();
+  };
+
+  const handleFabClick = () => {
+    // Der Klick nach einem ausgelösten Halten darf das Menü nicht öffnen.
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
+    setOpen(true);
+  };
 
   const follow = (event, path) => {
     event.preventDefault();
@@ -93,11 +146,25 @@ export default function BottomTabs() {
           <div className="bb-fab-container">
             <button
               type="button"
-              className="bb-fab"
+              className="bb-fab bb-fab-logo"
               aria-label="Schnellaktionen öffnen"
-              onClick={() => setOpen(true)}
+              title="Tippen: Schnellaktionen · Halten: KI-Buddy-Chat"
+              onClick={handleFabClick}
+              onPointerDown={handlePressStart}
+              onPointerMove={handlePressMove}
+              onPointerUp={cancelPress}
+              onPointerLeave={cancelPress}
+              onPointerCancel={cancelPress}
+              onContextMenu={e => e.preventDefault()}
             >
-              <Plus size={36} strokeWidth={2} aria-hidden="true" />
+              <img
+                src="/assets/buddy/fab-logo.webp"
+                alt=""
+                aria-hidden="true"
+                draggable="false"
+                width="64"
+                height="64"
+              />
             </button>
           </div>
 
