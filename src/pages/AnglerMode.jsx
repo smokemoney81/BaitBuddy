@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  Fish, MapPin, Camera, BookOpen, Compass, Loader2, Flag, CloudSun, Wind, CalendarDays,
-  ChevronRight, Anchor, MessageCircle, Mic, Radio, Map as MapIcon, Activity, LifeBuoy,
+  Fish, MapPin, Camera, BookOpen, Compass, Loader2, Flag, Wind, Sun, Moon, CloudSun, CloudMoon,
+  Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog, ChevronRight, ChevronLeft, ArrowUp,
+  MessageCircle, Mic, Radio, Map as MapIcon, Activity, LifeBuoy, Settings, Crosshair, Phone, Share2,
 } from 'lucide-react';
-import PageTitle from '@/components/layout/PageTitle';
 import { useLocation as useGeoLocation } from '@/components/location/LocationManager';
 import { useFishingConditions } from '@/hooks/useFishingConditions';
 import { formatForecastTime } from '@/lib/fishingConditions';
@@ -13,7 +13,8 @@ import { fishImageFor } from '@/lib/fishImages';
 import { FishingPlan } from '@/entities/FishingPlan';
 import { Catch } from '@/entities/Catch';
 import { selectNextTrip, readPlanSpot } from '@/lib/tripJourney';
-import { formatElapsed, elapsedSeconds, timeOfDayTheme, readTripStart as readStart, writeTripStart as writeStart, clearTripStart as clearStart } from '@/lib/anglerMode';
+import { formatElapsed, elapsedSeconds, timeOfDayTheme, readTripStart as readStart, writeTripStart as writeStart, clearTripStart as clearStart, beaufort, compassDirection, fishingMoment, weatherKind } from '@/lib/anglerMode';
+import { recordTripEvent, tripEventsSince, distanceMeters, bearingWord, MOVE_THRESHOLD_M, TRIP_EVENT } from '@/lib/tripLog';
 import { computeInsights } from '@/lib/fishingInsights';
 
 export default function AnglerMode() {
@@ -27,6 +28,8 @@ export default function AnglerMode() {
   const [ending, setEnding] = useState(false);
   const [summary, setSummary] = useState(null); // { seconds, catches }
   const [tripCatches, setTripCatches] = useState([]);
+  const [tripEvents, setTripEvents] = useState([]);
+  const [sosOpen, setSosOpen] = useState(false);
   const { currentLocation } = useGeoLocation();
 
   useEffect(() => {
@@ -71,6 +74,32 @@ export default function AnglerMode() {
     return () => { alive = false; window.removeEventListener('catch-saved', load); };
   }, [startMs]);
 
+  // Bisse (Bisserkennung) und Standortwechsel seit Trip-Start.
+  useEffect(() => {
+    if (!startMs) return undefined;
+    const load = () => setTripEvents(tripEventsSince(startMs));
+    load();
+    window.addEventListener(TRIP_EVENT, load);
+    window.addEventListener('storage', load);
+    return () => { window.removeEventListener(TRIP_EVENT, load); window.removeEventListener('storage', load); };
+  }, [startMs]);
+
+  // Standortwechsel ab 100 m gegenüber der zuletzt gemerkten Position.
+  useEffect(() => {
+    if (!plan || !startMs || currentLocation?.lat == null) return;
+    const key = `bb_trip_last_pos_${plan.id}`;
+    const here = { lat: Number(currentLocation.lat), lon: Number(currentLocation.lon) };
+    try {
+      const last = JSON.parse(localStorage.getItem(key) || 'null');
+      if (!last) { localStorage.setItem(key, JSON.stringify(here)); return; }
+      const meters = distanceMeters(last, here);
+      if (meters >= MOVE_THRESHOLD_M) {
+        recordTripEvent('move', { meters: Math.round(meters), direction: bearingWord(last, here) });
+        localStorage.setItem(key, JSON.stringify(here));
+      }
+    } catch { /* Speicher gesperrt: keine Standort-Einträge */ }
+  }, [plan, startMs, currentLocation?.lat, currentLocation?.lon]);
+
   // Sekunden-Ticker. Elapsed wird aus startMs berechnet, daher auch nach
   // Foreground-Resume (WebView) korrekt; visibilitychange aktualisiert sofort.
   useEffect(() => {
@@ -90,7 +119,7 @@ export default function AnglerMode() {
   const conditions = useFishingConditions(lat, lon);
   const live = conditions.data?.current;
   const weather = live
-    ? { temperature: live.temperature_2m, wind_speed: live.wind_speed_10m, code: live.weather_code }
+    ? { temperature: live.temperature_2m, wind_speed: live.wind_speed_10m, wind_direction: live.wind_direction_10m, code: live.weather_code }
     : snapshot;
   const nowRow = conditions.hours.find(r => r.time <= nowTick && nowTick < r.time + 3600000);
   const biteIndex = nowRow?.index ?? null;
@@ -120,6 +149,7 @@ export default function AnglerMode() {
       return;
     }
     clearStart(plan.id);
+    try { localStorage.removeItem(`bb_trip_last_pos_${plan.id}`); } catch { /* ignore */ }
     setSummary({ seconds, catches, insights });
     setEnding(false);
   }, [plan, startMs]);
@@ -143,8 +173,8 @@ export default function AnglerMode() {
 
   if (error || !plan) {
     return (
-      <div className="bb-page">
-        <PageTitle title="Dein Anglermodus" subtitle="Timer, Wetter, Bissindex und Fänge – alles für den Tag am Wasser." />
+      <div className="bb-page bb-angler">
+        <AnglerHeader onBack={() => (window.history.length > 1 ? navigate(-1) : navigate('/Dashboard'))} />
         <div className="bb-card text-center">
           <Compass className="w-10 h-10 text-cyan-300 mx-auto mb-3" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-slate-100">Kein aktiver Angelausflug</h2>
@@ -156,17 +186,34 @@ export default function AnglerMode() {
   }
 
   const fishImage = fishImageFor(plan.target_fish);
+  const bait = plan.details?.bait || '';
+  const method = plan.details?.method || '';
+  const isNight = theme.key === 'night';
+  const kind = weatherKind(weather?.code, isNight || theme.key === 'dusk');
+  const WeatherIcon = WEATHER_ICONS[kind] || (isNight ? CloudMoon : CloudSun);
+  const bft = beaufort(weather?.wind_speed);
+  const windDir = compassDirection(weather?.wind_direction);
+  const biteLabel = biteIndex == null ? 'Standort nötig' : biteIndex >= 70 ? 'Sehr gut' : biteIndex >= 55 ? 'Gut' : biteIndex >= 40 ? 'Mittel' : 'Schwach';
+
   const timeline = [
+    ...tripEvents.map((e, i) => (e.type === 'bite' ? {
+      id: `b-${e.at}-${i}`, time: e.at, tone: 'orange', icon: Activity, title: 'Biss erkannt!',
+      text: `${e.strength >= 2 ? 'Deutlicher Biss' : 'Leichter Zupfer'} – ${e.source || 'Bisserkennung'}`, to: '/AI',
+    } : {
+      id: `m-${e.at}-${i}`, time: e.at, tone: 'cyan', icon: MapPin, title: 'Standort gewechselt',
+      text: `Neuer Spot: ${e.meters} m ${e.direction || ''}`.trim(), to: '/Map',
+    })),
     ...tripCatches.map(c => ({
       id: `c-${c.id}`,
       time: new Date(c.catch_time || c.created_at).getTime(),
       tone: 'green',
+      image: c.photo_url || fishImageFor(c.species),
       icon: Fish,
       title: 'Fang erfasst',
       text: [c.species, c.length_cm ? `${c.length_cm} cm` : null, c.bait_used || c.bait].filter(Boolean).join(' · '),
       to: '/Logbook',
     })),
-    { id: 'start', time: startMs, tone: 'grey', icon: Flag, title: 'Trip gestartet', text: spot.name || plan.title || '' },
+    { id: 'start', time: startMs, tone: 'grey', icon: Flag, title: 'Trip gestartet', text: spot.name || plan.title || '', to: '/TripPlanner' },
   ].sort((a, b) => b.time - a.time);
 
   const shareLocation = async () => {
@@ -183,19 +230,21 @@ export default function AnglerMode() {
 
   return (
     <div className="bb-page bb-angler">
-      <header className="bb-angler-head">
-        <h1 className="bb-angler-title">Anglermodus</h1>
-        <span className="bb-angler-status"><i aria-hidden="true" />Trip aktiv · {theme.label}</span>
-      </header>
+      <AnglerHeader
+        onBack={() => (window.history.length > 1 ? navigate(-1) : navigate('/Dashboard'))}
+        status={<span className="bb-angler-status"><i aria-hidden="true" />Trip aktiv</span>}
+      />
 
       <div className="bb-angler-hero">
         <div className="bb-angler-clock">
-          <CalendarDays size={18} aria-hidden="true" />
+          {isNight ? <Moon size={34} aria-hidden="true" className="bb-angler-clock-icon" /> : <Sun size={34} aria-hidden="true" className="bb-angler-clock-icon" />}
           <span>
             <small>{new Date(nowTick).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</small>
             <strong>{new Date(nowTick).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</strong>
+            <small>{fishingMoment(biteIndex)}</small>
           </span>
         </div>
+        <p className="bb-script bb-angler-quote" aria-hidden="true">„Gute Fänge beginnen mit schönen Momenten.“</p>
         <p className="bb-angler-timer-label">Trip-Timer</p>
         <p className="bb-angler-timer" aria-live="off">{formatElapsed(elapsed)}</p>
         {spot.name && (
@@ -208,32 +257,36 @@ export default function AnglerMode() {
       <div className="bb-angler-tiles">
         <Link to="/Weather" className="bb-angler-tile">
           <span className="bb-angler-tile-label">Wetter</span>
-          <CloudSun size={34} aria-hidden="true" className="bb-weather-icon" />
-          <strong>{weather?.temperature != null ? `${Math.round(weather.temperature)}°C` : '–'}</strong>
-          <small><Wind size={13} aria-hidden="true" />{weather?.wind_speed != null ? `${Math.round(weather.wind_speed)} km/h` : 'kein Wert'}</small>
+          <WeatherIcon size={40} aria-hidden="true" className="bb-weather-icon" />
+          <strong className="bb-angler-temp">{weather?.temperature != null ? `${Math.round(weather.temperature)}°C` : '–'}</strong>
+          <small><Wind size={14} aria-hidden="true" />{bft != null ? `Wind ${bft} Bft${windDir ? ` (${windDir})` : ''}` : 'kein Wert'}</small>
         </Link>
         <Link to="/Weather" className="bb-angler-tile">
           <span className="bb-angler-tile-label">Bissindex</span>
           <BiteRing value={biteIndex} />
-          <small className={biteIndex >= 55 ? 'text-[var(--bb-green)]' : ''}>{biteIndex == null ? 'Standort nötig' : biteIndex >= 70 ? 'Sehr gut' : biteIndex >= 55 ? 'Gut' : biteIndex >= 40 ? 'Mittel' : 'Schwach'}</small>
+          <small className={biteIndex != null && biteIndex >= 55 ? 'text-[var(--bb-green)]' : ''}>
+            {biteIndex != null && biteIndex >= 55 && <ArrowUp size={14} aria-hidden="true" />}{biteLabel}
+          </small>
         </Link>
         <div className="bb-angler-tile">
           <span className="bb-angler-tile-label">Zielfisch</span>
-          {fishImage ? <img src={fishImage} alt="" /> : <Fish size={34} aria-hidden="true" className="text-cyan-300" />}
+          {fishImage ? <img src={fishImage} alt="" className="bb-angler-fish" /> : <Fish size={34} aria-hidden="true" className="text-cyan-300" />}
           <strong>{plan.target_fish || 'Offen'}</strong>
           {bestWindow && (
-            <small className="text-amber-300">Beste Zeit: {formatForecastTime(bestWindow.start, conditions.data?.timezone)}–{formatForecastTime(bestWindow.end, conditions.data?.timezone)}</small>
+            <small className="bb-angler-best"><Crosshair size={13} aria-hidden="true" />Beste Zeit: {formatForecastTime(bestWindow.start, conditions.data?.timezone)}–{formatForecastTime(bestWindow.end, conditions.data?.timezone)}</small>
           )}
         </div>
         <Link to="/TripPlanner" className="bb-angler-tile">
           <span className="bb-angler-tile-label">Aktueller Köder</span>
-          <Anchor size={30} aria-hidden="true" className="text-cyan-300" />
-          <strong>{plan.details?.bait || 'Nicht geplant'}</strong>
+          <LureGlyph />
+          <strong>{bait || 'Nicht geplant'}</strong>
+          {method && <small>{method}</small>}
+          <ChevronRight size={16} aria-hidden="true" className="bb-angler-tile-chevron" />
         </Link>
       </div>
 
       <div className="bb-angler-actions">
-        <Link to="/HandsFreeBuddy" className="bb-angler-action"><MessageCircle size={26} aria-hidden="true" /><span><strong>Hey Buddy</strong><small>Hands-free fragen</small></span></Link>
+        <Link to="/HandsFreeBuddy" className="bb-angler-action"><MessageCircle size={26} aria-hidden="true" /><span><strong>Hey Buddy</strong><small>Frag mich alles</small></span></Link>
         <Link to="/VoiceChat" className="bb-angler-action"><Mic size={26} aria-hidden="true" /><span><strong>Voice</strong><small>Sprachmodus</small></span></Link>
         <Link to="/AI" className="bb-angler-action is-green"><Radio size={26} aria-hidden="true" /><span><strong>Biss&shy;erkennung</strong><small>Kamera starten</small></span></Link>
       </div>
@@ -241,38 +294,48 @@ export default function AnglerMode() {
         <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('openCatchDialog'))} className="bb-angler-action">
           <Camera size={28} aria-hidden="true" /><span><strong>Fang erfassen</strong><small>Foto · Größe · Köder</small></span>
         </button>
-        <Link to="/Map" className="bb-angler-action"><MapIcon size={28} aria-hidden="true" /><span><strong>Karte öffnen</strong><small>Aktuellen Spot anzeigen</small></span><ChevronRight size={20} aria-hidden="true" /></Link>
+        <Link to="/Map" className="bb-angler-action"><MapIcon size={28} aria-hidden="true" /><span><strong>Karte öffnen</strong><small>Aktuellen Spot anzeigen</small></span><ChevronRight size={20} aria-hidden="true" className="ml-auto shrink-0" /></Link>
       </div>
 
-      <section className="bb-card" aria-labelledby="timeline-title">
+      <section className="bb-card bb-angler-timeline-card" aria-labelledby="timeline-title">
         <div className="bb-section-head">
           <h2 id="timeline-title" className="bb-section-title"><Activity size={22} aria-hidden="true" />Live-Timeline</h2>
-          <Link to="/Logbook" className="bb-see-all">Fangbuch <ChevronRight size={16} aria-hidden="true" /></Link>
+          <Link to="/Logbook" className="bb-angler-all">Alle anzeigen <ChevronRight size={16} aria-hidden="true" /></Link>
         </div>
-        <ol className="bb-timeline">
+        <ol className="bb-angler-timeline">
           {timeline.map(entry => {
             const Icon = entry.icon;
             return (
               <li key={entry.id} className={`is-${entry.tone}`}>
-                <span className="bb-timeline-time">{new Date(entry.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
-                <span className="bb-timeline-icon"><Icon size={20} aria-hidden="true" /></span>
-                <span className="min-w-0"><strong>{entry.title}</strong>{entry.text && <small>{entry.text}</small>}</span>
+                <span className="bb-angler-tl-dot" aria-hidden="true" />
+                <span className="bb-angler-tl-time">{new Date(entry.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+                <Link to={entry.to} className="bb-angler-tl-row">
+                  <span className="bb-angler-tl-icon">{entry.image ? <img src={entry.image} alt="" /> : <Icon size={22} aria-hidden="true" />}</span>
+                  <span className="min-w-0 flex-1"><strong>{entry.title}</strong>{entry.text && <small>{entry.text}</small>}</span>
+                  <ChevronRight size={18} aria-hidden="true" className="shrink-0 text-slate-400" />
+                </Link>
               </li>
             );
           })}
         </ol>
       </section>
 
-      <div className="bb-card bb-card-danger bb-sos">
-        <LifeBuoy size={40} aria-hidden="true" className="text-red-400 shrink-0" />
-        <span className="flex-1 min-w-0">
-          <strong>SOS</strong>
-          <small>Notfall? Ruf 112 oder sende deine Position an Kontakte.</small>
-        </span>
-        <div className="grid gap-2 shrink-0">
-          <a href="tel:112" className="bb-sos-btn">112 anrufen</a>
-          <button type="button" onClick={shareLocation} className="bb-sos-btn is-outline">Position teilen</button>
-        </div>
+      <div className={`bb-card bb-card-danger bb-angler-sos${sosOpen ? ' is-open' : ''}`}>
+        <button type="button" className="bb-angler-sos-bar" onClick={() => setSosOpen(v => !v)} aria-expanded={sosOpen}>
+          <LifeBuoy size={44} aria-hidden="true" className="bb-angler-sos-ring" />
+          <span className="bb-angler-sos-word">SOS</span>
+          <span className="flex-1 min-w-0 text-center">
+            <strong>Notfall / Hilfe rufen</strong>
+            <small>Position an Kontakte senden</small>
+          </span>
+          <ChevronRight size={24} aria-hidden="true" className="bb-angler-sos-chevron" />
+        </button>
+        {sosOpen && (
+          <div className="bb-angler-sos-actions">
+            <a href="tel:112" className="bb-sos-btn"><Phone size={18} aria-hidden="true" /> 112 anrufen</a>
+            <button type="button" onClick={shareLocation} className="bb-sos-btn is-outline"><Share2 size={18} aria-hidden="true" /> Position teilen</button>
+          </div>
+        )}
       </div>
 
       <button type="button" onClick={endTrip} disabled={ending} className="bb-secondary justify-center text-red-200">
@@ -312,6 +375,42 @@ export default function AnglerMode() {
         </div>
       )}
     </div>
+  );
+}
+
+const WEATHER_ICONS = {
+  clear: Sun, 'clear-night': Moon, partly: CloudSun, 'partly-night': CloudMoon, cloudy: Cloud,
+  fog: CloudFog, rain: CloudRain, snow: CloudSnow, storm: CloudLightning,
+};
+
+function AnglerHeader({ onBack, status = null }) {
+  return (
+    <header className="bb-angler-head">
+      <button type="button" className="bb-round-btn" onClick={onBack} aria-label="Zurück"><ChevronLeft size={24} aria-hidden="true" /></button>
+      <div className="min-w-0 text-center">
+        <h1 className="bb-angler-title">Anglermodus</h1>
+        {status}
+      </div>
+      <Link to="/Settings?tab=fishing" className="bb-round-btn" aria-label="Angel-Einstellungen"><Settings size={22} aria-hidden="true" /></Link>
+    </header>
+  );
+}
+
+// Stilisierter Gummifisch (Shad) für die Köder-Kachel — reine Illustration.
+function LureGlyph() {
+  return (
+    <svg viewBox="0 0 120 40" width="80" height="27" aria-hidden="true" className="bb-angler-lure">
+      <defs>
+        <linearGradient id="bb-lure" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#c9e36a" />
+          <stop offset="55%" stopColor="#6fae3a" />
+          <stop offset="100%" stopColor="#2f5d2a" />
+        </linearGradient>
+      </defs>
+      <path d="M8 20 C14 8 44 6 70 12 C84 15 92 16 98 14 L114 4 Q118 20 114 36 L98 26 C92 24 84 25 70 28 C44 34 14 32 8 20 Z" fill="url(#bb-lure)" />
+      <circle cx="18" cy="18" r="3" fill="#10202c" />
+      <path d="M30 14 C44 12 58 13 72 16" stroke="#f3f7a0" strokeWidth="1.5" fill="none" opacity=".7" />
+    </svg>
   );
 }
 

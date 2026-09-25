@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import { recordTripEvent } from '@/lib/tripLog';
 import { toast } from "sonner";
 import { User } from "@/entities/User";
 import { Activity, BrainCircuit, Crosshair, BellRing, Clock, Fish, ChevronRight } from "lucide-react";
@@ -335,12 +336,15 @@ function BiteDetectorSectionInner() {
     if (armed && trig) {
       state.lastAlarm = performance.now();
       const lineHit = state.roiLine && Math.abs(zL) > kLine;
-      setBiteEvents(prev => [{
+      const biteEvent = {
         id: Date.now(),
         time: Date.now(),
         source: lineHit ? 'Schnur' : 'Rutenspitze',
         strength: Math.max(Math.abs(zL) / kLine, Math.abs(zT) / kTip),
-      }, ...prev].slice(0, 20));
+      };
+      setBiteEvents(prev => [biteEvent, ...prev].slice(0, 20));
+      // Für die Live-Timeline des Anglermodus merken.
+      recordTripEvent('bite', { source: biteEvent.source, strength: biteEvent.strength }, biteEvent.time);
       setAlarmActive(true);
       beep();
       setTimeout(() => setAlarmActive(false), 600);
