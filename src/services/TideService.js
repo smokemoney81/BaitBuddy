@@ -210,7 +210,7 @@ class TideService {
       height: this.interpolateHeight(prevExtreme, nextExtreme, now),
       type: nextExtreme.type === 'high' ? 'Steigend' : nextExtreme.type === 'low' ? 'Fallend' : 'Neutral',
       typeEmoji: nextExtreme.type === 'high' ? '🌊' : nextExtreme.type === 'low' ? '⬇️' : '➡️',
-      timeToNext: this.timeUntilEvent(now, new Date(nextExtreme.t)),
+      timeToNext: this.timeUntilEvent(now, nextExtreme.date || this.parseNoaaTime(nextExtreme.t)),
       nextEvent: nextExtreme.type === 'high' ? 'Hochwasser' : nextExtreme.type === 'low' ? 'Niedrigwasser' : 'Umkehr',
       nextTime: nextExtreme.t,
     };
