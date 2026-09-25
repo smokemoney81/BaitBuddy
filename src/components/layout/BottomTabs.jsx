@@ -1,17 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Fish, MapPin, Calendar, Brain, Lock, Camera, Mic } from 'lucide-react';
+import { Fish, MapPin, Calendar, Brain, Lock, Camera, Mic, ChevronRight } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useNavigationContext } from '@/lib/NavigationContext';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { navigationItems } from '@/components/navigation/navigationItems';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
+import { BrandMark } from '@/components/layout/BrandLogo';
 
 // Gedrückt halten auf dem Logo-Button öffnet direkt den KI-Buddy-Chat.
 const LONG_PRESS_MS = 500;
 // Fingerbewegung (px), ab der das Halten als Scrollen/Wischen gilt.
 const LONG_PRESS_MOVE_TOLERANCE = 12;
+
+// Schnellaktionen im Logo-Menue. Bilder liegen als kleine WebP-Ausschnitte
+// (je ~10 KB) unter public/assets/quick/. `page` = Route fuer die Plan-Pruefung.
+const QUICK_ACTIONS = [
+  { Icon: Camera, label: 'Fang erfassen', hint: 'Foto, Daten, Köder', image: '/assets/quick/catch.webp', tone: 'cyan', event: 'openCatchDialog' },
+  { Icon: Calendar, label: 'Ausflug planen', hint: 'Spots, Wetter, Zeitfenster', image: '/assets/quick/trip.webp', tone: 'green', page: 'TripPlanner', to: '/TripPlanner?new=1' },
+  { Icon: Brain, label: 'KI-Buddy', hint: 'Fragen, Analysen, Tipps', image: '/assets/quick/buddy.webp', tone: 'cyan', page: 'KiBuddyBeta', to: '/KiBuddyBeta' },
+  { Icon: MapPin, label: 'Spot speichern', hint: 'Position, Notizen, Bilder', image: '/assets/quick/spot.webp', tone: 'orange', page: 'Map', to: '/Map?addSpot=1' },
+  { Icon: Mic, label: 'Voice Buddy', hint: 'Sprechen statt tippen', image: '/assets/quick/voice.webp', tone: 'cyan', page: 'KiBuddyBeta', to: '/KiBuddyBeta?voice=1' },
+  { Icon: Fish, label: 'Fangbuch', hint: 'Alle Fänge, Statistiken, Erfolge', image: '/assets/quick/logbook.webp', tone: 'green', page: 'Logbook', to: '/Logbook' },
+];
 
 const ARIA_LABELS = {
   Dashboard: 'Dashboard',
@@ -173,66 +185,79 @@ export default function BottomTabs() {
       </nav>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="bottom"
-          className="bb-app rounded-t-3xl border-0 pb-[calc(24px+env(safe-area-inset-bottom))] [&>button]:h-11 [&>button]:w-11"
-        >
-          <SheetHeader>
-            <SheetTitle className="text-white text-lg">
-              Was möchtest du machen?
+        <SheetContent side="bottom" className="bb-quick-sheet">
+          <div className="bb-quick-sheet-handle" aria-hidden="true" />
+          <div className="bb-quick-sheet-brand" aria-hidden="true">
+            <BrandMark size={40} />
+            <span className="bb-brand-text">
+              <span className="bb-brand-word">
+                Bait<span className="bb-title-accent">Buddy</span>
+              </span>
+              <span className="bb-brand-tagline">Mehr als Angeln</span>
+            </span>
+          </div>
+          <SheetHeader className="text-center sm:text-center space-y-1">
+            <SheetTitle className="bb-quick-sheet-title">
+              Was möchtest du <span className="bb-title-accent">machen?</span>
             </SheetTitle>
-            <SheetDescription className="bb-muted">
+            <SheetDescription className="bb-quick-sheet-subtitle">
               Dein nächster Schritt am Wasser.
             </SheetDescription>
           </SheetHeader>
-          <div className="grid grid-cols-2 gap-3 mt-6 max-w-xl mx-auto">
-            <button
-              type="button"
-              className="bb-quick-action-card"
-              onClick={() => {
-                setOpen(false);
-                window.dispatchEvent(new CustomEvent('openCatchDialog'));
-              }}
-            >
-              <div className="bb-quick-action-icon" style={{ background: 'rgba(0,229,255,.12)' }}>
-                <Camera size={22} className="text-bb-cyan" />
-              </div>
-              <span className="font-semibold text-sm">Fang erfassen</span>
-              <span className="text-xs text-slate-400">Foto, Daten, Köder</span>
-            </button>
-
-            {[
-              [Calendar, 'Ausflug planen', 'TripPlanner', '/TripPlanner?new=1', 'rgba(0,255,157,.12)', 'text-bb-green'],
-              [Brain, 'KI-Buddy', 'KiBuddyBeta', '/KiBuddyBeta', 'rgba(0,229,255,.12)', 'text-bb-cyan'],
-              [MapPin, 'Spot speichern', 'Map', '/Map?addSpot=1', 'rgba(255,159,10,.12)', 'text-bb-orange'],
-              [Mic, 'Voice Buddy', 'KiBuddyBeta', '/KiBuddyBeta?voice=1', 'rgba(0,229,255,.12)', 'text-bb-cyan'],
-              [Fish, 'Fangbuch', 'Logbook', '/Logbook', 'rgba(0,255,157,.12)', 'text-bb-green'],
-            ].map(([Icon, label, page, to, bgColor, textColor]) => {
-              const tool = getToolByRoute(`/${page}`);
+          <div className="bb-quick-sheet-divider" aria-hidden="true" />
+          <div className="bb-quick-sheet-grid">
+            {QUICK_ACTIONS.map(action => {
+              const { Icon, label, hint, image, tone } = action;
+              const tool = action.page ? getToolByRoute(`/${action.page}`) : null;
               const accessible = tool ? isToolAccessible(tool.id) : true;
-              return accessible ? (
-                <Link
-                  key={to}
-                  className="bb-quick-action-card"
-                  to={to}
-                  onClick={() => setOpen(false)}
-                >
-                  <div className="bb-quick-action-icon" style={{ background: bgColor }}>
-                    <Icon size={22} className={textColor} />
+              const body = (
+                <>
+                  <span className="bb-quick-tile-media" aria-hidden="true">
+                    <img src={image} alt="" loading="lazy" decoding="async" draggable="false" />
+                  </span>
+                  <span className={`bb-quick-tile-icon bb-tone-${accessible ? tone : 'muted'}`} aria-hidden="true">
+                    {accessible ? <Icon size={22} /> : <Lock size={22} />}
+                  </span>
+                  <span className="bb-quick-tile-text">
+                    <span className="bb-quick-tile-label">{label}</span>
+                    <span className="bb-quick-tile-hint">
+                      {accessible ? hint : `Freischalten über ${tool?.requires || 'Premium'}`}
+                    </span>
+                  </span>
+                  {accessible && (
+                    <span className="bb-quick-tile-go" aria-hidden="true">
+                      <ChevronRight size={18} />
+                    </span>
+                  )}
+                </>
+              );
+
+              if (!accessible) {
+                return (
+                  <div key={label} className="bb-quick-tile is-locked" aria-disabled="true">
+                    {body}
                   </div>
-                  <span className="font-semibold text-sm">{label}</span>
+                );
+              }
+              if (action.event) {
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    className="bb-quick-tile"
+                    onClick={() => {
+                      setOpen(false);
+                      window.dispatchEvent(new CustomEvent(action.event));
+                    }}
+                  >
+                    {body}
+                  </button>
+                );
+              }
+              return (
+                <Link key={label} className="bb-quick-tile" to={action.to} onClick={() => setOpen(false)}>
+                  {body}
                 </Link>
-              ) : (
-                <div
-                  key={to}
-                  className="bb-quick-action-card opacity-40 cursor-not-allowed"
-                  title={`Freischalten über ${tool?.requires || 'Premium'}`}
-                >
-                  <div className="bb-quick-action-icon" style={{ background: 'rgba(255,255,255,.05)' }}>
-                    <Lock size={22} className="text-slate-500" />
-                  </div>
-                  <span className="font-semibold text-sm">{label}</span>
-                </div>
               );
             })}
           </div>

@@ -24,7 +24,7 @@ export function LocationProvider({ children }) {
       const msg = "GPS wird von diesem Browser nicht unterstützt";
       setError(msg);
       toast.error(msg);
-      return;
+      return null;
     }
 
     setLoading(true);
@@ -87,6 +87,7 @@ export function LocationProvider({ children }) {
           duration: 3000
         }
       );
+      return location;
 
     } catch (err) {
       let userMessage = "GPS-Standort konnte nicht ermittelt werden.";
@@ -109,9 +110,30 @@ export function LocationProvider({ children }) {
           duration: 5000
         }
       );
+      return null;
     } finally {
       setLoading(false);
     }
+  };
+
+  // Liefert einen nutzbaren Standort fuer Aktionen, die zwingend Koordinaten
+  // brauchen (z. B. KI-Analysen): aktueller Standort → gespeicherter Standort
+  // → frische GPS-Abfrage. Ohne diesen Schritt brachen solche Buttons bei
+  // Nutzern ohne gespeicherten Standort nur mit einer Fehlermeldung ab.
+  const ensureLocation = async () => {
+    if (currentLocation?.lat != null && currentLocation?.lon != null) {
+      return currentLocation;
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem("fm_current_location") || "null");
+      if (saved?.lat != null && saved?.lon != null) {
+        setCurrentLocation(saved);
+        return saved;
+      }
+    } catch {
+      // Ungueltiger oder nicht lesbarer Speicher → GPS abfragen
+    }
+    return requestGpsLocation();
   };
 
   // Spot als aktuellen Standort setzen
@@ -218,6 +240,7 @@ export function LocationProvider({ children }) {
     loading,
     error,
     requestGpsLocation,
+    ensureLocation,
     setSpotAsLocation,
     setManualLocation,
     setCurrentLocation
