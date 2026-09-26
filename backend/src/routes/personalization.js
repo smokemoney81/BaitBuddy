@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
 import { personalizationContext } from '../lib/personalizationEngine.js';
 import { deriveCatchPatterns } from '../lib/anglerInsights.js';
+import { isJevFangbuchActive } from '../lib/jevClient.js';
+import { runFangbuchEvidenceShadow, resolveActiveEvidence } from '../lib/jevFangbuchEvidence.js';
 
 const router = express.Router();
 
@@ -58,12 +60,24 @@ router.get('/me', requireAuth, async (req, res) => {
   const gear = (gearResult.data || []).map((row) => row.data?.name).filter(Boolean);
   const trips = plansResult.data || [];
 
+  let patterns = budget.history ? deriveCatchPatterns(catches) : { enoughData: false, total: 0, patterns: [] };
+  // Jev Decision Layer (siehe CLAUDE.md „Jev Decision Layer"): ohne JEV_ENABLED
+  // ist beides ein No-op und die deterministische Evidence-Stufe bleibt exakt
+  // wie von `deriveCatchPatterns` berechnet.
+  if (patterns.patterns.length) {
+    if (isJevFangbuchActive()) {
+      patterns = { ...patterns, patterns: await resolveActiveEvidence(patterns.patterns) };
+    } else {
+      runFangbuchEvidenceShadow(patterns.patterns);
+    }
+  }
+
   return res.json({
     tier: context.tier,
     detail: context.detail,
     personalized: budget.profile,
     profile: context.profile,
-    patterns: budget.history ? deriveCatchPatterns(catches) : { enoughData: false, total: 0, patterns: [] },
+    patterns,
     gear: { known: gear.slice(0, 40), total: gear.length },
     trips: trips.map((t) => ({ title: t.title, targetFish: t.target_fish, plannedDate: t.planned_date })),
     // Quellen, die sich nicht lesen ließen. Die UI weist darauf hin, statt einen

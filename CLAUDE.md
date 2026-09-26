@@ -219,6 +219,36 @@ funktionierender Bereiche, kein Umbau des Free-Tarifs):
   weitere Modul (Karte, Trip-Planer, …) bekommt vor seiner eigenen
   Aktivierung ein eigenes Flag (`JEV_MAP`, `JEV_TRIP` …) nach demselben Muster.
 
+- **Phase 3 (Code fertig, standardmäßig INAKTIV) — zwei weitere Module nach
+  demselben Shadow-/Active-Muster:**
+  - **Fangbuch-Evidence-Klassifizierung** (`backend/src/lib/jevFangbuchEvidence.js`,
+    Flag `JEV_FANGBUCH`): `anglerInsights.js` liefert seit Phase 3 zu jedem
+    frequenzbasierten Muster (`top_species`/`top_bait`/`top_water`/`top_daypart`,
+    **nicht** `personal_best`) zusätzlich eine deterministische Evidence-Stufe
+    (`classifyEvidence`: EARLY/MODERATE/STRONG, rein aus Stichprobengröße +
+    Anteil). Jev bekommt **nur diese aggregierten Zahlen** (count/total/share),
+    nie rohe Fangbuch-Zeilen, und darf die Stufe fail-open pro Muster verfeinern
+    — eingebunden in `GET /api/personalization/me`.
+  - **Spot-Ranking** (`backend/src/lib/spotRecommendation.js` +
+    `jevSpotRanking.js`, Flag `JEV_SPOTS`, neuer Endpunkt
+    `GET /api/spots/recommended`): **Neue Feature-Basis** — es gab vorher keine
+    Spot-Rankinglogik im Code, `spots.js` war reines CRUD. `rankSpots()` ist eine
+    bewusst grobe, deterministische Heuristik (species_match aus eigener
+    Fanghistorie am Spot, season_match aus `rule_entries`/`isInClosedSeason`,
+    weather_match aus einem simplen Wind-Schwellenwert) — harte Filter
+    (nur eigene Spots) laufen vorher in der Route, nicht in der Bewertung. Jev
+    bekommt nur Name + die drei 0..1-Scores der Top-8-Kandidaten und darf
+    höchstens seine Top-Wahl an Position 1 verschieben, nie neue Spots
+    einführen. Fail-open auf die deterministische Reihenfolge.
+  - **Trip-Planer-Kontext-Routing wurde bewusst NICHT gebaut**: Anders als beim
+    Buddy-Chat (der bereits `wantsPlanning`-Kontext lädt) gibt es für
+    `TripPlanner.jsx`/`fishing_plans` **keine** bestehende KI-Feature-Basis
+    (keine Empfehlungslogik, kein LLM-Aufruf) — Jev dort "vorzubereiten" hieße,
+    ohne echte Datengrundlage eine komplette neue Produktfunktion zu erfinden.
+    Das verstößt gegen die „keine Platzhalter, echte Implementierung"-Regel.
+    Vor einer Jev-Anbindung müsste zuerst ein echtes Trip-Empfehlungsfeature
+    entstehen (analog zu `spotRecommendation.js`).
+
 ### Feature-Flags (Env)
 - `JEV_ENABLED` — globaler Schalter, Default aus (`false`/nicht gesetzt). Ohne
   ihn **und** ohne `TYPESAFE_API_KEY` ist `jevClient.js` ein reines No-op, kein
@@ -232,6 +262,10 @@ funktionierender Bereiche, kein Umbau des Free-Tarifs):
   **und** `JEV_ENABLED=true` steuert Jev aktiv, welcher App-Kontext geladen wird
   — der Shadow-Vergleich (Phase 1) läuft dann nicht mehr parallel, weil es
   nichts mehr zu vergleichen gibt (Jevs Entscheidung wird ja bereits verwendet).
+- `JEV_FANGBUCH` — Phase 3a, Default aus. Erst nach Auswertung der
+  Fangbuch-Shadow-Daten setzen (siehe oben).
+- `JEV_SPOTS` — Phase 3b, Default aus. Erst nach Auswertung der
+  Spot-Ranking-Shadow-Daten setzen (siehe oben).
 
 ### Feste Grenzen (siehe auch „Regel: Nur Anthropic Cloud API als Cloud-LLM-Quelle")
 Jev darf **niemals**:

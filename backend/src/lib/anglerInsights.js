@@ -49,6 +49,19 @@ function leader(counts, total) {
   return { ...best, total, share: Math.round((best.count / total) * 100) };
 }
 
+// Deterministische Evidence-Stufe rein aus Stichprobengröße und Anteil — bewusst
+// grobe, nachvollziehbare Schwellen statt Scheingenauigkeit. `MIN_SAMPLE` ist
+// bereits die Grenze zu "gar keine Aussage" (siehe `leader()`); diese Funktion
+// unterscheidet nur noch, wie belastbar eine bereits gebildete Aussage ist.
+// Phase-3-Erweiterung (Jev, siehe `jevFangbuchEvidence.js`) kann diese Stufe
+// verfeinern, aber niemals eine Stufe erfinden, wo dieser Schwellenwert schon
+// "kein Muster" sagt.
+export function classifyEvidence(count, total, share) {
+  if (count >= 10 && share >= 60) return 'STRONG';
+  if (count >= 5 && share >= 50) return 'MODERATE';
+  return 'EARLY';
+}
+
 /**
  * Leitet die Muster ab, die der Buddy aus den Fängen zu kennen glaubt.
  *
@@ -73,6 +86,8 @@ export function deriveCatchPatterns(catches = []) {
       label: 'Meistgefangene Art',
       value: species.value,
       detail: `${species.count} von ${species.total} Fängen (${species.share} %)`,
+      evidence: classifyEvidence(species.count, species.total, species.share),
+      sample: { count: species.count, total: species.total, share: species.share },
     });
   }
 
@@ -83,6 +98,8 @@ export function deriveCatchPatterns(catches = []) {
       label: 'Erfolgreichster Köder',
       value: bait.value,
       detail: `${bait.count} von ${bait.total} Fängen (${bait.share} %)`,
+      evidence: classifyEvidence(bait.count, bait.total, bait.share),
+      sample: { count: bait.count, total: bait.total, share: bait.share },
     });
   }
 
@@ -93,6 +110,8 @@ export function deriveCatchPatterns(catches = []) {
       label: 'Häufigstes Gewässer',
       value: water.value,
       detail: `${water.count} von ${water.total} Fängen (${water.share} %)`,
+      evidence: classifyEvidence(water.count, water.total, water.share),
+      sample: { count: water.count, total: water.total, share: water.share },
     });
   }
 
@@ -108,6 +127,8 @@ export function deriveCatchPatterns(catches = []) {
         label: 'Erfolgreichste Tageszeit',
         value: part.value,
         detail: `${part.count} von ${part.total} Fängen mit Zeitangabe (${part.share} %)`,
+        evidence: classifyEvidence(part.count, part.total, part.share),
+        sample: { count: part.count, total: part.total, share: part.share },
       });
     }
   }

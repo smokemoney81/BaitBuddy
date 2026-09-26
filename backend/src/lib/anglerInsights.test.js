@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveCatchPatterns, MIN_SAMPLE } from './anglerInsights.js';
+import { deriveCatchPatterns, classifyEvidence, MIN_SAMPLE } from './anglerInsights.js';
 
 function catchRow(overrides = {}) {
   return {
@@ -99,5 +99,36 @@ describe('deriveCatchPatterns', () => {
       expect(pattern.value).toBeTruthy();
       expect(pattern.label).toBeTruthy();
     }
+  });
+
+  it('vergibt frequenzbasierten Mustern eine Evidence-Stufe mit Stichprobe', () => {
+    const rows = [
+      ...Array.from({ length: 4 }, () => catchRow({ species: 'Zander' })),
+      catchRow({ species: 'Hecht' }),
+    ];
+    const species = byId(deriveCatchPatterns(rows), 'top_species');
+    expect(species.evidence).toBe('EARLY');
+    expect(species.sample).toEqual({ count: 4, total: 5, share: 80 });
+  });
+
+  it('personal_best trägt keine Evidence-Stufe (kein Frequenz-Muster)', () => {
+    const rows = Array.from({ length: 3 }, (_, i) => catchRow({ weight_kg: i + 1 }));
+    expect(byId(deriveCatchPatterns(rows), 'personal_best').evidence).toBeUndefined();
+  });
+});
+
+describe('classifyEvidence', () => {
+  it('STRONG erst ab hoher Anzahl UND hohem Anteil', () => {
+    expect(classifyEvidence(10, 15, 66)).toBe('STRONG');
+    expect(classifyEvidence(9, 15, 60)).not.toBe('STRONG');
+  });
+
+  it('MODERATE ab moderater Anzahl UND Mehrheitsanteil', () => {
+    expect(classifyEvidence(5, 9, 55)).toBe('MODERATE');
+  });
+
+  it('faellt sonst auf EARLY zurueck', () => {
+    expect(classifyEvidence(3, 8, 37)).toBe('EARLY');
+    expect(classifyEvidence(4, 20, 20)).toBe('EARLY');
   });
 });

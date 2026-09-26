@@ -41,6 +41,18 @@ export function isJevBuddyActive() {
   return isJevEnabled() && process.env.JEV_BUDDY === 'true';
 }
 
+// Phase 2 für die Fangbuch-Muster-Klassifizierung (siehe jevFangbuchEvidence.js).
+// Gleiche Regel: erst nach Auswertung echter Shadow-Mode-Daten aktivieren.
+export function isJevFangbuchActive() {
+  return isJevEnabled() && process.env.JEV_FANGBUCH === 'true';
+}
+
+// Phase 2 für das Spot-Re-Ranking (siehe jevSpotRanking.js). Gleiche Regel:
+// erst nach Auswertung echter Shadow-Mode-Daten aktivieren.
+export function isJevSpotsActive() {
+  return isJevEnabled() && process.env.JEV_SPOTS === 'true';
+}
+
 /**
  * Ruft Jev mit einem state/questions-Bundle auf. Liefert die rohen
  * `answers` aus der TypeSafe-Antwort oder `null` bei Fehler/Timeout/Deaktivierung.
