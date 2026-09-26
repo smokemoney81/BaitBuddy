@@ -98,7 +98,9 @@ function extractText(data) {
   return text.length ? text : null;
 }
 
-export async function invokeLLM({ prompt, imageBase64 = null, onUsage = null }) {
+// `model` optional (Modellrouting, aiModelRouting.js); ohne Angabe gilt wie
+// bisher ANTHROPIC_MODEL bzw. claude-haiku-4-5.
+export async function invokeLLM({ prompt, imageBase64 = null, onUsage = null, model = null }) {
   const apiKey = getAnthropicKey();
   if (!apiKey) {
     throw new Error('KI-Service nicht verfügbar – ANTHROPIC_API_KEY fehlt in den Server-Einstellungen.');
@@ -118,7 +120,7 @@ export async function invokeLLM({ prompt, imageBase64 = null, onUsage = null }) 
   // 2048 statt 1024: Schritt-für-Schritt-Anleitungen des KI-Buddys (Montage,
   // Köderführung) brauchen mehr Platz und dürfen nicht mitten im Schritt enden.
   const requestBody = JSON.stringify({
-    model: MODEL(),
+    model: model || MODEL(),
     max_tokens: 2048,
     messages: [{ role: 'user', content }],
   });
@@ -195,14 +197,14 @@ export async function invokeLLM({ prompt, imageBase64 = null, onUsage = null }) 
  * @param {{ prompt: string, onDelta?: (text: string) => void, signal?: AbortSignal, onUsage?: (usage: { input_tokens?: number, output_tokens?: number }) => void }} params
  * @returns {Promise<string>} vollständiger Antworttext
  */
-export async function invokeLLMStream({ prompt, onDelta, signal, onUsage = null }) {
+export async function invokeLLMStream({ prompt, onDelta, signal, onUsage = null, model = null }) {
   const apiKey = getAnthropicKey();
   if (!apiKey) {
     throw new Error('KI-Service nicht verfügbar – ANTHROPIC_API_KEY fehlt in den Server-Einstellungen.');
   }
 
   const requestBody = JSON.stringify({
-    model: MODEL(),
+    model: model || MODEL(),
     max_tokens: 2048,
     messages: [{ role: 'user', content: prompt }],
     stream: true,

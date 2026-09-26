@@ -26,7 +26,13 @@ import { isJevBuddyActive, isJevVisionActive } from '../lib/jevClient.js';
 import { runBuddyContextShadow } from '../lib/jevShadow.js';
 import { resolveActiveContextFlags } from '../lib/jevBuddyContext.js';
 import { runVisionConfidenceShadow, resolveActiveConfidenceBand, classifyConfidenceBand } from '../lib/jevVisionConfidence.js';
-import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas } from '../lib/aiTokenQuota.js';
+import { costFor, getTokenUsage, getTokenCosts, getTokenQuotas } from '../lib/aiTokenQuota.js';
+// Abrechnung: chargeAi wählt je nach AI_CREDIT_SYSTEM_ENABLED die Credit-Engine
+// (creditGuard) oder wie bisher meterAiTokens (Rollback per Env-Variable).
+import { chargeAi } from '../middleware/creditGuard.js';
+import { isCreditSystemEnabled, getCreditCosts } from '../lib/creditConfig.js';
+import { getCurrentWallet } from '../lib/creditEngine.js';
+import { ensureCurrentWallet, resolveCreditPlan } from '../lib/walletProvisioning.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -343,12 +349,12 @@ ${buildActionPromptSection()}${context}`;
   return { ok: true, prompt: `${systemPrompt}\n\n${history}\n\nAntworte:` };
 }
 
-router.post('/ai/chat', requireAuth, checkChatRateLimit, meterAiTokens('chat'), async (req, res) => {
+router.post('/ai/chat', requireAuth, checkChatRateLimit, chargeAi('chat'), async (req, res) => {
   try {
     const built = await buildChatPrompt(req);
     if (!built.ok) return res.status(built.status).json(built.body);
 
-    const reply = await invokeLLM({ prompt: built.prompt, onUsage: req.aiTokens?.setUsage });
+    const reply = await invokeLLM({ prompt: built.prompt, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
 
     const { action, cleanReply } = extractAction(reply);
 
@@ -392,7 +398,7 @@ router.post('/ai/chat', requireAuth, checkChatRateLimit, meterAiTokens('chat'), 
 // vom LLM kommen, damit das Frontend satzweise vorlesen kann, BEVOR die ganze
 // Antwort fertig ist ("quasi live"). Am Ende wird der Aktions-Block aus dem
 // Volltext extrahiert und als 'done'-Event mit der bereinigten Antwort gesendet.
-router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, meterAiTokens('chat'), async (req, res) => {
+router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, chargeAi('chat'), async (req, res) => {
   // Client-Disconnect abfangen, um den Upstream-Stream abzubrechen.
   const abort = new AbortController();
   res.on('close', () => abort.abort());
@@ -429,6 +435,7 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, meterAiTokens('c
       prompt: built.prompt,
       signal: abort.signal,
       onUsage: req.aiTokens?.setUsage,
+      model: req.aiModel,
       onDelta: (delta) => send('delta', { text: delta }),
     });
 
@@ -438,6 +445,9 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, meterAiTokens('c
     send('done', { ok: true, reply: finalReply, message: finalReply, action });
     res.end();
   } catch (e) {
+    // Stream-Fehler kosten nichts: Credit-Reservierung freigeben (im alten
+    // System gibt es kein fail — dort wurde schlicht nicht gebucht).
+    await req.aiTokens?.fail?.(abort.signal.aborted ? 'client_aborted' : 'stream_error');
     // Client bereits weg? Dann nichts mehr senden.
     if (abort.signal.aborted || res.writableEnded) {
       try { res.end(); } catch { /* noop */ }
@@ -451,7 +461,7 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, meterAiTokens('c
   }
 });
 
-router.post('/ai/analyze-catch', requireAuth, meterAiTokens('vision'), async (req, res) => {
+router.post('/ai/analyze-catch', requireAuth, chargeAi('analyze-catch', 'vision'), async (req, res) => {
   try {
     const { image_base64, file_url } = req.body;
     let imageBase64 = image_base64 || file_url;
@@ -472,7 +482,9 @@ router.post('/ai/analyze-catch', requireAuth, meterAiTokens('vision'), async (re
 
     const analysis = await invokeLLM({
       prompt: 'Analysiere dieses Foto. Erkenne die Fischart, schätze Länge und Gewicht. Gib Tipps. Antworte auf Deutsch.',
-      imageBase64
+      imageBase64,
+      onUsage: req.aiTokens?.setUsage,
+      model: req.aiModel,
     });
     return res.json({ ok: true, analysis });
   } catch (e) {
@@ -480,7 +492,7 @@ router.post('/ai/analyze-catch', requireAuth, meterAiTokens('vision'), async (re
   }
 });
 
-router.post('/analyze-photo', requireAuth, meterAiTokens('vision'), async (req, res) => {
+router.post('/analyze-photo', requireAuth, chargeAi('analyze-photo', 'vision'), async (req, res) => {
   try {
     let imageBase64 = req.body.imageBase64 || req.body.image;
 
@@ -512,7 +524,9 @@ Regeln:
 - confidence: Wie sicher bist du bei der Arterkennung? (0.0 = unsicher, 1.0 = sehr sicher)
 - Erfinde keine Werte: Wenn ein Merkmal nicht erkennbar ist, nutze null (bzw. "unbekannt" bei sex).
 - Wenn du keinen Fisch erkennst, nutze null für alle Felder, "unbekannt" bei sex und confidence 0.`,
-      imageBase64
+      imageBase64,
+      onUsage: req.aiTokens?.setUsage,
+      model: req.aiModel,
     });
     let parsed = {};
     try {
@@ -564,7 +578,7 @@ Regeln:
   }
 });
 
-router.post('/ai/evaluate-catch', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/evaluate-catch', requireAuth, chargeAi('evaluate-catch', 'tool'), async (req, res) => {
   try {
     const { catch_data, context } = req.body;
     if (catch_data == null) {
@@ -574,20 +588,20 @@ router.post('/ai/evaluate-catch', requireAuth, meterAiTokens('tool'), async (req
     // (Token-Kosten- und Prompt-Injection-Schutz).
     const catchStr = JSON.stringify(catch_data).slice(0, MAX_CATCH_DATA_CHARS);
     const contextStr = (typeof context === 'string' ? context : '').slice(0, MAX_CONTEXT_CHARS);
-    const reply = await invokeLLM({ prompt: `Bewerte diesen Fang: ${catchStr}. Kontext: ${contextStr}. Antworte auf Deutsch.` });
+    const reply = await invokeLLM({ prompt: `Bewerte diesen Fang: ${catchStr}. Kontext: ${contextStr}. Antworte auf Deutsch.`, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
     return res.json({ ok: true, evaluation: reply });
   } catch (e) {
     return sendDbError(res, e);
   }
 });
 
-router.post('/ai/generate-catch-report', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/generate-catch-report', requireAuth, chargeAi('generate-catch-report', 'tool'), async (req, res) => {
   try {
     const { period } = req.body;
     // Freitext-Periode validieren und begrenzen, bevor sie in den Prompt fließt.
     const safePeriod = (typeof period === 'string' ? period : '').slice(0, MAX_CONTEXT_CHARS).trim() || 'letzte 30 Tage';
     const { data: catches } = await supabase.from('catches').select('*').eq('created_by', req.user.email).order('catch_time', { ascending: false }).limit(50);
-    const reply = await invokeLLM({ prompt: `Erstelle einen Fangbericht für den Zeitraum ${safePeriod} basierend auf diesen Fängen: ${JSON.stringify(catches?.slice(0, 20))}. Antworte auf Deutsch.` });
+    const reply = await invokeLLM({ prompt: `Erstelle einen Fangbericht für den Zeitraum ${safePeriod} basierend auf diesen Fängen: ${JSON.stringify(catches?.slice(0, 20))}. Antworte auf Deutsch.`, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
     return res.json({ ok: true, report: reply });
   } catch (e) {
     return sendDbError(res, e);
@@ -606,7 +620,7 @@ const WMO = {
   95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'schweres Gewitter'
 };
 
-router.post('/ai/fishing-recommendation', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/fishing-recommendation', requireAuth, chargeAi('fishing-recommendation', 'tool'), async (req, res) => {
   try {
     const coords = parseCoordinates(req.body?.latitude, req.body?.longitude);
     if (!coords.ok) return res.status(400).json({ error: coords.error });
@@ -666,7 +680,7 @@ Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt in exakt diesem Format,
   "tips": ["konkreter Tipp 1", "konkreter Tipp 2", "konkreter Tipp 3"]
 }`;
 
-    const raw = await invokeLLM({ prompt });
+    const raw = await invokeLLM({ prompt, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
 
     let recommendation;
     try {
@@ -724,7 +738,7 @@ async function requirePremiumVoice(req, res, next) {
   });
 }
 
-router.post('/ai/tts', requireAuth, requirePremiumVoice, meterAiTokens('tts', { cost: ttsCost }), async (req, res) => {
+router.post('/ai/tts', requireAuth, requirePremiumVoice, chargeAi('tts', 'tts', { cost: ttsCost }), async (req, res) => {
   const { text, voice } = req.body || {};
   // Typ prüfen: Ein Nicht-String (z. B. eine Zahl) ließ .trim() werfen → 500.
   if (typeof text !== 'string' || text.trim().length === 0) {
@@ -748,7 +762,7 @@ router.post('/ai/tts', requireAuth, requirePremiumVoice, meterAiTokens('tts', { 
   }
 });
 
-router.post('/ai/fish-behavior-analysis', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/fish-behavior-analysis', requireAuth, chargeAi('fish-behavior-analysis', 'tool'), async (req, res) => {
   try {
     const { species, water_data = {}, air_pressure } = req.body;
     const coords = parseOptionalCoordinates(req.body.latitude, req.body.longitude);
@@ -807,7 +821,7 @@ Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt in exakt diesem Format,
   "water_conditions_notes": "Besonderheiten der Gewässerbedingungen auf Deutsch"
 }`;
 
-    const raw = await invokeLLM({ prompt });
+    const raw = await invokeLLM({ prompt, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
 
     let analysis;
     try {
@@ -844,7 +858,7 @@ function getOpenAIKey() {
     || null;
 }
 
-router.post('/ai/realtime-session', requireAuth, requirePremiumVoice, meterAiTokens('realtime'), async (req, res) => {
+router.post('/ai/realtime-session', requireAuth, requirePremiumVoice, chargeAi('realtime-session', 'realtime'), async (req, res) => {
   const apiKey = getOpenAIKey();
   if (!apiKey) {
     console.warn('[AI] /ai/realtime-session: kein OpenAI-Key gefunden. Relevante Env-Variablen:',
@@ -942,7 +956,7 @@ router.post('/ai/realtime-session', requireAuth, requirePremiumVoice, meterAiTok
   }
 });
 
-router.post('/ai/vision', requireAuth, meterAiTokens('vision'), async (req, res) => {
+router.post('/ai/vision', requireAuth, chargeAi('vision'), async (req, res) => {
   try {
     const { image_base64 } = req.body;
     if (typeof image_base64 !== 'string' || image_base64.length === 0) {
@@ -967,7 +981,9 @@ ANTWORT-FORMAT (Deutsch, natürlich, hilfreiche Sätze):
 - Praktischer Tipp
 
 Antworte prägnant (3-5 Sätze), als würdest du einem Freund am Wasser helfen.`,
-      imageBase64: image_base64
+      imageBase64: image_base64,
+      onUsage: req.aiTokens?.setUsage,
+      model: req.aiModel,
     });
 
     return res.json({ ok: true, analysis });
@@ -979,13 +995,15 @@ Antworte prägnant (3-5 Sätze), als würdest du einem Freund am Wasser helfen.`
 // ──────────────────────────────────────────────────────────────────────────────
 // Rezeptvorschläge nach Fang
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/fish-recipes', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/fish-recipes', requireAuth, chargeAi('fish-recipes', 'tool'), async (req, res) => {
   try {
     const { species, weight_g, length_cm, catch_date, keep } = req.body;
     if (!species) return res.status(400).json({ error: 'species erforderlich' });
 
     // Catch & Release: kein Rezept, nur kurze Info
     if (keep === false) {
+      // Kein Anbieter-Aufruf → Credit-Reservierung freigeben (No-op im alten System).
+      await req.aiTokens?.fail?.('no_provider_call');
       return res.json({
         ok: true,
         catchAndRelease: true,
@@ -1029,7 +1047,7 @@ ANTWORT-FORMAT (JSON):
 
 Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
 
-    const raw = await invokeLLM({ prompt });
+    const raw = await invokeLLM({ prompt, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
 
     let parsed;
     try {
@@ -1048,7 +1066,7 @@ Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
 // ──────────────────────────────────────────────────────────────────────────────
 // Ausrüstungserkennung per Foto
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/recognize-gear', requireAuth, meterAiTokens('vision'), async (req, res) => {
+router.post('/ai/recognize-gear', requireAuth, chargeAi('recognize-gear', 'vision'), async (req, res) => {
   try {
     const { image_base64 } = req.body;
     if (typeof image_base64 !== 'string' || image_base64.length === 0) {
@@ -1084,7 +1102,7 @@ ANTWORT-FORMAT (JSON):
 
 Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
 
-    const raw = await invokeLLM({ prompt, imageBase64: image_base64 });
+    const raw = await invokeLLM({ prompt, imageBase64: image_base64, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
 
     let parsed;
     try {
@@ -1103,7 +1121,7 @@ Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
 // ──────────────────────────────────────────────────────────────────────────────
 // Ausrüstungswartungs-Empfehlungen
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/gear-maintenance-tips', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/gear-maintenance-tips', requireAuth, chargeAi('gear-maintenance-tips', 'tool'), async (req, res) => {
   try {
     const { gearItems = [] } = req.body;
     if (!Array.isArray(gearItems) || gearItems.length === 0) {
@@ -1139,7 +1157,7 @@ ANTWORT-FORMAT (JSON):
 
 Antworte NUR mit dem JSON-Objekt.`;
 
-    const raw = await invokeLLM({ prompt });
+    const raw = await invokeLLM({ prompt, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
 
     let parsed;
     try {
@@ -1158,7 +1176,7 @@ Antworte NUR mit dem JSON-Objekt.`;
 // ──────────────────────────────────────────────────────────────────────────────
 // Satellitenanalyse 2.0 — KI-gestützte Gewässerqualitätsanalyse
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/satellite-analysis', requireAuth, meterAiTokens('tool'), async (req, res) => {
+router.post('/ai/satellite-analysis', requireAuth, chargeAi('satellite-analysis', 'tool'), async (req, res) => {
   try {
     const { latitude, longitude, spot_name = null } = req.body || {};
     const lat = parseFloat(latitude);
@@ -1267,7 +1285,7 @@ ANTWORT-FORMAT (JSON):
 
 Antworte NUR mit dem JSON-Objekt.`;
 
-    const raw = await invokeLLM({ prompt });
+    const raw = await invokeLLM({ prompt, onUsage: req.aiTokens?.setUsage, model: req.aiModel });
     let parsed;
     try {
       const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -1301,6 +1319,22 @@ router.get('/ai/usage', requireAuth, async (req, res) => {
   try {
     const usage = await getTokenUsage(req.user);
     return res.json({ ok: true, ...usage, costs: getTokenCosts(), plan_quotas: getTokenQuotas() });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
+// Credit-Stand (neues Credit-System). Legt bei Bedarf die aktuelle Periode an
+// (Lazy-Provisioning), damit die Anzeige nicht erst nach dem ersten KI-Aufruf
+// stimmt. Ohne AI_CREDIT_SYSTEM_ENABLED: 404, das Frontend nutzt /ai/usage.
+router.get('/ai/credits', requireAuth, async (req, res) => {
+  if (!isCreditSystemEnabled()) return res.status(404).json({ ok: false, error: 'Credit-System nicht aktiv' });
+  try {
+    await ensureCurrentWallet(req.user);
+    const wallet = await getCurrentWallet(req.user.id);
+    const { creditPlan } = resolveCreditPlan(req.user);
+    const { costEur, costLimitEur, ...publicWallet } = wallet || {};
+    return res.json({ ok: true, plan: creditPlan, wallet: wallet ? publicWallet : null, costs: getCreditCosts() });
   } catch (e) {
     return sendDbError(res, e);
   }
