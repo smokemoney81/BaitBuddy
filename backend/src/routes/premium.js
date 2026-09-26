@@ -5,6 +5,20 @@ import { verifyGooglePlayPurchase, verifyStripePayment, createStripeCheckoutSess
 import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
 import { isAllToolsFree } from '../lib/appSettings.js';
+import { isCreditSystemEnabled } from '../lib/creditConfig.js';
+import { grantForPlanChange } from '../lib/walletProvisioning.js';
+
+// Nach jeder erfolgreichen Plan-Aktivierung (Webhook + /activate) das
+// Credit-Kontingent für den NEUEN Plan nachziehen. Nur mit Feature-Flag; sonst
+// bleibt alles beim alten Volumen-System. Best-effort, nie den Kauf blockieren.
+async function syncCreditWalletAfterActivation(user) {
+  if (!isCreditSystemEnabled()) return;
+  try {
+    await grantForPlanChange(user);
+  } catch (e) {
+    console.error('[premium] Credit-Wallet-Sync nach Aktivierung fehlgeschlagen:', e?.message || e);
+  }
+}
 
 const router = Router();
 
@@ -309,6 +323,7 @@ export async function stripeWebhookHandler(req, res) {
   if (planId === 'basic') {
     await grantReferralBasicReward({ ...fulfilledUser, app_metadata: merged });
   }
+  await syncCreditWalletAfterActivation({ ...fulfilledUser, app_metadata: merged });
   return res.status(200).json({ received: true, fulfilled: true });
 }
 
@@ -507,6 +522,7 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   if (plan_id === 'basic') {
     await grantReferralBasicReward({ id: req.user.id, user_metadata: freshUser.user_metadata || {}, app_metadata: merged });
   }
+  await syncCreditWalletAfterActivation({ id: req.user.id, user_metadata: freshUser.user_metadata || {}, app_metadata: merged, created_at: freshUser.created_at });
 
   return res.json({
     ok: true,
