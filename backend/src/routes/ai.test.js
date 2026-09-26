@@ -716,3 +716,88 @@ describe('POST /api/ai/chat — Tarif-Staffelung', () => {
     expect(prompt).toContain('2 bis 4 Sätze');
   });
 });
+
+describe('KI-Volumen (Buddy-Tokens)', () => {
+  const useBalance = async (used) => {
+    vi.resetModules();
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de' },
+      fromResults: { ai_token_balances: { data: { used }, error: null } },
+      rpcResults: { record_ai_token_usage: { data: used + 2, error: null } },
+    });
+    ({ default: app } = await import('../server.js'));
+  };
+
+  it('sperrt den Chat mit 429, wenn das Monatsvolumen aufgebraucht ist — ohne LLM-Aufruf', async () => {
+    await useBalance(500);
+    llmMock.invokeLLM = vi.fn();
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content: 'Hallo' }] });
+    expect(res.status).toBe(429);
+    expect(res.body.code).toBe('ai_token_quota_exceeded');
+    expect(res.body.reply).toMatch(/KI-Volumen/);
+    expect(llmMock.invokeLLM).not.toHaveBeenCalled();
+  });
+
+  it('verbucht eine erfolgreiche Chat-Antwort samt echter Anbieter-Token', async () => {
+    await useBalance(10);
+    llmMock.invokeLLM = vi.fn(async ({ onUsage }) => {
+      onUsage?.({ input_tokens: 1500, output_tokens: 80 });
+      return 'Petri Heil!';
+    });
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content: 'Hallo' }] });
+    expect(res.status).toBe(200);
+    expect(supabaseMock.current.rpc).toHaveBeenCalledWith('record_ai_token_usage', expect.objectContaining({
+      p_user_id: 'u1', p_feature: 'chat', p_tokens: 2, p_input_tokens: 1500, p_output_tokens: 80,
+    }));
+  });
+
+  it('verbucht beim Stream nur vollständige Antworten', async () => {
+    await useBalance(10);
+    llmMock.invokeLLMStream = vi.fn().mockRejectedValue(new Error('Claude down'));
+    await request(app)
+      .post('/api/ai/chat/stream')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content: 'Hallo' }] });
+    expect(supabaseMock.current.rpc).not.toHaveBeenCalled();
+
+    llmMock.invokeLLMStream = vi.fn(async ({ onDelta }) => { onDelta('Ok.'); return 'Ok.'; });
+    const res = await request(app)
+      .post('/api/ai/chat/stream')
+      .set('Authorization', 'Bearer tok')
+      .send({ messages: [{ role: 'user', content: 'Hallo' }] });
+    expect(res.text).toContain('event: done');
+    expect(supabaseMock.current.rpc).toHaveBeenCalledTimes(1);
+    expect(supabaseMock.current.rpc.mock.calls[0][1]).toMatchObject({ p_feature: 'chat' });
+  });
+
+  it('sperrt eine Live-Voice-Sitzung, bevor ein OpenAI-Token erzeugt wird', async () => {
+    await useBalance(450);
+    process.env.OPENAI_API_KEY = 'sk-test';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const res = await request(app).post('/api/ai/realtime-session').set('Authorization', 'Bearer tok').send({});
+      expect(res.status).toBe(429);
+      expect(res.body.code).toBe('ai_token_quota_exceeded');
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.OPENAI_API_KEY;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('GET /api/ai/usage liefert Stand, Kosten und Plan-Volumen', async () => {
+    await useBalance(120);
+    const res = await request(app).get('/api/ai/usage').set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, plan_id: 'free', limit: 500, used: 120, remaining: 380 });
+    expect(res.body.costs).toMatchObject({ chat: 2, realtime: 150 });
+    expect(res.body.plan_quotas).toMatchObject({ free: 500, elite: 30000 });
+  });
+});

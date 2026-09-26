@@ -14,6 +14,7 @@ import { resolveLocalAnswer, getOfflineFallback, faqPageLabel } from "@/lib/budd
 import { buildGreeting } from "@/lib/buddyGreetings";
 import { executeBuddyAction } from "@/utils/buddyActions";
 import { useLocalBuddy } from "@/hooks/useLocalBuddy";
+import { isQuotaExceeded } from "@/lib/aiQuota";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
@@ -410,6 +411,8 @@ function KiBuddyBetaInner() {
         streamedOk = true;
       } catch (streamErr) {
         if (streamErr?.name === "AbortError" || signal?.aborted) { queue?.cancel(); return; }
+        // Volumen aufgebraucht: der gepufferte Pfad würde ebenso abgelehnt.
+        if (isQuotaExceeded(streamErr)) throw streamErr;
         // Streaming nicht verfügbar (SSE ungeeignet, Server-Fehler) → gepufferter
         // Standard-Pfad. Ein echter Netzwerkfehler wirft hier erneut und landet
         // im äußeren catch (Offline-/Retry-Logik).
@@ -461,6 +464,16 @@ function KiBuddyBetaInner() {
       // der Cloud, denn lokal kostet eine Antwort nichts.
       if (localBuddy.canFallBack) {
         askOnDevice(q, { fallback: true });
+        return;
+      }
+
+      // KI-Volumen des Monats aufgebraucht: ehrlich sagen und ohne Wiederholung
+      // aus der lokalen Wissensbasis antworten, soweit sie passt.
+      if (isQuotaExceeded(error)) {
+        appendMessages({ role: "system", text: error.data.error || "Dein KI-Volumen für diesen Monat ist aufgebraucht." });
+        const faqAnswer = resolveLocalAnswer(q, { online: false });
+        if (faqAnswer) answerLocally(faqAnswer);
+        else setStatus("");
         return;
       }
 

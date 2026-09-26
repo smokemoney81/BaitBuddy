@@ -295,6 +295,40 @@ ausschließlich serverseitig (`CHECKOUT_PLANS`); der Client sendet nur die
   `BillingManager` gepuffert und ausgeführt, sobald die Details da sind
   (Timeout 15 s) — kein sofortiger „Billing service not ready"-Fehler.
 
+## 🎟️ KI-Volumen pro Plan (Buddy-Tokens)
+
+Jede **Cloud**-KI-Nutzung verbraucht Buddy-Tokens aus einem Monatsvolumen
+(UTC-Kalendermonat), das am Plan hängt. Logik ausschließlich serverseitig in
+`backend/src/lib/aiTokenQuota.js` (Middleware `meterAiTokens(feature)` auf allen
+`/api/ai/*`-Routen mit Anbieter-Kosten plus `/api/analyze-photo`).
+
+- **Volumen** (Default, per Env `AI_TOKEN_QUOTAS` als JSON überschreibbar): Free 500,
+  Basic 5.000, Pro 12.000, Ultimate 30.000 (auch `friends_monthly`/`trial_10_10`
+  über den Rang), Freundschaft 40.000. Superuser unbegrenzt; „Alle Tools kostenlos“
+  gibt jedem mindestens das Ultimate-Volumen.
+- **Kosten** (Env `AI_TOKEN_COSTS`): Buddy-Antwort 2 (`/ai/chat`, `/ai/chat/stream`,
+  also auch Hands-free), Vorlesen 1 je angefangene 200 Zeichen (`/ai/tts`, fair für
+  die satzweise Queue), Live-Voice-Sitzung 150 (`/ai/realtime-session`, gebucht beim
+  Token-Mint — die WebRTC-Minuten laufen am Server vorbei), Bildanalyse 5, übrige
+  KI-Werkzeuge 3.
+- **Ablauf:** Prüfung vor dem Anbieter-Aufruf (zu wenig Rest → 429 mit
+  `code: 'ai_token_quota_exceeded'`, `usage` im Body), Buchung erst **nach Erfolg**
+  und **vor** dem Senden der Antwort (Serverless friert nach Antwortende ein). Der
+  SSE-Stream bucht manuell vor dem `done`-Event; Stream-Fehler kosten nichts.
+- **Speicher:** Migration `20260926120000_ai_token_usage.sql` — `ai_token_balances`
+  (Monatsstand) + `ai_token_usage` (Ledger inkl. echter Anthropic-`input/output_tokens`
+  via `onUsage` in `llm.js`), atomare RPC `record_ai_token_usage` (nur `service_role`),
+  RLS ohne Policies. **Fail-open:** fehlt die Tabelle (Migration nicht eingespielt)
+  oder scheitert die DB, wird nicht gesperrt. Parallele Anfragen können das Limit
+  um eine Anfrage überschreiten.
+- **Frontend:** `GET /api/ai/usage` (`ai.usage()`) liefert Stand, Kosten und das
+  Volumen aller Pläne — die UI spiegelt **keine** Zahlen selbst. Anzeige in
+  `AiVolumeCard.jsx` + Zeile „KI-Volumen“ in der Tarif-Tabelle (`PremiumPlans`).
+  `isQuotaExceeded` (`src/lib/aiQuota.js`) unterscheidet das Monatsvolumen vom
+  kurzen Rate-Limit; `KiBuddyBeta` versucht dann nicht erneut, sondern nennt den
+  Grund und antwortet aus der FAQ bzw. mit der KI auf dem Gerät (kostet nichts).
+- Das Free-Tageslimit (5 Chats/Tag, Redis, `checkChatRateLimit`) bleibt zusätzlich.
+
 ## 📲 Android-App direkt installieren (APK)
 
 `AndroidInstallButton` (Login-Auswahl in `LandingAuthPanel.jsx`) lädt die APK aus

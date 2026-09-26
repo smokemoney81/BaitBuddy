@@ -305,7 +305,7 @@ function HandsFreeInner() {
       const message = error?.code === 'local_unavailable'
         ? 'Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter.'
         : error?.status === 429
-          ? 'Dein Tageslimit für den KI-Buddy ist erreicht.'
+          ? (error?.data?.error || 'Dein Limit für den KI-Buddy ist erreicht.')
           : 'Keine Verbindung zum Buddy. Ich höre weiter zu.';
       setLog(prev => [...prev.slice(-5), { role: 'system', text: message }]);
       if (error?.status === 429) stopHandsFree(message);
