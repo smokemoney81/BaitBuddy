@@ -857,6 +857,8 @@ export const ai = {
   evaluateCatch:     (catch_data, context)    => api.post('/api/ai/evaluate-catch', { catch_data, context }),
   generateReport:    (period)                 => api.post('/api/ai/generate-catch-report', { period }),
   tts:               (text, voice)            => api.post('/api/ai/tts', { text, voice }),
+  // KI-Volumen (Buddy-Tokens) des angemeldeten Nutzers + Volumen aller Pläne.
+  usage:             ()                       => api.get('/api/ai/usage'),
   fishBehavior:      (species, waterData, airPressure, lat, lng) => api.post('/api/ai/fish-behavior-analysis', {
     species,
     water_data: waterData,

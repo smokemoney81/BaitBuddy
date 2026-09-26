@@ -98,7 +98,7 @@ function extractText(data) {
   return text.length ? text : null;
 }
 
-export async function invokeLLM({ prompt, imageBase64 = null }) {
+export async function invokeLLM({ prompt, imageBase64 = null, onUsage = null }) {
   const apiKey = getAnthropicKey();
   if (!apiKey) {
     throw new Error('KI-Service nicht verfügbar – ANTHROPIC_API_KEY fehlt in den Server-Einstellungen.');
@@ -176,6 +176,8 @@ export async function invokeLLM({ prompt, imageBase64 = null }) {
     if (typeof text !== 'string') {
       throw new Error('Claude API lieferte eine unerwartete Antwortstruktur (keine Nachricht).');
     }
+    // Echte Token-Zahlen für das KI-Volumen-Ledger (aiTokenQuota.js).
+    if (onUsage && data?.usage) onUsage({ input_tokens: data.usage.input_tokens, output_tokens: data.usage.output_tokens });
     return text;
   }
 
@@ -190,10 +192,10 @@ export async function invokeLLM({ prompt, imageBase64 = null }) {
  * wiederholen — bei Fehler wirft die Funktion, der Aufrufer fällt dann auf den
  * Nicht-Stream-Pfad (invokeLLM) zurück. Nur Text (kein Vision-Streaming).
  *
- * @param {{ prompt: string, onDelta?: (text: string) => void, signal?: AbortSignal }} params
+ * @param {{ prompt: string, onDelta?: (text: string) => void, signal?: AbortSignal, onUsage?: (usage: { input_tokens?: number, output_tokens?: number }) => void }} params
  * @returns {Promise<string>} vollständiger Antworttext
  */
-export async function invokeLLMStream({ prompt, onDelta, signal }) {
+export async function invokeLLMStream({ prompt, onDelta, signal, onUsage = null }) {
   const apiKey = getAnthropicKey();
   if (!apiKey) {
     throw new Error('KI-Service nicht verfügbar – ANTHROPIC_API_KEY fehlt in den Server-Einstellungen.');
@@ -231,6 +233,7 @@ export async function invokeLLMStream({ prompt, onDelta, signal }) {
   const decoder = new TextDecoder();
   let buffer = '';
   let full = '';
+  const usage = {};
 
   // Verarbeitet eine komplette SSE-Zeile ("data: {...}"). Anthropic streamt
   // Events wie content_block_delta mit delta.type "text_delta".
@@ -247,6 +250,10 @@ export async function invokeLLMStream({ prompt, onDelta, signal }) {
           full += delta;
           onDelta?.(delta);
         }
+      } else if (json?.type === 'message_start' && json?.message?.usage) {
+        usage.input_tokens = json.message.usage.input_tokens;
+      } else if (json?.type === 'message_delta' && json?.usage) {
+        usage.output_tokens = json.usage.output_tokens;
       } else if (json?.type === 'error') {
         throw new Error(`Claude Stream-Fehler: ${json?.error?.message || 'unbekannt'}`);
       }
@@ -268,5 +275,6 @@ export async function invokeLLMStream({ prompt, onDelta, signal }) {
   // Letzten Rest verarbeiten (falls kein abschließendes \n kam).
   if (buffer.trim()) handleLine(buffer);
 
+  if (onUsage && (usage.input_tokens != null || usage.output_tokens != null)) onUsage(usage);
   return full;
 }
