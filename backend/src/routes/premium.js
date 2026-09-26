@@ -389,10 +389,6 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
       error: 'purchase_token (Google Play) oder transaction_id erforderlich — keine Zahlung verifiziert'
     });
   }
-  if (purchase_token && PLAY_PRODUCTS[product_id] !== plan_id) {
-    return res.status(400).json({ error: 'Google-Play-Produkt gehört nicht zum angeforderten Plan' });
-  }
-
   const verificationConfigured = purchase_token
     ? GOOGLE_PLAY_VERIFICATION_CONFIGURED
     : STRIPE_PAYMENT_VERIFICATION_CONFIGURED;
@@ -400,6 +396,9 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     return res.status(501).json({
       error: 'Kaufverifikation ist serverseitig noch nicht konfiguriert — Premium kann derzeit nicht aktiviert werden'
     });
+  }
+  if (purchase_token && PLAY_PRODUCTS[product_id] !== plan_id) {
+    return res.status(400).json({ error: 'Google-Play-Produkt gehört nicht zum angeforderten Plan' });
   }
 
   // Echte Verifikation beim jeweiligen Anbieter — siehe purchaseVerification.js
