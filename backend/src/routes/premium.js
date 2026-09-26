@@ -16,6 +16,7 @@ const router = Router();
 // die Stripe-Aktivierung mit 501 gesperrt.
 const GOOGLE_PLAY_VERIFICATION_CONFIGURED = !!process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
 const STRIPE_PAYMENT_VERIFICATION_CONFIGURED = !!process.env.STRIPE_SECRET_KEY;
+const STRIPE_CHECKOUT_CONFIGURED = STRIPE_PAYMENT_VERIFICATION_CONFIGURED && !!process.env.STRIPE_WEBHOOK_SECRET;
 
 // resolvePlan/PLAN_RANK kommen zentral aus lib/planResolver.js — auch der
 // TTS-Endpunkt (Ultimate-Stimme) nutzt dieselbe Auflösung.
@@ -199,7 +200,7 @@ router.get('/premium/config', (req, res) => {
     ok: true,
     payment_methods: {
       google_play: GOOGLE_PLAY_VERIFICATION_CONFIGURED,
-      stripe: STRIPE_PAYMENT_VERIFICATION_CONFIGURED,
+      stripe: STRIPE_CHECKOUT_CONFIGURED,
     },
   });
 });
@@ -322,7 +323,7 @@ export async function stripeWebhookHandler(req, res) {
 }
 
 router.post('/premium/checkout', requireAuth, async (req, res) => {
-  if (!STRIPE_PAYMENT_VERIFICATION_CONFIGURED) {
+  if (!STRIPE_CHECKOUT_CONFIGURED) {
     return res.status(501).json({ error: 'Stripe checkout nicht konfiguriert' });
   }
 

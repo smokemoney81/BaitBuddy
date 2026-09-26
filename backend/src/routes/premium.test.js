@@ -24,6 +24,7 @@ beforeEach(async () => {
   vi.resetModules();
   delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
   delete process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
   purchaseVerificationMock.verifyGooglePlayPurchase.mockReset();
   purchaseVerificationMock.verifyStripePayment.mockReset();
   purchaseVerificationMock.createStripeCheckoutSession.mockReset();
@@ -220,6 +221,14 @@ describe('POST /api/premium/activate (Google-Play-Laufzeit)', () => {
 });
 
 describe('GET /api/premium/config', () => {
+  it('sperrt Stripe-Checkout ohne signierten Webhook', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    const res = await request(configuredApp).get('/api/premium/config');
+    expect(res.body.payment_methods.stripe).toBe(false);
+  });
   it('meldet nicht konfigurierte Zahlungswege, damit die UI vorher sperren kann', async () => {
     const res = await request(app).get('/api/premium/config');
 
@@ -253,6 +262,19 @@ describe('POST /api/premium/checkout', () => {
       .send({ plan_id: 'pro' });
 
     expect(res.status).toBe(501);
+  });
+
+  it('startet keinen Checkout ohne Stripe-Webhook-Secret', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    const res = await request(configuredApp)
+      .post('/api/premium/checkout')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'pro' });
+    expect(res.status).toBe(501);
+    expect(purchaseVerificationMock.createStripeCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('lehnt eine unbekannte plan_id ab (400)', async () => {
