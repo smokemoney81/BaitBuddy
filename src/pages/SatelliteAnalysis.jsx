@@ -7,7 +7,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { toast } from "sonner";
-import { ai } from "@/api/frontendClient";
+import { ai, credits } from "@/api/frontendClient";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import SubPageHeader from "@/components/layout/SubPageHeader";
@@ -84,6 +84,37 @@ function SatelliteAnalysisInner() {
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState(null);
+  // Credit-Kostenanzeige (neues Abo/Credit-System). Bleibt null, wenn das
+  // Feature-Flag im Backend aus ist (404) — dann zeigt die Seite nichts Neues.
+  const [featureCost, setFeatureCost] = useState(null);
+  const [creditsRemaining, setCreditsRemaining] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [costsRes, walletRes] = await Promise.all([
+          credits.featureCosts(),
+          credits.getWallet(),
+        ]);
+        if (cancelled) return;
+        if (costsRes?.enabled) setFeatureCost(costsRes.costs?.satellite_standard ?? null);
+        if (walletRes?.enabled) setCreditsRemaining(walletRes.remaining);
+      } catch {
+        // Credit-System aus oder nicht erreichbar: Anzeige bleibt einfach weg.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const refreshCreditWallet = useCallback(async () => {
+    try {
+      const walletRes = await credits.getWallet();
+      if (walletRes?.enabled) setCreditsRemaining(walletRes.remaining);
+    } catch {
+      // still ignorieren
+    }
+  }, []);
 
   const getLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -112,12 +143,13 @@ function SatelliteAnalysisInner() {
     try {
       const res = await ai.satelliteAnalysis(lat, lng, name || null);
       setResult(res);
+      refreshCreditWallet();
     } catch (e) {
       setError(e?.message || "Analyse fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshCreditWallet]);
 
   useEffect(() => {
     if (initLat && initLng && !result) {
@@ -192,6 +224,12 @@ function SatelliteAnalysisInner() {
             Analysieren
           </button>
         </div>
+        {featureCost != null && (
+          <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+            Satellitenanalyse: {featureCost} Credits
+            {creditsRemaining != null ? ` · ${creditsRemaining.toLocaleString('de-DE')} Credits verfügbar` : ''}
+          </p>
+        )}
         {!coords && !locating && (
           <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>GPS-Standort ermitteln oder Koordinaten aus der Karte uebergeben.</p>
         )}

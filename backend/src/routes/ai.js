@@ -42,7 +42,12 @@ const WEATHER_TIMEOUT_MS = 8000;
 // Prompt-Injection über riesige Freitext-Felder. Werte großzügig, damit echte
 // Nutzung nie abgeschnitten wird.
 const MAX_CHAT_CONTENT_CHARS = 4000;   // pro Chat-Nachricht
-const MAX_CHAT_MESSAGES = 50;          // Anzahl Chat-Nachrichten
+// Anzahl Chat-Nachrichten in der Historie, per Env überschreibbar (Missbrauchsschutz,
+// siehe CLAUDE.md Abschnitt "Jev"/Credit-System). Ungültiger Wert -> Default 50.
+const MAX_CHAT_MESSAGES = (() => {
+  const n = Number(process.env.MAX_CHAT_HISTORY_MESSAGES);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 50;
+})();
 const MAX_CATCH_DATA_CHARS = 4000;     // serialisierte catch_data
 const MAX_CONTEXT_CHARS = 1000;        // freie Kontext-/Perioden-Strings
 // Vision payloads are base64 encoded and can otherwise turn a single request

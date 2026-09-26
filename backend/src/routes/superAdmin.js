@@ -7,6 +7,8 @@ import { assignPlan } from '../lib/planAssignment.js';
 import { getAppSettings, updateAppSettings } from '../lib/appSettings.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { getMailTransporter, mailFrom, supportEmail, escapeHtml, textToHtml } from '../lib/mailer.js';
+import { isCreditSystemEnabled, TOPUP_PACKAGES } from '../lib/creditConfig.js';
+import { mapPlanCodeToCreditPlan } from '../lib/planCreditMapping.js';
 
 // Admin-Bereich des Superusers (Seite /Admin). Jede Route hier verlangt
 // Anmeldung UND die Superuser-E-Mail (requireSuperuser, middleware/auth.js).
@@ -590,6 +592,198 @@ router.post('/superadmin/mail/broadcast', safe(async (req, res) => {
     recipients: recipients.length,
     sent,
     failed: failed.length,
+  });
+}));
+
+// ── Credit-System (neues Abo/Guthaben, Teilauftrag 3) ───────────────────────
+// Nur echte, aus den Teilauftrag-1-Tabellen aggregierte Zahlen — siehe Auftrag
+// Abschnitt 4. Ohne AI_CREDIT_SYSTEM_ENABLED sind beide Routen 404, weil es
+// dann keine Credit-Daten gibt, die eine Admin-Ansicht sinnvoll füllen könnten.
+const VISION_FEATURES = new Set(['vision', 'analyze-photo', 'analyze-catch', 'recognize-gear']);
+const VOICE_FEATURES = new Set(['tts', 'realtime-session']);
+const SATELLITE_FEATURES = new Set(['satellite-analysis']);
+
+function creditPlanDisplayName(code) {
+  return { free: 'Free', basic: 'Basic', premium: 'Premium' }[code] || code;
+}
+
+router.get('/superadmin/credits/users', safe(async (req, res) => {
+  if (!isCreditSystemEnabled()) return res.status(404).json({ error: 'Credit-System nicht aktiv' });
+
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const pageSize = clampInt(req.query.page_size, 50, 1, 200);
+
+  const { users, error } = await listAllUsers(supabase);
+  if (error) return sendDbError(res, error);
+
+  const now = new Date();
+  const sorted = users
+    .map((u) => ({ user: u, plan: resolvePlan(u, now) }))
+    .sort((a, b) => new Date(b.user.last_sign_in_at || 0) - new Date(a.user.last_sign_in_at || 0));
+  const total = sorted.length;
+  const pageRows = sorted.slice((page - 1) * pageSize, page * pageSize);
+  const userIds = pageRows.map((r) => r.user.id);
+
+  if (userIds.length === 0) {
+    return res.json({ total, page, page_size: pageSize, users: [] });
+  }
+
+  // Aktuelle Wallet je Nutzer: jüngste Zeile je user_id (Perioden können sich
+  // theoretisch überschneiden — dieselbe Regel wie getCurrentWallet).
+  const [{ data: wallets, error: walletsErr }, { data: costs, error: costsErr }] = await Promise.all([
+    supabase.from('credit_wallets').select('*').in('user_id', userIds)
+      .lte('billing_period_start', now.toISOString()).gt('billing_period_end', now.toISOString())
+      .order('billing_period_start', { ascending: false }),
+    supabase.from('provider_cost_periods').select('*').in('user_id', userIds)
+      .lte('period_start', now.toISOString()).gt('period_end', now.toISOString())
+      .order('period_start', { ascending: false }),
+  ]);
+  if (walletsErr) return sendDbError(res, walletsErr);
+  if (costsErr) return sendDbError(res, costsErr);
+
+  const walletByUser = new Map();
+  for (const w of wallets || []) if (!walletByUser.has(w.user_id)) walletByUser.set(w.user_id, w);
+  const costByUser = new Map();
+  for (const c of costs || []) if (!costByUser.has(c.user_id)) costByUser.set(c.user_id, c);
+
+  // ai_usage-Zeilen der Nutzer im jeweils aktuellen Zeitraum. Ein gemeinsames
+  // Zeitfenster (älteste Periodenstart bis jetzt) reicht für diese Zusammenfassung
+  // und vermeidet N Einzelabfragen; die Feineinteilung passiert unten in JS.
+  let usageRows = [];
+  const earliestStart = [...walletByUser.values()].reduce((min, w) => {
+    const t = new Date(w.billing_period_start).getTime();
+    return Number.isFinite(t) && t < min ? t : min;
+  }, now.getTime());
+  const { data: usage, error: usageErr } = await supabase
+    .from('ai_usage')
+    .select('user_id, feature, voice_seconds, created_at, status')
+    .in('user_id', userIds)
+    .gte('created_at', new Date(earliestStart).toISOString())
+    .eq('status', 'finalized');
+  if (usageErr) {
+    console.warn('[superadmin] ai_usage laden fehlgeschlagen:', usageErr.message);
+  } else {
+    usageRows = usage || [];
+  }
+
+  const result = pageRows.map(({ user, plan }) => {
+    const wallet = walletByUser.get(user.id) || null;
+    const cost = costByUser.get(user.id) || null;
+    const creditPlan = mapPlanCodeToCreditPlan(plan.effectiveId);
+    const periodStart = wallet ? new Date(wallet.billing_period_start).getTime() : null;
+    const rows = periodStart != null
+      ? usageRows.filter((r) => r.user_id === user.id && new Date(r.created_at).getTime() >= periodStart)
+      : [];
+    const voiceSeconds = rows.filter((r) => VOICE_FEATURES.has(r.feature))
+      .reduce((sum, r) => sum + (Number(r.voice_seconds) || 0), 0);
+
+    const totalCredits = wallet
+      ? (wallet.included_credits || 0) + (wallet.bonus_credits || 0) + (wallet.purchased_credits || 0)
+      : null;
+
+    return {
+      id: user.id,
+      email: user.email,
+      plan: creditPlan,
+      plan_name: creditPlanDisplayName(creditPlan),
+      billing_period_start: wallet?.billing_period_start || null,
+      billing_period_end: wallet?.billing_period_end || null,
+      credits_total: totalCredits,
+      credits_used: wallet?.used_credits ?? null,
+      credits_remaining: totalCredits != null && wallet ? Math.max(totalCredits - (wallet.used_credits || 0), 0) : null,
+      provider_cost_eur: cost ? Number(cost.cost_eur) : null,
+      cost_limit_eur: cost ? Number(cost.cost_limit_eur) : null,
+      cost_limit_ratio: cost && cost.cost_limit_eur > 0 ? Number(cost.cost_eur) / Number(cost.cost_limit_eur) : null,
+      ai_requests: rows.length,
+      voice_minutes: Math.round((voiceSeconds / 60) * 10) / 10,
+      vision_requests: rows.filter((r) => VISION_FEATURES.has(r.feature)).length,
+      satellite_analyses: rows.filter((r) => SATELLITE_FEATURES.has(r.feature)).length,
+    };
+  });
+
+  return res.json({ total, page, page_size: pageSize, users: result });
+}));
+
+router.get('/superadmin/credits/stats', safe(async (req, res) => {
+  if (!isCreditSystemEnabled()) return res.status(404).json({ error: 'Credit-System nicht aktiv' });
+
+  const since = new Date(Date.now() - 30 * DAY_MS).toISOString();
+
+  const [{ data: usageRows, error: usageErr }, { data: txRows, error: txErr }] = await Promise.all([
+    supabase.from('ai_usage')
+      .select('feature, actual_cost_eur, estimated_cost_eur, created_at, status')
+      .gte('created_at', since)
+      .range(0, MAX_STAT_ROWS - 1),
+    supabase.from('credit_transactions')
+      .select('type, amount, created_at')
+      .gte('created_at', since)
+      .range(0, MAX_STAT_ROWS - 1),
+  ]);
+  if (usageErr) return sendDbError(res, usageErr);
+  if (txErr) return sendDbError(res, txErr);
+
+  const finalized = (usageRows || []).filter((r) => r.status === 'finalized');
+
+  // Tägliche Kosten der letzten 30 Tage (echte Anbieterkosten, nicht Schätzung).
+  const dailyCost = new Map();
+  const costByFeature = new Map();
+  for (const row of finalized) {
+    const day = dayKey(row.created_at);
+    const cost = Number(row.actual_cost_eur ?? row.estimated_cost_eur) || 0;
+    if (day) dailyCost.set(day, (dailyCost.get(day) || 0) + cost);
+    costByFeature.set(row.feature, (costByFeature.get(row.feature) || 0) + cost);
+  }
+  const dailyCostSeries = [...dailyCost.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([day, cost_eur]) => ({ day, cost_eur: Math.round(cost_eur * 10000) / 10000 }));
+  const costByFeatureList = [...costByFeature.entries()]
+    .map(([feature, cost_eur]) => ({ feature, cost_eur: Math.round(cost_eur * 10000) / 10000 }))
+    .sort((a, b) => b.cost_eur - a.cost_eur);
+
+  const creditsSold = (txRows || []).filter((t) => t.type === 'topup').reduce((s, t) => s + t.amount, 0);
+  const creditsUsed = (txRows || []).filter((t) => t.type === 'usage').reduce((s, t) => s + Math.abs(t.amount), 0);
+
+  // Umsatz aus Topups: Preis pro Credits-Betrag aus TOPUP_PACKAGES zurückgerechnet
+  // (Topup-Transaktionen speichern den Credits-Betrag, nicht den Preis direkt).
+  const priceByCredits = new Map(TOPUP_PACKAGES.map((p) => [p.credits, p.priceCents]));
+  const topupRevenueCents = (txRows || [])
+    .filter((t) => t.type === 'topup')
+    .reduce((sum, t) => sum + (priceByCredits.get(t.amount) || 0), 0);
+
+  // Kosten pro Plan: benötigt eine Plan-Historie (welchen Plan hatte der Nutzer
+  // zum Zeitpunkt der Nutzung) — die gibt es nicht, `resolvePlan` liefert nur
+  // den AKTUELLEN Plan. Bewusst nicht umgesetzt, siehe Bericht/Doku statt einer
+  // erfundenen Zuordnung. Kosten pro Feature (oben) ist der ehrliche Ersatz.
+
+  // Warnungen: Nutzer über 80%/90% ihres internen Kostenlimits in der aktuellen Periode.
+  const nowIso = new Date().toISOString();
+  const { data: costPeriods, error: costPeriodsErr } = await supabase
+    .from('provider_cost_periods')
+    .select('user_id, cost_eur, cost_limit_eur')
+    .lte('period_start', nowIso).gt('period_end', nowIso)
+    .range(0, MAX_STAT_ROWS - 1);
+  const warnings = { over_80_percent: 0, over_90_percent: 0 };
+  if (!costPeriodsErr) {
+    for (const row of costPeriods || []) {
+      const limit = Number(row.cost_limit_eur);
+      if (!(limit > 0)) continue;
+      const ratio = Number(row.cost_eur) / limit;
+      if (ratio > 0.9) warnings.over_90_percent += 1;
+      else if (ratio > 0.8) warnings.over_80_percent += 1;
+    }
+  } else {
+    console.warn('[superadmin] provider_cost_periods laden fehlgeschlagen:', costPeriodsErr.message);
+  }
+
+  return res.json({
+    daily_cost_eur: dailyCostSeries,
+    cost_by_feature_eur: costByFeatureList,
+    cost_by_plan_note: 'Nicht umgesetzt: benötigt eine Plan-Historie je Nutzung, die aktuell nicht gespeichert wird.',
+    credits_sold: creditsSold,
+    credits_used: creditsUsed,
+    topup_revenue_eur: Math.round(topupRevenueCents) / 100,
+    warnings,
+    abuse_detection_note: 'Keine dedizierte Missbrauchserkennung umgesetzt (siehe Dokumentation) — nur die Cost-Limit-Warnungen oben.',
   });
 }));
 

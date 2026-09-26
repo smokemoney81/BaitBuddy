@@ -14,6 +14,12 @@ const LLM_TIMEOUT_MS = 30000;
 // (z. B. ANTHROPIC_MODEL=claude-opus-4-8).
 const MODEL = () => process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
 
+// Obergrenze für die Antwortlänge, per Env überschreibbar (Kosten-/Missbrauchsschutz).
+const MAX_TOKENS = () => {
+  const n = Number(process.env.ANTHROPIC_MAX_TOKENS);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 2048;
+};
+
 // Transiente Upstream-Fehler (Rate-Limit, Overload, Gateway-/Server-Fehler)
 // einmal kurz erneut versuchen, statt sie sofort als 5xx durchzureichen —
 // direkt relevant für die Zuverlässigkeit des KI-Buddys. MAX_LLM_RETRIES sind
@@ -121,7 +127,7 @@ export async function invokeLLM({ prompt, imageBase64 = null, onUsage = null, mo
   // Köderführung) brauchen mehr Platz und dürfen nicht mitten im Schritt enden.
   const requestBody = JSON.stringify({
     model: model || MODEL(),
-    max_tokens: 2048,
+    max_tokens: MAX_TOKENS(),
     messages: [{ role: 'user', content }],
   });
   let lastErr = null;
@@ -205,7 +211,7 @@ export async function invokeLLMStream({ prompt, onDelta, signal, onUsage = null,
 
   const requestBody = JSON.stringify({
     model: model || MODEL(),
-    max_tokens: 2048,
+    max_tokens: MAX_TOKENS(),
     messages: [{ role: 'user', content: prompt }],
     stream: true,
   });

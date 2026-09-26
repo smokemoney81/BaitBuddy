@@ -874,6 +874,15 @@ export const ai = {
     api.post('/api/ai/satellite-analysis', { latitude: lat, longitude: lng, spot_name }),
 };
 
+// Neues Abo/Credit-System (Guthaben pro Abrechnungszeitraum). Nur aktiv, wenn
+// das Backend AI_CREDIT_SYSTEM_ENABLED gesetzt hat — sonst liefern beide
+// Routen 404 und das Frontend zeigt entsprechend nichts an.
+export const credits = {
+  getWallet:     ()              => api.get('/api/credits/wallet'),
+  featureCosts:  ()              => api.get('/api/credits/feature-costs'),
+  checkoutTopup: (credits)       => api.post('/api/premium/credits/checkout', { credits }),
+};
+
 export const weather = {
   get: (lat, lng, spotName) => api.post('/api/weather', { latitude: lat, longitude: lng, spotName }),
   // Amtliche Unwetterwarnungen (DWD) für den Standort
@@ -994,6 +1003,8 @@ export const superAdmin = {
   assignPlan:      (id, planId, days)    => api.post(`/api/superadmin/users/${encodeURIComponent(id)}/plan`, { plan_id: planId, duration_days: days }),
   settings:        ()                    => api.get('/api/superadmin/settings'),
   updateSettings:  (patch)               => api.patch('/api/superadmin/settings', patch),
+  creditsUsers:    (page = 1, pageSize = 50) => api.get(`/api/superadmin/credits/users?page=${page}&page_size=${pageSize}`),
+  creditsStats:    ()                    => api.get('/api/superadmin/credits/stats'),
 };
 
 export const leaderboards = {
