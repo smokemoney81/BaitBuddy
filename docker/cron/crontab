@@ -4,3 +4,4 @@
 0 2 * * *   run-job /api/admin/events/auto-archive
 0 1 * * *   run-job /api/admin/rewards/auto-activate
 0 0 1 * *   run-job /api/admin/leaderboards/monthly/generate
+30 4 * * *  run-job /api/admin/credits/billing-cycle

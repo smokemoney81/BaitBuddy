@@ -6,7 +6,7 @@ import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
 import { isAllToolsFree } from '../lib/appSettings.js';
 import { isCreditSystemEnabled } from '../lib/creditConfig.js';
-import { grantForPlanChange } from '../lib/walletProvisioning.js';
+import { grantForPlanChange, ensureCurrentWallet } from '../lib/walletProvisioning.js';
 
 // Nach jeder erfolgreichen Plan-Aktivierung (Webhook + /activate) das
 // Credit-Kontingent für den NEUEN Plan nachziehen. Nur mit Feature-Flag; sonst
@@ -533,6 +533,61 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     updated: true,
     note: 'Plan aktiviert mit Transaktionsdaten gespeichert für Audit'
   });
+});
+
+// Cron-Sicherheitsnetz für Wallet-Perioden (analog zu
+// GET /admin/events/auto-archive in events.js). Lazy-Provisioning in
+// creditGuard deckt den Normalfall (nächster AI-Aufruf) bereits ab; dieser
+// Cron holt Perioden für User nach, die eine Zeit lang keinen AI-Aufruf
+// machen, damit ihre Wallet-Zeile nicht unbegrenzt veraltet im Dashboard/DB
+// steht. Batch mit LIMIT statt Voll-Scan aller User — bewusst pragmatisch,
+// da Lazy-Provisioning die eigentliche Absicherung ist.
+router.get('/admin/credits/billing-cycle', async (req, res) => {
+  try {
+    const secret = process.env.CRON_SECRET || process.env.ADMIN_API_KEY;
+    if (!secret) return res.status(500).json({ error: 'Cron-Secret nicht konfiguriert' });
+    const authHeader = req.headers.authorization || '';
+    const headerSecret = authHeader.replace(/^Bearer\s+/, '').trim();
+    const xApiKey = req.headers['x-api-key'] || '';
+    if (headerSecret !== secret && xApiKey !== secret) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!isCreditSystemEnabled()) {
+      return res.json({ ok: true, skipped: 'credit_system_disabled' });
+    }
+
+    const now = new Date();
+    const batchSize = Number(process.env.CREDIT_BILLING_CYCLE_BATCH) || 200;
+    // Alle User, deren aktuellste Wallet-Periode bereits abgelaufen ist.
+    const { data: expired, error: fetchError } = await supabase
+      .from('credit_wallets')
+      .select('user_id, billing_period_end')
+      .lt('billing_period_end', now.toISOString())
+      .order('billing_period_end', { ascending: true })
+      .limit(batchSize);
+    if (fetchError) return sendDbError(res, fetchError);
+
+    const userIds = [...new Set((expired || []).map((r) => r.user_id))];
+    let renewed = 0;
+    let failed = 0;
+    for (const userId of userIds) {
+      try {
+        const { data: userResult, error: userError } = await supabase.auth.admin.getUserById(userId);
+        if (userError || !userResult?.user) { failed++; continue; }
+        const result = await grantForPlanChange(userResult.user, now).catch(() =>
+          ensureCurrentWallet(userResult.user, now)
+        );
+        if (result?.ok) renewed++; else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    return res.json({ ok: true, checked: userIds.length, renewed, failed });
+  } catch (e) {
+    console.error('[premium] billing-cycle Cron fehlgeschlagen:', e?.message || e);
+    return res.status(500).json({ error: 'Interner Fehler im Billing-Cycle-Cron' });
+  }
 });
 
 export default router;
