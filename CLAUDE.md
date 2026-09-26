@@ -206,9 +206,18 @@ funktionierender Bereiche, kein Umbau des Free-Tarifs):
   `wantsPlanning`). Das Ergebnis wird nur geloggt (`[jev-shadow] buddy-context`),
   beeinflusst die tatsächliche Antwort **nicht**. Zweck: Qualitätsdaten sammeln,
   bevor Jev irgendeine Benutzeraktion steuert.
-- **Phase 2+ (noch nicht umgesetzt):** Erst nach Auswertung der Shadow-Mode-Daten
-  darf Jev tatsächlich Kontext-/Tool-/Modell-Auswahl aktiv steuern — pro Modul
-  einzeln hinter einem eigenen Feature-Flag (`JEV_BUDDY`, `JEV_MAP`, `JEV_TRIP` …).
+- **Phase 2 (Code fertig, standardmäßig INAKTIV):** Aktive Kontext-Steuerung für
+  den Buddy-Chat ist implementiert (`backend/src/lib/jevBuddyContext.js`,
+  `resolveActiveContextFlags`) und vollständig getestet, greift aber nur mit
+  dem eigenen Flag `JEV_BUDDY=true`. **Bevor dieses Flag in Produktion gesetzt
+  wird, müssen echte Shadow-Mode-Daten (Phase 1) ausgewertet worden sein** —
+  das ist eine bewusste Prozess-Regel, kein technisches Gate. Ist `JEV_BUDDY`
+  aktiv, ersetzt Jevs Einschätzung die regelbasierten Flags **fail-open pro
+  Frage**: Beantwortet Jev eine der fünf Fragen nicht eindeutig oder schlägt
+  der Aufruf fehl/Timeout, wird für genau diese Frage der bestehende
+  regelbasierte Wert übernommen (kein Alles-oder-nichts-Fallback). Jedes
+  weitere Modul (Karte, Trip-Planer, …) bekommt vor seiner eigenen
+  Aktivierung ein eigenes Flag (`JEV_MAP`, `JEV_TRIP` …) nach demselben Muster.
 
 ### Feature-Flags (Env)
 - `JEV_ENABLED` — globaler Schalter, Default aus (`false`/nicht gesetzt). Ohne
@@ -218,6 +227,11 @@ funktionierender Bereiche, kein Umbau des Free-Tarifs):
   ausgeliefert (analog zur Anthropic-Key-Regel).
 - `JEV_SHADOW_MODE` — Default an (jeder aktivierte Jev-Aufruf ist zunächst
   Shadow-only), explizit `false` schaltet den Shadow-Vergleich ab.
+- `JEV_BUDDY` — Phase 2, Default aus. Nur setzen, nachdem die Shadow-Mode-Daten
+  des Buddy-Context-Routers ausgewertet wurden (siehe oben). Mit `JEV_BUDDY=true`
+  **und** `JEV_ENABLED=true` steuert Jev aktiv, welcher App-Kontext geladen wird
+  — der Shadow-Vergleich (Phase 1) läuft dann nicht mehr parallel, weil es
+  nichts mehr zu vergleichen gibt (Jevs Entscheidung wird ja bereits verwendet).
 
 ### Feste Grenzen (siehe auch „Regel: Nur Anthropic Cloud API als Cloud-LLM-Quelle")
 Jev darf **niemals**:

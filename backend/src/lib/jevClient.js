@@ -34,6 +34,13 @@ export function isJevShadowMode() {
   return process.env.JEV_SHADOW_MODE !== 'false';
 }
 
+// Phase 2 (aktive Kontext-Steuerung durch Jev statt reinem Shadow-Logging).
+// Per CLAUDE.md-Regel erst aktivieren, nachdem echte Shadow-Mode-Daten
+// ausgewertet wurden — Default ist deshalb aus, unabhängig von JEV_ENABLED.
+export function isJevBuddyActive() {
+  return isJevEnabled() && process.env.JEV_BUDDY === 'true';
+}
+
 /**
  * Ruft Jev mit einem state/questions-Bundle auf. Liefert die rohen
  * `answers` aus der TypeSafe-Antwort oder `null` bei Fehler/Timeout/Deaktivierung.
