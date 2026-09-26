@@ -5,8 +5,9 @@ import { verifyGooglePlayPurchase, verifyStripePayment, createStripeCheckoutSess
 import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
 import { isAllToolsFree } from '../lib/appSettings.js';
-import { isCreditSystemEnabled } from '../lib/creditConfig.js';
+import { isCreditSystemEnabled, TOPUP_PACKAGES } from '../lib/creditConfig.js';
 import { grantForPlanChange, ensureCurrentWallet } from '../lib/walletProvisioning.js';
+import { addTopupCredits } from '../lib/creditEngine.js';
 
 // Nach jeder erfolgreichen Plan-Aktivierung (Webhook + /activate) das
 // Credit-Kontingent für den NEUEN Plan nachziehen. Nur mit Feature-Flag; sonst
@@ -261,6 +262,25 @@ const CHECKOUT_PLANS = {
   friends_monthly: { name: 'Freundschaft Monatlich', amountCents: 3600 },
 };
 
+// Fulfillment für Credit-Topup-Käufe (Stripe). Idempotent über die
+// Session-ID als request_id: addTopupCredits/add_topup_credits lehnt einen
+// bereits verbuchten request_id-Wert ab (Teilauftrag 1), ein doppelt
+// zugestelltes Webhook-Event bucht also kein zweites Mal.
+async function fulfillTopupSession(session, res) {
+  const userId = session.client_reference_id || session.metadata?.user_id;
+  const credits = Number(String(session.metadata?.plan_id || '').replace('credit_topup_', ''));
+  const validPackage = TOPUP_PACKAGES.some((p) => p.credits === credits);
+  if (!userId || !validPackage) {
+    console.error('[stripe] Topup-Session mit ungültigen Metadaten', { sessionId: session.id });
+    return res.status(200).json({ received: true });
+  }
+  const result = await addTopupCredits({ userId, credits, requestId: `stripe_topup_${session.id}` });
+  if (result?.ok === false && result.reason !== 'duplicate_request') {
+    console.error('[stripe] Topup-Gutschrift fehlgeschlagen:', result.reason, { sessionId: session.id });
+  }
+  return res.status(200).json({ received: true, fulfilled: result?.ok !== false });
+}
+
 // Stripe's signed webhook is the authoritative fulfillment path. The browser
 // success URL is only a confirmation screen and cannot grant access itself.
 export async function stripeWebhookHandler(req, res) {
@@ -277,6 +297,18 @@ export async function stripeWebhookHandler(req, res) {
 
   const session = event.data.object;
   if (session.payment_status !== 'paid') return res.status(200).json({ received: true });
+
+  // Credit-Topup-Käufe laufen über dieselbe Checkout-Session-Infrastruktur wie
+  // Plan-Käufe, aber ohne Laufzeit/app_metadata-Update. createStripeCheckoutSession
+  // trägt nur plan_id/user_id in die Metadaten ein (keine eigenen Zusatzfelder
+  // pro Aufrufer) — der Topup-Checkout kodiert die Credits deshalb direkt in
+  // plan_id (`credit_topup_<credits>`), statt purchaseVerification.js für
+  // diesen einen Fall zu erweitern. addTopupCredits ist idempotent über die
+  // Session-ID als request_id (Stripe kann Events mehrfach zustellen).
+  if (typeof session.metadata?.plan_id === 'string' && session.metadata.plan_id.startsWith('credit_topup_')) {
+    return fulfillTopupSession(session, res);
+  }
+
   const userId = session.client_reference_id || session.metadata?.user_id;
   const planId = session.metadata?.plan_id;
   const checkoutPlan = planId ? CHECKOUT_PLANS[planId] : null;
@@ -370,6 +402,48 @@ router.post('/premium/checkout', requireAuth, async (req, res) => {
     return res.status(502).json({ error: `Checkout-Session konnte nicht erstellt werden: ${session.reason}` });
   }
 
+  return res.json({ ok: true, checkout_url: session.url, session_id: session.id });
+});
+
+// Credit-Topup-Checkout (Stripe). Nur mit aktivem Credit-System — ohne das
+// Flag gibt es kein Credit-Guthaben, das ein Topup sinnvoll aufstocken würde.
+// Google Play: (noch) keine Einmalprodukte für Credit-Topups vorgesehen —
+// purchaseVerification.js kennt bislang nur Abo-Restore/-Verifikation, kein
+// Konsumgut-Flow. Play-Topups sind damit für dieses Zeitbudget NICHT
+// implementiert; ein späterer Ausbau bräuchte ein eigenes Play-Konsumgut
+// (consumeAsync) plus Server-Verifikation.
+router.post('/premium/credits/checkout', requireAuth, async (req, res) => {
+  if (!isCreditSystemEnabled()) {
+    return res.status(404).json({ error: 'Credit-System nicht aktiv' });
+  }
+  if (!STRIPE_PAYMENT_VERIFICATION_CONFIGURED) {
+    return res.status(501).json({ error: 'Stripe checkout nicht konfiguriert' });
+  }
+
+  const { credits } = req.body || {};
+  const pkg = TOPUP_PACKAGES.find((p) => p.credits === Number(credits));
+  if (!pkg) {
+    return res.status(400).json({ error: 'Unbekanntes Topup-Paket' });
+  }
+
+  const origin = process.env.APP_BASE_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`;
+  const successUrl = `${origin}/PremiumPlans?topup=success&credits=${pkg.credits}&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/PremiumPlans?topup=cancelled`;
+
+  const session = await createStripeCheckoutSession({
+    planId: `credit_topup_${pkg.credits}`,
+    planName: `${pkg.credits} KI-Credits`,
+    amountCents: pkg.priceCents,
+    userId: req.user.id,
+    userEmail: req.user.email,
+    successUrl,
+    cancelUrl,
+  });
+  if (!session.ok) {
+    return res.status(502).json({ error: `Checkout-Session konnte nicht erstellt werden: ${session.reason}` });
+  }
+  // planId (`credit_topup_<credits>`) steuert im Webhook den
+  // Topup-Fulfillment-Pfad statt des Plan-Aktivierungspfads.
   return res.json({ ok: true, checkout_url: session.url, session_id: session.id });
 });
 
