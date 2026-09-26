@@ -359,6 +359,11 @@ describe('POST /api/ai/tts', () => {
   beforeEach(() => {
     // Nur ElevenLabs testen — alle anderen Provider aus der Kette nehmen.
     for (const k of OTHER_PROVIDER_ENV) delete process.env[k];
+    // Premium-Stimme setzt Ultimate voraus (requirePremiumVoice).
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'elite' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
   });
 
   afterEach(() => {
@@ -404,41 +409,13 @@ describe('POST /api/ai/tts', () => {
     expect(res.status).toBe(502);
   });
 
-  it('nutzt fuer voice=female OHNE Ultimate-Plan die maennliche Standardstimme (Server-Gate)', async () => {
-    process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
-    supabaseMock.current = createSupabaseMock({
-      authUser: { id: 'u1', email: 'a@b.de' },
-      fromResults: { user_tool_unlocks: { data: null, error: null } },
-    });
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () => new TextEncoder().encode('MP3DATA').buffer,
-    }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const res = await request(app)
-      .post('/api/ai/tts')
-      .set('Authorization', 'Bearer tok')
-      .send({ text: 'Hallo', voice: 'female' });
-
-    expect(res.status).toBe(200);
-    expect(res.body.voice_used).toBe('male');
-    // Daniel (maennliche Standardstimme), NICHT die weibliche Voice-ID.
-    expect(String(fetchMock.mock.calls[0][0])).toContain('onwK4e9ZLuTAKqWW03F9');
-  });
-
-  it('nutzt fuer voice=female mit Pro-Plan die maennliche Standardstimme (nur Ultimate)', async () => {
+  it('lehnt die Premium-Stimme ohne Ultimate ab (403, kein Provider-Aufruf)', async () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
     supabaseMock.current = createSupabaseMock({
       authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
       fromResults: { user_tool_unlocks: { data: null, error: null } },
     });
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () => new TextEncoder().encode('MP3DATA').buffer,
-    }));
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     const res = await request(app)
@@ -446,9 +423,9 @@ describe('POST /api/ai/tts', () => {
       .set('Authorization', 'Bearer tok')
       .send({ text: 'Hallo', voice: 'female' });
 
-    expect(res.status).toBe(200);
-    expect(res.body.voice_used).toBe('male');
-    expect(String(fetchMock.mock.calls[0][0])).toContain('onwK4e9ZLuTAKqWW03F9');
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('premium_voice_required');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('nutzt fuer voice=female MIT Ultimate-Plan (elite) die weibliche Stimme', async () => {
@@ -511,6 +488,31 @@ describe('POST /api/ai/tts', () => {
 
 describe('POST /api/ai/realtime-session', () => {
   const origKey = process.env.OPENAI_API_KEY;
+
+  beforeEach(() => {
+    // Live-Voice setzt Ultimate voraus (requirePremiumVoice).
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'elite' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
+  });
+
+  it('lehnt Live-Voice ohne Ultimate ab (403, kein OpenAI-Aufruf)', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await request(app)
+      .post('/api/ai/realtime-session')
+      .set('Authorization', 'Bearer tok')
+      .send({});
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('premium_voice_required');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   afterEach(() => {
     if (origKey === undefined) delete process.env.OPENAI_API_KEY;

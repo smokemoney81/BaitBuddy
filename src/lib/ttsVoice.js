@@ -29,3 +29,11 @@ export function setPreferredTtsVoice(voice) {
     /* localStorage optional (Private Mode) */
   }
 }
+
+// Stimmen-Stufe nach Plan: 'premium' = natürliche Server-Stimme (/api/ai/tts,
+// ab Ultimate), 'browser' = schnelle Gerätestimme (Free/Basic/Pro). Gesetzt
+// vom PlanProvider; das verbindliche Gate sitzt serverseitig (403
+// premium_voice_required), der Client fällt dann selbst auf 'browser' zurück.
+let voiceTier = 'browser';
+export function setVoiceTier(tier) { voiceTier = tier === 'premium' ? 'premium' : 'browser'; }
+export function getVoiceTier() { return voiceTier; }

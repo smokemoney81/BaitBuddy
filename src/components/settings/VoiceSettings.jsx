@@ -13,6 +13,7 @@ import { usePlan } from "@/components/premium/PlanContext";
 import { getPlanLevel } from "@/components/premium/planHierarchy";
 import { getPreferredTtsVoice, setPreferredTtsVoice } from "@/lib/ttsVoice";
 import { speakWithFallback } from "@/components/utils/elevenLabsTTS";
+import { isVoiceGuideEnabled, setVoiceGuideEnabled } from "@/lib/voicePageGuide";
 
 // Auswählbare KI-Buddy-Stimmen. Die weibliche Stimme ist ein Ultimate-Feature;
 // das verbindliche Gate sitzt serverseitig in POST /api/ai/tts — die Sperre
@@ -33,6 +34,7 @@ export default function VoiceSettings() {
   const [initialState, setInitialState] = useState({ audioEnabled: true, speechSpeed: 1.0 });
   const [selectedVoice, setSelectedVoice] = useState(() => getPreferredTtsVoice());
   const [isSampling, setIsSampling] = useState(false);
+  const [voiceGuide, setVoiceGuide] = useState(() => isVoiceGuideEnabled());
 
   // Fällt der Plan weg (z.B. Ultimate abgelaufen), Auswahl auf Standard
   // zurücksetzen — das Backend würde ohnehin auf die Standardstimme wechseln,
@@ -147,6 +149,21 @@ export default function VoiceSettings() {
           />
         </div>
 
+        {/* Buddy spricht von sich aus (Seiten-Einleitung, offene Aufgaben) */}
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="voice-guide" className="text-gray-300">
+            Sprach-Hinweise
+            <span className="block text-xs text-gray-500 font-normal">
+              Der Buddy erklärt neue Seiten und erinnert an offene Aufgaben.
+            </span>
+          </Label>
+          <Switch
+            id="voice-guide"
+            checked={voiceGuide}
+            onCheckedChange={(v) => { setVoiceGuide(v); setVoiceGuideEnabled(v); }}
+          />
+        </div>
+
         {/* Sprechgeschwindigkeit */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
@@ -211,7 +228,10 @@ export default function VoiceSettings() {
 
           {!hasUltimate && (
             <div className="flex items-center justify-between gap-2 text-xs text-gray-400 bg-gray-800/50 p-3 rounded-lg">
-              <span>Die weibliche Stimme ist im Ultimate-Plan enthalten.</span>
+              <span>
+                Dein Plan spricht mit der schnellen Gerätestimme. Die natürlichen
+                Premium-Stimmen (Daniel und Matilda) sind im Ultimate-Plan enthalten.
+              </span>
               <Button
                 type="button"
                 size="sm"

@@ -666,26 +666,37 @@ const FEMALE_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX';
 // Vorlesen kostet nach Textlänge (ein Aufruf je Satz aus der Vorlese-Queue).
 const ttsCost = (req) => costFor('tts', { textLength: typeof req.body?.text === 'string' ? req.body.text.length : 0 });
 
-router.post('/ai/tts', requireAuth, meterAiTokens('tts', { cost: ttsCost }), async (req, res) => {
+// Premium-Stimme (Server-TTS) gibt es ab Ultimate. Free/Basic/Pro sprechen im
+// Client mit der Gerätestimme (src/lib/browserTTS.js). Das Gate läuft VOR dem
+// KI-Volumen, damit eine Ablehnung nichts kostet.
+// Live-Voice (Realtime-Sitzung) ist ebenfalls Ultimate-Feature.
+async function requirePremiumVoice(req, res, next) {
+  try {
+    const access = await resolveServerToolAccess({
+      user: req.user,
+      toolId: 'premium_voice',
+      requiredPlanRank: PLAN_RANK.elite,
+    });
+    if (access.allowed) return next();
+  } catch (e) {
+    console.error('[ai/tts] Plan-Prüfung fehlgeschlagen:', e.message);
+  }
+  return res.status(403).json({
+    error: 'Premium-Stimme und Live-Voice sind im Ultimate-Plan enthalten.',
+    code: 'premium_voice_required',
+  });
+}
+
+router.post('/ai/tts', requireAuth, requirePremiumVoice, meterAiTokens('tts', { cost: ttsCost }), async (req, res) => {
   const { text, voice } = req.body || {};
   // Typ prüfen: Ein Nicht-String (z. B. eine Zahl) ließ .trim() werfen → 500.
   if (typeof text !== 'string' || text.trim().length === 0) {
     return res.status(400).json({ error: 'Text is required' });
   }
 
-  // Premium Voice is granted by an active Ultimate plan OR a permanent,
-  // server-owned level/purchase unlock. The client can only request a voice;
-  // it cannot claim ownership. The monthly volume is charged by meterAiTokens
-  // (aiTokenQuota.js) before this handler runs.
-  let voiceUsed = voice === 'female' ? 'female' : 'male';
-  if (voiceUsed === 'female') {
-    const access = await resolveServerToolAccess({
-      user: req.user,
-      toolId: 'premium_voice',
-      requiredPlanRank: PLAN_RANK.elite,
-    });
-    if (!access.allowed) voiceUsed = 'male';
-  }
+  // requirePremiumVoice hat den Plan (Ultimate oder permanenter Unlock) bereits
+  // geprüft; beide Stimmen stehen damit offen.
+  const voiceUsed = voice === 'female' ? 'female' : 'male';
 
   const voiceId = voiceUsed === 'female'
     ? (process.env.ELEVENLABS_VOICE_ID_FEMALE || FEMALE_VOICE_ID)
@@ -796,7 +807,7 @@ function getOpenAIKey() {
     || null;
 }
 
-router.post('/ai/realtime-session', requireAuth, meterAiTokens('realtime'), async (req, res) => {
+router.post('/ai/realtime-session', requireAuth, requirePremiumVoice, meterAiTokens('realtime'), async (req, res) => {
   const apiKey = getOpenAIKey();
   if (!apiKey) {
     console.warn('[AI] /ai/realtime-session: kein OpenAI-Key gefunden. Relevante Env-Variablen:',
