@@ -53,6 +53,18 @@ export function isJevSpotsActive() {
   return isJevEnabled() && process.env.JEV_SPOTS === 'true';
 }
 
+// Phase 2 für das Vision-Confidence-Routing (siehe jevVisionConfidence.js).
+// Gleiche Regel: erst nach Auswertung echter Shadow-Mode-Daten aktivieren.
+export function isJevVisionActive() {
+  return isJevEnabled() && process.env.JEV_VISION === 'true';
+}
+
+// Phase 2 für die Prüf-Warteschlangen-Priorisierung (siehe jevReviewPriority.js).
+// Gleiche Regel: erst nach Auswertung echter Shadow-Mode-Daten aktivieren.
+export function isJevReviewActive() {
+  return isJevEnabled() && process.env.JEV_REVIEW === 'true';
+}
+
 /**
  * Ruft Jev mit einem state/questions-Bundle auf. Liefert die rohen
  * `answers` aus der TypeSafe-Antwort oder `null` bei Fehler/Timeout/Deaktivierung.

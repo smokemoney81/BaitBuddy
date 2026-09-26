@@ -22,9 +22,10 @@ import { personalizationContext } from '../lib/personalizationEngine.js';
 import { buildActionPromptSection } from '../lib/buddyActionCatalog.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
-import { isJevBuddyActive } from '../lib/jevClient.js';
+import { isJevBuddyActive, isJevVisionActive } from '../lib/jevClient.js';
 import { runBuddyContextShadow } from '../lib/jevShadow.js';
 import { resolveActiveContextFlags } from '../lib/jevBuddyContext.js';
+import { runVisionConfidenceShadow, resolveActiveConfidenceBand, classifyConfidenceBand } from '../lib/jevVisionConfidence.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -525,9 +526,22 @@ Regeln:
       : sexRaw === 'weiblich' || sexRaw === 'female'
         ? 'weiblich'
         : null;
+    const confidence = num(parsed.confidence);
+    const species = str(parsed.species);
+    // Jev Decision Layer (siehe CLAUDE.md „Jev Decision Layer"): ersetzt NIE
+    // die Erkennung selbst oder den rohen confidence-Wert, nur die zusätzliche
+    // `confidence_band`-Einordnung. Ohne JEV_ENABLED bleibt sie exakt die
+    // deterministische Schwelle aus `classifyConfidenceBand`.
+    let confidenceBand;
+    if (isJevVisionActive()) {
+      confidenceBand = await resolveActiveConfidenceBand({ confidence, species });
+    } else {
+      confidenceBand = classifyConfidenceBand(confidence);
+      runVisionConfidenceShadow({ confidence, species });
+    }
     return res.json({
       ok: true,
-      species: str(parsed.species),
+      species,
       species_latin: str(parsed.species_latin),
       length_cm: num(parsed.length_cm),
       weight_kg: num(parsed.weight_kg),
@@ -536,7 +550,8 @@ Regeln:
       sex,
       estimated_age_years: num(parsed.estimated_age_years),
       condition: str(parsed.condition),
-      confidence: num(parsed.confidence)
+      confidence,
+      confidence_band: confidenceBand,
     });
   } catch (e) {
     return sendDbError(res, e);

@@ -13,8 +13,10 @@ import {
   recalcParticipantTotals,
   ACTIVITY_POINTS
 } from '../lib/pointsCalculator.js';
-import { checkSubmission } from '../lib/submissionPlausibility.js';
+import { checkSubmission, classifyReviewPriority } from '../lib/submissionPlausibility.js';
 import { isClubAdmin } from './clubs.js';
+import { isJevReviewActive } from '../lib/jevClient.js';
+import { runReviewPriorityShadow, resolveActivePriorities } from '../lib/jevReviewPriority.js';
 
 const router = Router();
 
@@ -671,8 +673,26 @@ router.get('/events/:id/review', requireAuth, async (req, res) => {
   ]);
   const strip = ({ user_id, ...sub }) => ({ ...sub, angler: publicPerson(user_id, names, req.user.email).name });
 
+  // Priorisierung der Prüf-Warteschlange (Jev Decision Layer, siehe CLAUDE.md
+  // „Jev Decision Layer"): sortiert NUR die Sichtungsreihenfolge für den
+  // Veranstalter um, ändert nie ob/wie eine Einreichung zählt. Ohne
+  // JEV_ENABLED bleibt die deterministische Priorität aus
+  // `classifyReviewPriority` bestehen und die Reihenfolge unverändert
+  // chronologisch (wie zuvor).
+  let pendingWithPriority = (pending || []).filter(isRealFish).map((sub) => ({
+    ...sub,
+    review_priority: classifyReviewPriority(sub.plausibility || []),
+  }));
+  if (isJevReviewActive()) {
+    pendingWithPriority = await resolveActivePriorities(pendingWithPriority);
+  } else {
+    runReviewPriorityShadow(pendingWithPriority);
+  }
+  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+  pendingWithPriority.sort((a, b) => (PRIORITY_ORDER[a.review_priority] ?? 2) - (PRIORITY_ORDER[b.review_priority] ?? 2));
+
   return res.json({
-    pending: (pending || []).filter(isRealFish).map(strip),
+    pending: pendingWithPriority.map(strip),
     disputes: (disputes || []).map(({ reporter, ...dispute }) => ({
       ...dispute,
       reporter: publicPerson(reporter, names, req.user.email).name,

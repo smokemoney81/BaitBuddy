@@ -315,4 +315,32 @@ describe('Wettbewerb: Plausibilität, Rangliste, Prüfung, Einspruch', () => {
     const res = await request(app).patch('/api/events/e1').set('Authorization', 'Bearer tok').send({ scoring_method: 'length' });
     expect(res.status).toBe(409);
   });
+
+  describe('Prüf-Warteschlange (Jev-Priorisierung, standardmäßig ohne Jev)', () => {
+    it('sortiert nach deterministischer Priorität statt chronologisch', async () => {
+      mock({
+        events: { data: { ...running, created_by: 'me@test.de' }, error: null },
+        event_submissions: {
+          data: [
+            { id: 's_low', user_id: 'a@x.de', species: 'Hecht', plausibility: [] },
+            {
+              id: 's_high', user_id: 'b@x.de', species: 'Zander',
+              plausibility: [
+                { id: 'length', ok: false, severity: 'review' },
+                { id: 'photo', ok: false, severity: 'review' },
+              ],
+            },
+          ],
+          error: null,
+        },
+        event_disputes: { data: [], error: null },
+      });
+      await buildApp();
+      const res = await request(app).get('/api/events/e1/review').set('Authorization', 'Bearer tok');
+      expect(res.status).toBe(200);
+      expect(res.body.pending.map((p) => p.id)).toEqual(['s_high', 's_low']);
+      expect(res.body.pending[0].review_priority).toBe('high');
+      expect(res.body.pending[1].review_priority).toBe('low');
+    });
+  });
 });

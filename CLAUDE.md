@@ -266,6 +266,66 @@ funktionierender Bereiche, kein Umbau des Free-Tarifs):
   Fangbuch-Shadow-Daten setzen (siehe oben).
 - `JEV_SPOTS` — Phase 3b, Default aus. Erst nach Auswertung der
   Spot-Ranking-Shadow-Daten setzen (siehe oben).
+- `JEV_VISION` — Phase 5, Default aus. Erst nach Auswertung der
+  Vision-Confidence-Shadow-Daten setzen (siehe unten).
+- `JEV_REVIEW` — Phase 6, Default aus. Erst nach Auswertung der
+  Review-Priority-Shadow-Daten setzen (siehe unten).
+
+- **Phase 4 (Voice/Live) — bewusst NICHT gebaut:** Untersucht wurden
+  `src/lib/wakeWord.js` (`detectWakeWord`, harte Muster-Erkennung, keine
+  Ambiguitäts-/Konfidenz-Wertung) und `src/pages/AnglerMode.jsx`
+  (`MOVE_THRESHOLD_M`-Ortswechsel-Erkennung, reines Timeline-Event, keine
+  Entscheidung, die Jev verfeinern könnte). Der einzige echte
+  LLM-Routing-Punkt ist ein harter Match, kein Grenzfall — und selbst dort
+  würde ein zusätzlicher Netzwerk-Roundtrip zu Jev (Timeout 800 ms) genau dem
+  Live-Sprach-Pfad Latenz hinzufügen, der im Projekt am stärksten auf
+  Geschwindigkeit ausgelegt ist (Hands-free/Voice-Buddy, siehe „Nicht
+  scrollbar"/Latenz-Regeln oben). Erst wenn die Wake-Word-Erkennung selbst
+  eine echte Unsicherheits-Metrik bekäme, gäbe es hier eine echte Basis.
+- **Phase 5 (Kamera): Vision-Confidence-Routing** — echte Basis vorhanden:
+  `POST /analyze-photo` liefert bereits einen `confidence`-Wert (0..1), den
+  `src/components/log/FishRecognitionResult.jsx` deterministisch in
+  Farbe/Label einordnet (≥75 % grün "sicher", ≥45 % gelb, sonst rot).
+  `backend/src/lib/jevVisionConfidence.js` spiegelt dieselbe Schwelle
+  serverseitig (`classifyConfidenceBand`) und liefert zusätzlich
+  `confidence_band` im Response — Jev darf diese Einordnung fail-open
+  verfeinern (Flag `JEV_VISION`), bekommt dafür nur die Zahl + die erkannte
+  Art (nie das Bild) und **ändert nie** die Erkennung selbst oder den rohen
+  `confidence`-Wert. `/ai/vision` und `/ai/satellite-analysis` haben keine
+  vergleichbare Zahl (Satellit nutzt nur ein kategoriales
+  hoch/mittel/gering-Label direkt aus dem LLM) und wurden deshalb nicht
+  angefasst; `/ai/recognize-gear` hat pro Gegenstand ein `confidence`-Feld und
+  wäre mit demselben Modul erweiterbar, ist aber (noch) nicht verdrahtet.
+- **Phase 6 (Community): Prüf-Warteschlangen-Priorisierung** — echte Basis
+  vorhanden: `checkSubmission()` in `backend/src/lib/submissionPlausibility.js`
+  erzeugt bereits pro Wettbewerbs-Einreichung eine Liste von Auffälligkeits-
+  Checks; `GET /events/:id/review` zeigte sie bisher nur chronologisch an.
+  `classifyReviewPriority()` (deterministisch, aus der Anzahl fehlgeschlagener
+  `review`-Checks) plus `backend/src/lib/jevReviewPriority.js` (Flag
+  `JEV_REVIEW`) sortieren die Warteschlange jetzt nach Dringlichkeit für den
+  Veranstalter um — **ändert nie**, ob eine Einreichung zählt oder wie viele
+  Punkte sie bringt (`blocked`/`needsReview`/`calculated_points` bleiben
+  unangetastet), nur die Sichtungsreihenfolge. Jev bekommt ausschließlich die
+  Check-IDs/Schweregrade, nie Artname/Länge/Gewicht/Foto. Bewusst **nicht**
+  angefasst: die öffentlichen Wettbewerbs-/Clan-Ranglisten
+  (`community.js`/`events.js` `total_score`-Sortierung) — das wäre
+  Ergebnismanipulation, keine Priorisierung einer internen Prüf-Queue, und ist
+  laut ursprünglicher Architekturvorgabe ausdrücklich ausgeschlossen. Die
+  Community-Post-Feeds und `src/lib/actionNotifications.js` haben keine
+  bestehende Relevanz-/Prioritätslogik (nur chronologisch bzw. reine
+  Bestätigungs-Dispatches mit 4-Sekunden-Dedupe) — dort eine Jev-Schicht zu
+  bauen hieße, ohne echte Grundlage ein neues Feature zu erfinden (wie beim
+  Trip-Planer in Phase 3).
+- **Phase 7 (Optimierung) — kann jetzt noch nicht sinnvoll bearbeitet werden:**
+  Diese Phase bedeutet laut Architekturvorgabe, Jevs Entscheidungen gegen
+  echte Nutzeraktionen zu messen und Schwellenwerte pro Modul anzupassen. Das
+  setzt reale Shadow-Mode-Daten aus Produktion voraus (`[jev-shadow]`-Logs aus
+  Phase 1/3/5/6) — die gibt es erst, sobald `JEV_ENABLED` in einer echten
+  Umgebung mit gültigem `TYPESAFE_API_KEY` läuft. Ohne diese Daten jetzt
+  „Optimierungen" zu programmieren hieße, Schwellenwerte zu erfinden statt sie
+  zu messen — das wäre wieder ein Verstoß gegen die Platzhalter-Regel. Sobald
+  Produktionsdaten vorliegen: Log-Auswertung (Mismatch-Rate pro Modul aus den
+  `[jev-shadow]`-Zeilen) schreiben, danach erst einzelne `JEV_*`-Flags aktivieren.
 
 ### Feste Grenzen (siehe auch „Regel: Nur Anthropic Cloud API als Cloud-LLM-Quelle")
 Jev darf **niemals**:

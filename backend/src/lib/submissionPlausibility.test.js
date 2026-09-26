@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkSubmission, targetSpeciesList, maxLengthFor } from './submissionPlausibility.js';
+import { checkSubmission, targetSpeciesList, maxLengthFor, classifyReviewPriority } from './submissionPlausibility.js';
 
 const NOW = new Date('2026-09-24T12:00:00Z').getTime();
 const EVENT = { start_date: '2026-09-20T00:00:00Z', end_date: '2026-09-30T00:00:00Z', target_species: 'Zander, Hecht und Barsch' };
@@ -56,5 +56,27 @@ describe('Hilfsfunktionen', () => {
     expect(maxLengthFor('Spiegelkarpfen')).toBe(130);
     expect(maxLengthFor('Großer Hecht')).toBe(150);
     expect(maxLengthFor('Unbekannt')).toBeNull();
+  });
+});
+
+describe('classifyReviewPriority', () => {
+  it('ist low ohne fehlgeschlagene review-Checks', () => {
+    expect(classifyReviewPriority([{ id: 'photo', ok: true, severity: 'review' }])).toBe('low');
+    expect(classifyReviewPriority([])).toBe('low');
+  });
+
+  it('ist medium bei genau einer Auffaelligkeit', () => {
+    expect(classifyReviewPriority([{ id: 'photo', ok: false, severity: 'review' }])).toBe('medium');
+  });
+
+  it('ist high bei mehreren Auffaelligkeiten', () => {
+    expect(classifyReviewPriority([
+      { id: 'photo', ok: false, severity: 'review' },
+      { id: 'length', ok: false, severity: 'review' },
+    ])).toBe('high');
+  });
+
+  it('ignoriert block-Checks (die kommen hier nie an, aber sicherheitshalber)', () => {
+    expect(classifyReviewPriority([{ id: 'time', ok: false, severity: 'block' }])).toBe('low');
   });
 });
