@@ -489,6 +489,31 @@ describe('POST /api/ai/tts', () => {
 describe('POST /api/ai/realtime-session', () => {
   const origKey = process.env.OPENAI_API_KEY;
 
+  beforeEach(() => {
+    // Live-Voice setzt Ultimate voraus (requirePremiumVoice).
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'elite' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
+  });
+
+  it('lehnt Live-Voice ohne Ultimate ab (403, kein OpenAI-Aufruf)', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await request(app)
+      .post('/api/ai/realtime-session')
+      .set('Authorization', 'Bearer tok')
+      .send({});
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('premium_voice_required');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   afterEach(() => {
     if (origKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = origKey;

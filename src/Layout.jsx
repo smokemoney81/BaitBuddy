@@ -9,6 +9,7 @@ import { ROOT_SEGMENTS } from "@/lib/NavigationContext";
 import { recordRecentPage } from "@/lib/pageMeta";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import BottomTabs from "@/components/layout/BottomTabs";
+import VoicePageGuide from "@/components/voice/VoicePageGuide";
 import UpdateNotification from "@/components/pwa/UpdateNotification";
 import OfflineIndicator from "@/components/pwa/OfflineIndicator";
 import { entities } from "@/api/frontendClient";
@@ -482,6 +483,7 @@ function LayoutContent({ children, currentPageName }) {
 
                 <AdBannerSlot />
                 <BottomTabs />
+                <VoicePageGuide pageName={currentPageName} />
 
                 <AdInterstitialOverlay />
 

@@ -15,6 +15,10 @@
 import { functions } from "@/api/frontendClient";
 import { getPreferredTtsVoice, getActiveBuddyAudio, getVoiceTier, setVoiceTier } from "@/lib/ttsVoice";
 import { speakBrowser, cancelBrowserTTS, isBrowserTTSAvailable } from "@/lib/browserTTS";
+import { setVoiceSpeaking, isVoiceMuted, subscribeVoiceMuted } from "@/lib/voiceActivity";
+
+// Lautlos mitten im Satz: laufende Ausgabe sofort beenden.
+subscribeVoiceMuted((muted) => { if (muted) cancelElevenLabs(); });
 
 function isPremiumVoiceDenied(err) {
   return err?.status === 403 || err?.data?.code === 'premium_voice_required' || err?.code === 'premium_voice_required';
@@ -65,18 +69,22 @@ export function cancelElevenLabs() {
     currentUrl = null;
   }
   cancelBrowserTTS();
+  setVoiceSpeaking(false);
 }
 
 // Spricht über die Gerätestimme im Modul-Singleton (für cancelElevenLabs).
 function speakBrowserTracked(text, callbacks, rate) {
   const handle = speakBrowser(text, { rate });
   currentAudio = handle;
+  setVoiceSpeaking(true);
   handle.onended = () => {
     if (currentAudio === handle) currentAudio = null;
+    setVoiceSpeaking(false);
     callbacks.onEnd?.();
   };
   handle.onerror = (e) => {
     if (currentAudio === handle) currentAudio = null;
+    setVoiceSpeaking(false);
     callbacks.onError?.(e);
   };
   return handle;
@@ -106,7 +114,7 @@ function base64ToBlob(audioBase64, contentType) {
  *   nichts abgespielt und keiner der Callbacks feuert).
  */
 export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
-  if (!getActiveBuddyAudio().voiceEnabled) return null;
+  if (!getActiveBuddyAudio().voiceEnabled || isVoiceMuted()) return null;
   options = { ...options, rate: (options.rate || 1) * getActiveBuddyAudio().speed };
   if (!text || typeof text !== "string" || text.trim().length === 0) {
     throw new Error("Kein Text für TTS");
@@ -158,6 +166,7 @@ export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
   }
 
   audio.onended = () => {
+    setVoiceSpeaking(false);
     if (currentUrl === url) {
       URL.revokeObjectURL(url);
       currentUrl = null;
@@ -167,6 +176,7 @@ export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
   };
 
   audio.onerror = (e) => {
+    setVoiceSpeaking(false);
     if (currentUrl === url) {
       URL.revokeObjectURL(url);
       currentUrl = null;
@@ -177,6 +187,7 @@ export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
 
   try {
     await audio.play();
+    if (currentAudio === audio) setVoiceSpeaking(true);
   } catch (err) {
     // Wiedergabe blockiert (z. B. Autoplay-Policy): Blob-URL sofort freigeben,
     // damit kein Leak entsteht, und den Fehler an den Aufrufer durchreichen.
@@ -321,7 +332,7 @@ export function splitIntoSentences(text, opts = {}) {
 // wenn die Queue zwischenzeitlich abgelöst/abgebrochen wurde bzw. kein Audio
 // kam). Wirft bei Netzwerkfehlern — die Queue überspringt den Satz dann still.
 async function fetchSentenceBlob(text, myGeneration) {
-  if (!getActiveBuddyAudio().voiceEnabled) return null;
+  if (!getActiveBuddyAudio().voiceEnabled || isVoiceMuted()) return null;
   // Gerätestimme: nichts vorzuladen, der Satz wird direkt gesprochen.
   if (prefersBrowserVoice()) return { browserText: text };
   let response;
@@ -359,6 +370,7 @@ function playSentenceBlob(blob, myGeneration, rate) {
     }
 
     const cleanup = () => {
+      setVoiceSpeaking(false);
       if (currentUrl === url) {
         URL.revokeObjectURL(url);
         currentUrl = null;
@@ -367,7 +379,7 @@ function playSentenceBlob(blob, myGeneration, rate) {
     };
     audio.onended = () => { cleanup(); resolve(); };
     audio.onerror = () => { cleanup(); resolve(); };
-    audio.play().catch(() => { cleanup(); resolve(); });
+    audio.play().then(() => { if (currentAudio === audio) setVoiceSpeaking(true); }, () => { cleanup(); resolve(); });
   });
 }
 

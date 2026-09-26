@@ -8,6 +8,7 @@ import { navigationItems } from '@/components/navigation/navigationItems';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
 import { BrandMark } from '@/components/layout/BrandLogo';
+import { useVoiceSpeaking } from '@/hooks/useVoiceActivity';
 
 // Gedrückt halten auf dem Logo-Button öffnet direkt den KI-Buddy-Chat.
 const LONG_PRESS_MS = 500;
@@ -148,6 +149,7 @@ export default function BottomTabs() {
   };
 
   const split = Math.ceil(navigation.length / 2);
+  const voiceSpeaking = useVoiceSpeaking();
 
   return (
     <>
@@ -158,7 +160,8 @@ export default function BottomTabs() {
           <div className="bb-fab-container">
             <button
               type="button"
-              className="bb-fab bb-fab-logo"
+              className={`bb-fab bb-fab-logo${voiceSpeaking ? ' bb-fab-speaking' : ''}`}
+              data-speaking={voiceSpeaking ? 'true' : undefined}
               aria-label="Schnellaktionen öffnen"
               title="Tippen: Schnellaktionen · Halten: KI-Buddy-Chat"
               onClick={handleFabClick}

@@ -302,3 +302,30 @@ describe('Stimmen-Stufe nach Plan', () => {
     expect(spoken).toHaveLength(2);
   });
 });
+
+describe('Lautlos und Sprech-Status', () => {
+  afterEach(async () => {
+    const { setVoiceMuted } = await import('@/lib/voiceActivity');
+    setVoiceMuted(false);
+  });
+
+  it('spricht nicht, wenn lautlos geschaltet ist', async () => {
+    const { setVoiceMuted } = await import('@/lib/voiceActivity');
+    setVoiceMuted(true);
+    await speakWithFallback('Hallo', { voiceEnabled: true });
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(audioInstances).toHaveLength(0);
+  });
+
+  it('meldet Sprechen während der Wiedergabe', async () => {
+    const { isVoiceSpeaking } = await import('@/lib/voiceActivity');
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('premium');
+    const p = speakWithFallback('Hallo', { voiceEnabled: true });
+    await tick();
+    expect(isVoiceSpeaking()).toBe(true);
+    lastAudio.onended();
+    await p;
+    setVoiceTier('browser');
+  });
+});

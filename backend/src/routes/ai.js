@@ -669,6 +669,7 @@ const ttsCost = (req) => costFor('tts', { textLength: typeof req.body?.text === 
 // Premium-Stimme (Server-TTS) gibt es ab Ultimate. Free/Basic/Pro sprechen im
 // Client mit der Gerätestimme (src/lib/browserTTS.js). Das Gate läuft VOR dem
 // KI-Volumen, damit eine Ablehnung nichts kostet.
+// Live-Voice (Realtime-Sitzung) ist ebenfalls Ultimate-Feature.
 async function requirePremiumVoice(req, res, next) {
   try {
     const access = await resolveServerToolAccess({
@@ -681,7 +682,7 @@ async function requirePremiumVoice(req, res, next) {
     console.error('[ai/tts] Plan-Prüfung fehlgeschlagen:', e.message);
   }
   return res.status(403).json({
-    error: 'Die Premium-Stimme ist im Ultimate-Plan enthalten.',
+    error: 'Premium-Stimme und Live-Voice sind im Ultimate-Plan enthalten.',
     code: 'premium_voice_required',
   });
 }
@@ -806,7 +807,7 @@ function getOpenAIKey() {
     || null;
 }
 
-router.post('/ai/realtime-session', requireAuth, meterAiTokens('realtime'), async (req, res) => {
+router.post('/ai/realtime-session', requireAuth, requirePremiumVoice, meterAiTokens('realtime'), async (req, res) => {
   const apiKey = getOpenAIKey();
   if (!apiKey) {
     console.warn('[AI] /ai/realtime-session: kein OpenAI-Key gefunden. Relevante Env-Variablen:',

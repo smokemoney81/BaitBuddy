@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { MapPin, ArrowLeft, Check, X, Trophy, Target, Clock, Sparkles, Wrench, BookOpen, AlertTriangle, Play, Fish } from "lucide-react";
 import { motion } from "framer-motion";
 import RodBuilderGame from "@/components/exam/RodBuilderGame";
@@ -9,6 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
 import { isInClosedSeason } from "@/lib/closedSeason";
 import PageTitle from "@/components/layout/PageTitle";
+import VoiceMuteButton from "@/components/voice/VoiceMuteButton";
+import { useReadAloud, buildQuestionSpeech } from "@/hooks/useReadAloud";
 
 export default function AngelscheinPruefungSchonzeiten() {
   useFeatureTracking("angelschein_pruefung");
@@ -195,6 +197,22 @@ export default function AngelscheinPruefungSchonzeiten() {
 
   const isCurrentlyClosedSeason = (closedFrom, closedTo) => isInClosedSeason(closedFrom, closedTo);
 
+
+  // Vorlesen: aktuelle Prüfungsfrage mit Antworten, aufgedeckte Erklärung und
+  // das Ergebnis. Lautlos über die VoiceMuteButton-Taste.
+  const speechText = useMemo(() => {
+    if (showGame || !examStarted || questions.length === 0) return '';
+    if (showResults) {
+      const correct = userAnswers.filter((a, i) => a === questions[i]?.correct_answer_index).length;
+      return `Prüfung beendet. Du hast ${correct} von ${questions.length} Fragen richtig beantwortet.`;
+    }
+    const q = questions[currentQuestion];
+    if (!q) return '';
+    if (revealedExplanations[currentQuestion] && q.explanation) return `Erklärung: ${q.explanation}`;
+    return buildQuestionSpeech({ index: currentQuestion, total: questions.length, question: q.question, answers: q.answers });
+  }, [showGame, examStarted, showResults, questions, userAnswers, currentQuestion, revealedExplanations]);
+  useReadAloud(speechText);
+
   return (
     <>
       {/* Schonzeiten/Mindestmaße & Angelschein-Quiz sind laut Plan Free-Funktionen. */}
@@ -232,6 +250,7 @@ export default function AngelscheinPruefungSchonzeiten() {
             animate={{ opacity: 1, y: 0 }}
           >
             <PageTitle className="mb-6" title="Angelschein-Prüfung & Schonzeiten" subtitle="Bereite dich optimal auf die Fischerprüfung vor und kenne deine Regeln." />
+            <div className="flex justify-end mb-4"><VoiceMuteButton /></div>
 
             <div className="bb-card mb-6">
               <div className="bb-form-title flex items-center gap-2" style={{ color: 'var(--bb-cyan)' }}>
@@ -527,6 +546,7 @@ export default function AngelscheinPruefungSchonzeiten() {
                     Frage {currentQuestion + 1} von {questions.length}
                   </span>
                 </div>
+                <VoiceMuteButton />
                 <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{
                   background: timeLeft < 300 ? 'rgba(239,68,68,0.15)' : 'var(--bb-surface)',
                   border: timeLeft < 300 ? '1px solid rgba(239,68,68,0.5)' : 'none',

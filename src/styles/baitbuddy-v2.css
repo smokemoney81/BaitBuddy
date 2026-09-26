@@ -751,6 +751,17 @@
   user-select: none;
   touch-action: manipulation;
 }
+/* Leuchten, solange der Buddy spricht (useVoiceSpeaking) */
+.bb-fab-speaking {
+  animation: bb-fab-voice-glow 1.1s ease-in-out infinite;
+}
+@keyframes bb-fab-voice-glow {
+  0%, 100% { box-shadow: 0 0 22px rgba(0,229,255,.55), inset 0 0 14px rgba(0,229,255,.25), 0 0 0 5px rgba(11,19,36,.9); }
+  50%      { box-shadow: 0 0 44px rgba(0,229,255,.95), inset 0 0 22px rgba(0,229,255,.45), 0 0 0 5px rgba(11,19,36,.9), 0 0 0 9px rgba(0,229,255,.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-fab-speaking { animation: none; box-shadow: 0 0 40px rgba(0,229,255,.9), inset 0 0 20px rgba(0,229,255,.4), 0 0 0 5px rgba(11,19,36,.9); }
+}
 .bb-fab-logo > img {
   width: 100%;
   height: 100%;

@@ -9,6 +9,8 @@ import { Check, X, Award, Clock, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import PageTitle from "@/components/layout/PageTitle";
+import VoiceMuteButton from "@/components/voice/VoiceMuteButton";
+import { useReadAloud, buildQuestionSpeech } from "@/hooks/useReadAloud";
 
 // Removed global QUIZ_LEVELS and question definitions as they are now embedded within QuizPage component
 
@@ -299,6 +301,23 @@ export default function QuizPage() {
     return currentQuestions[questionIndex];
   }, [currentQuestions, questionIndex]);
 
+  // Vorlesen: Frage mit allen Antworten, nach dem Antworten die Auflösung.
+  const speechText = useMemo(() => {
+    if (gameState !== 'playing' || !currentQuestion) return '';
+    if (answered) {
+      return selectedOptionIndex === currentQuestion.correct
+        ? 'Richtig!'
+        : `Leider falsch. Richtig ist: ${currentQuestion.options[currentQuestion.correct]}.`;
+    }
+    return buildQuestionSpeech({
+      index: questionIndex,
+      total: currentQuestions.length,
+      question: currentQuestion.question,
+      answers: currentQuestion.options,
+    });
+  }, [gameState, currentQuestion, answered, selectedOptionIndex, questionIndex, currentQuestions.length]);
+  useReadAloud(speechText);
+
   if (isLoading) {
     return <div className="p-8 text-center"><LoadingSpinner /></div>;
   }
@@ -324,6 +343,7 @@ export default function QuizPage() {
           <motion.div key="level-selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="max-w-2xl mx-auto">
               <PageTitle className="mb-6" title="Angel-Quiz Zeit!" subtitle="Wähle deinen Schwierigkeitsgrad und sammle Punkte." />
+              <div className="flex justify-end mb-4"><VoiceMuteButton /></div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {quizLevelsConfig.map((level, index) => (
                   <div key={level.key || index} className="bb-card hover:border-emerald-500/50 transition-all">
@@ -348,8 +368,11 @@ export default function QuizPage() {
               <div>
                 <div className="flex justify-between items-center">
                   <span className={`bb-pill-info ${currentLevelData?.color || 'bg-gray-500'} text-white`}>{currentLevelData?.name}</span>
-                  <div className="flex items-center gap-2 font-mono text-lg text-white">
-                    <Clock size={20} /> {timeLeft}s
+                  <div className="flex items-center gap-3">
+                    <VoiceMuteButton />
+                    <div className="flex items-center gap-2 font-mono text-lg text-white">
+                      <Clock size={20} /> {timeLeft}s
+                    </div>
                   </div>
                 </div>
                 <Progress value={(questionIndex / currentQuestions.length) * 100} className="mt-4" />

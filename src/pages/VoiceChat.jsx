@@ -9,6 +9,7 @@ import { useFitToViewport } from '@/hooks/useFitToViewport';
 import BuddyAvatar from '@/components/ai/BuddyAvatar';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
+import { getVoiceTier } from '@/lib/ttsVoice';
 
 // Status-Phasen des Gesprächs
 const PHASE = {
@@ -334,6 +335,9 @@ export default function VoiceChat() {
     setPhase(PHASE.CONNECTING);
     try {
       if (isOffline()) throw new Error('offline');
+      // Live-Voice (Realtime) gibt es ab Ultimate; kleinere Pläne sprechen
+      // turn-basiert mit der Gerätestimme. Das verbindliche Gate sitzt im Backend.
+      if (getVoiceTier() !== 'premium') throw new Error('live_voice_requires_ultimate');
       // 1) Kurzlebiges Token vom eigenen Backend holen (echter Key bleibt serverseitig)
       const session = await functions.invoke('realtimeSession');
       const ephemeralKey = session?.client_secret?.value;
@@ -406,7 +410,11 @@ export default function VoiceChat() {
       }
       // Realtime nicht verfügbar (kein Key, Netzfehler, 4xx/5xx) -> nahtlos auf
       // die turn-basierte Pipeline wechseln, damit das Gespräch trotzdem läuft.
-      console.warn('[VoiceChat] Realtime nicht verfügbar, wechsle auf Fallback:', e?.message);
+      if (e?.message === 'live_voice_requires_ultimate' || e?.status === 403) {
+        toast.info('Live-Gespräch gibt es mit Ultimate. Wir sprechen Schritt für Schritt weiter.');
+      } else {
+        console.warn('[VoiceChat] Realtime nicht verfügbar, wechsle auf Fallback:', e?.message);
+      }
       startFallbackConversation();
     }
   }
