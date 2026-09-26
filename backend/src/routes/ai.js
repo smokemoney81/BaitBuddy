@@ -22,6 +22,10 @@ import { personalizationContext } from '../lib/personalizationEngine.js';
 import { buildActionPromptSection } from '../lib/buddyActionCatalog.js';
 import { resolveServerToolAccess } from '../lib/toolEntitlements.js';
 import { parseCoordinates, parseOptionalCoordinates } from '../lib/coordinates.js';
+import { isJevBuddyActive, isJevVisionActive } from '../lib/jevClient.js';
+import { runBuddyContextShadow } from '../lib/jevShadow.js';
+import { resolveActiveContextFlags } from '../lib/jevBuddyContext.js';
+import { runVisionConfidenceShadow, resolveActiveConfidenceBand, classifyConfidenceBand } from '../lib/jevVisionConfidence.js';
 import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas } from '../lib/aiTokenQuota.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
@@ -215,11 +219,30 @@ async function buildChatPrompt(req) {
   const budget = personalization.budget;
 
   const lastMsg = [...safeMessages].reverse().find(m => m.role === 'user')?.content || '';
-  const wantsCatches = /fang|fänge|gefangen|fangbuch|logbuch/i.test(lastMsg);
-  const wantsRules = /schonzeit|mindestmaß|erlaubt|verboten/i.test(lastMsg);
-  const wantsPlanning = /trip|ausflug|tour|planung|vorbereitung|ausrüstung|ausruestung|packliste/i.test(lastMsg);
-  const wantsSpots = wantsPlanning || /spot|angelplatz|wo angel|gewässer/i.test(lastMsg);
-  const wantsWeather = wantsPlanning || /wetter|temperatur|wind|angelzeit|bedingungen/i.test(lastMsg);
+  const ruleBasedContextFlags = {
+    catches: /fang|fänge|gefangen|fangbuch|logbuch/i.test(lastMsg),
+    rules: /schonzeit|mindestmaß|erlaubt|verboten/i.test(lastMsg),
+    planning: /trip|ausflug|tour|planung|vorbereitung|ausrüstung|ausruestung|packliste/i.test(lastMsg),
+  };
+  ruleBasedContextFlags.spots = ruleBasedContextFlags.planning || /spot|angelplatz|wo angel|gewässer/i.test(lastMsg);
+  ruleBasedContextFlags.weather = ruleBasedContextFlags.planning || /wetter|temperatur|wind|angelzeit|bedingungen/i.test(lastMsg);
+
+  // Jev Decision Layer (siehe CLAUDE.md „Jev Decision Layer"): ohne JEV_ENABLED
+  // sind beide Zweige ein No-op und `contextFlags` bleibt exakt die
+  // regelbasierte Auswahl von oben.
+  let contextFlags = ruleBasedContextFlags;
+  if (lastMsg && isJevBuddyActive()) {
+    // Phase 2 (aktive Steuerung): Jevs Einschätzung ersetzt die regelbasierten
+    // Flags fail-open pro Frage (siehe `jevBuddyContext.js`). Serialisiert vor
+    // dem Kontext-Fetch, damit die richtigen Quellen geladen werden — Kosten
+    // ist maximal das Jev-Timeout (800 ms), noch innerhalb des <2s-Ziels.
+    contextFlags = await resolveActiveContextFlags({ lastMsg, ruleBasedFlags: ruleBasedContextFlags });
+  } else if (lastMsg) {
+    // Phase 1 (Shadow Mode): vergleicht asynchron, ohne die Antwort zu
+    // beeinflussen oder zu verzögern.
+    runBuddyContextShadow({ lastMsg, ruleBasedFlags: ruleBasedContextFlags });
+  }
+  const { catches: wantsCatches, rules: wantsRules, spots: wantsSpots, weather: wantsWeather, planning: wantsPlanning } = contextFlags;
 
   // Kontext-Quellen laufen parallel statt sequenziell — spart Latenz vor dem
   // LLM-Call (Ziel < 2 s). Jede Quelle liefert einen fertigen Kontext-String
@@ -509,9 +532,22 @@ Regeln:
       : sexRaw === 'weiblich' || sexRaw === 'female'
         ? 'weiblich'
         : null;
+    const confidence = num(parsed.confidence);
+    const species = str(parsed.species);
+    // Jev Decision Layer (siehe CLAUDE.md „Jev Decision Layer"): ersetzt NIE
+    // die Erkennung selbst oder den rohen confidence-Wert, nur die zusätzliche
+    // `confidence_band`-Einordnung. Ohne JEV_ENABLED bleibt sie exakt die
+    // deterministische Schwelle aus `classifyConfidenceBand`.
+    let confidenceBand;
+    if (isJevVisionActive()) {
+      confidenceBand = await resolveActiveConfidenceBand({ confidence, species });
+    } else {
+      confidenceBand = classifyConfidenceBand(confidence);
+      runVisionConfidenceShadow({ confidence, species });
+    }
     return res.json({
       ok: true,
-      species: str(parsed.species),
+      species,
       species_latin: str(parsed.species_latin),
       length_cm: num(parsed.length_cm),
       weight_kg: num(parsed.weight_kg),
@@ -520,7 +556,8 @@ Regeln:
       sex,
       estimated_age_years: num(parsed.estimated_age_years),
       condition: str(parsed.condition),
-      confidence: num(parsed.confidence)
+      confidence,
+      confidence_band: confidenceBand,
     });
   } catch (e) {
     return sendDbError(res, e);

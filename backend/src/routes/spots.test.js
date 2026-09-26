@@ -86,6 +86,72 @@ describe('PATCH /api/spots/:id – Koordinatenpruefung', () => {
   });
 });
 
+describe('GET /api/spots/recommended', () => {
+  beforeEach(() => {
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de' },
+      fromResults: {
+        spots: {
+          data: [
+            { id: 's1', name: 'Rheinufer' },
+            { id: 's2', name: 'Baggersee' },
+          ],
+          error: null,
+        },
+        catches: {
+          data: [{ water_body: 'Rheinufer', species: 'Zander' }],
+          error: null,
+        },
+        rule_entries: { data: [], error: null },
+      },
+    });
+  });
+
+  it('liefert die Spots des Nutzers mit Score und Breakdown, ohne Jev', async () => {
+    const res = await request(app)
+      .get('/api/spots/recommended')
+      .set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(200);
+    expect(res.body.spots).toHaveLength(2);
+    expect(res.body.spots[0]).toHaveProperty('score');
+    expect(res.body.spots[0]).toHaveProperty('match');
+    expect(supabaseMock.current.__builders.spots.eq).toHaveBeenCalledWith('created_by', 'a@b.de');
+  });
+
+  it('bevorzugt den Spot mit passenden Faengen der angegebenen Zielfischart', async () => {
+    const res = await request(app)
+      .get('/api/spots/recommended?species=Zander')
+      .set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(200);
+    expect(res.body.spots[0].name).toBe('Rheinufer');
+  });
+
+  it('lehnt eine halbe Koordinatenangabe ab', async () => {
+    const res = await request(app)
+      .get('/api/spots/recommended?latitude=53.5')
+      .set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(400);
+  });
+
+  it('verlangt eine Anmeldung', async () => {
+    supabaseMock.current = createSupabaseMock({ authUser: null });
+    const res = await request(app).get('/api/spots/recommended');
+    expect(res.status).toBe(401);
+  });
+
+  it('liefert eine leere Liste, wenn der Nutzer keine Spots hat', async () => {
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de' },
+      fromResults: { spots: { data: [], error: null } },
+    });
+    const res = await request(app)
+      .get('/api/spots/recommended')
+      .set('Authorization', 'Bearer tok');
+    expect(res.status).toBe(200);
+    expect(res.body.spots).toEqual([]);
+  });
+});
+
 // Datenleck: Die öffentlichen Spot-Endpunkte lieferten ohne Anmeldung auch
 // private Spots aller Nutzer samt exakter Koordinaten aus.
 describe('Öffentliche Spot-Endpunkte – nur is_public', () => {

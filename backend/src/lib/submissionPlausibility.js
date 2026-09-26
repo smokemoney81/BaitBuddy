@@ -99,3 +99,17 @@ export function checkSubmission(submission, event, { now = Date.now(), recent = 
   const needsReview = !blocked && (flagged || event?.requires_approval === true);
   return { checks, blocked, needsReview };
 }
+
+// Deterministische Priorität für die Prüf-Warteschlange des Veranstalters
+// (`GET /events/:id/review`) — mehr fehlgeschlagene Auffälligkeits-Checks
+// heißt dringlicher zu prüfen. Ändert NIE, ob eine Einreichung zählt
+// (`blocked`/`needsReview` bleiben allein maßgeblich) — nur die
+// Sichtungs-Reihenfolge für den Veranstalter. Phase-6-Erweiterung (Jev, siehe
+// `jevReviewPriority.js`) darf diese Stufe verfeinern, niemals eine
+// Einreichung selbst be- oder entwerten.
+export function classifyReviewPriority(checks = []) {
+  const failedReview = checks.filter((c) => !c.ok && c.severity === 'review').length;
+  if (failedReview >= 2) return 'high';
+  if (failedReview === 1) return 'medium';
+  return 'low';
+}

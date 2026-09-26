@@ -180,6 +180,174 @@ App-Prozess.
 
 ---
 
+## 🧠 Jev Decision Layer (TypeSafe, optional)
+
+**Entscheidung des Projektinhabers (2026-09-25):** TypeSafe Jev (`https://api.typesafe.ai/v1/systemone`)
+ist als **einzige weitere** externe Cloud-Ausnahme neben Clerk zugelassen — ausschließlich
+als schnelle strukturierte Entscheidungsschicht (Intent-/Kontext-/Tool-Routing,
+Confidence-Scoring), **nie** als Chat-Modell und **nie** als Ersatz für Anthropic
+Claude. Jev liefert typisierte Entscheidungen (`noul` = Ja/Nein-Wahrscheinlichkeit,
+`choice` = Auswahl, `score` = Bewertung) zu einem `state`/`questions`-Bundle; die
+eigentliche Ausführung (Tools, DB, LLM-Antwort) bleibt immer in bestehendem
+BaitBuddy-Code.
+
+### Rollout-Phasen
+Der Ausbau erfolgt schrittweise und ausschließlich additiv (kein Entfernen
+funktionierender Bereiche, kein Umbau des Free-Tarifs):
+
+- **Phase 0 (aktuell, umgesetzt):** Infrastruktur — `backend/src/lib/jevClient.js`
+  (Client mit hartem Timeout, fail-open, nie blockierend), Feature-Flags,
+  Shadow Mode. Keine sichtbare App-Änderung.
+- **Phase 1 (aktuell, umgesetzt):** Buddy-Context-Router im **Shadow Mode**
+  (`backend/src/lib/jevShadow.js`, eingebunden in `buildChatPrompt` in
+  `backend/src/routes/ai.js`): Jevs Einschätzung, welcher App-Kontext
+  (Fangbuch/Regeln/Spots/Wetter/Planung) für eine Buddy-Frage relevant ist,
+  läuft **parallel und asynchron** zur bestehenden regelbasierten
+  Kontext-Auswahl (`wantsCatches`/`wantsRules`/`wantsSpots`/`wantsWeather`/
+  `wantsPlanning`). Das Ergebnis wird nur geloggt (`[jev-shadow] buddy-context`),
+  beeinflusst die tatsächliche Antwort **nicht**. Zweck: Qualitätsdaten sammeln,
+  bevor Jev irgendeine Benutzeraktion steuert.
+- **Phase 2 (Code fertig, standardmäßig INAKTIV):** Aktive Kontext-Steuerung für
+  den Buddy-Chat ist implementiert (`backend/src/lib/jevBuddyContext.js`,
+  `resolveActiveContextFlags`) und vollständig getestet, greift aber nur mit
+  dem eigenen Flag `JEV_BUDDY=true`. **Bevor dieses Flag in Produktion gesetzt
+  wird, müssen echte Shadow-Mode-Daten (Phase 1) ausgewertet worden sein** —
+  das ist eine bewusste Prozess-Regel, kein technisches Gate. Ist `JEV_BUDDY`
+  aktiv, ersetzt Jevs Einschätzung die regelbasierten Flags **fail-open pro
+  Frage**: Beantwortet Jev eine der fünf Fragen nicht eindeutig oder schlägt
+  der Aufruf fehl/Timeout, wird für genau diese Frage der bestehende
+  regelbasierte Wert übernommen (kein Alles-oder-nichts-Fallback). Jedes
+  weitere Modul (Karte, Trip-Planer, …) bekommt vor seiner eigenen
+  Aktivierung ein eigenes Flag (`JEV_MAP`, `JEV_TRIP` …) nach demselben Muster.
+
+- **Phase 3 (Code fertig, standardmäßig INAKTIV) — zwei weitere Module nach
+  demselben Shadow-/Active-Muster:**
+  - **Fangbuch-Evidence-Klassifizierung** (`backend/src/lib/jevFangbuchEvidence.js`,
+    Flag `JEV_FANGBUCH`): `anglerInsights.js` liefert seit Phase 3 zu jedem
+    frequenzbasierten Muster (`top_species`/`top_bait`/`top_water`/`top_daypart`,
+    **nicht** `personal_best`) zusätzlich eine deterministische Evidence-Stufe
+    (`classifyEvidence`: EARLY/MODERATE/STRONG, rein aus Stichprobengröße +
+    Anteil). Jev bekommt **nur diese aggregierten Zahlen** (count/total/share),
+    nie rohe Fangbuch-Zeilen, und darf die Stufe fail-open pro Muster verfeinern
+    — eingebunden in `GET /api/personalization/me`.
+  - **Spot-Ranking** (`backend/src/lib/spotRecommendation.js` +
+    `jevSpotRanking.js`, Flag `JEV_SPOTS`, neuer Endpunkt
+    `GET /api/spots/recommended`): **Neue Feature-Basis** — es gab vorher keine
+    Spot-Rankinglogik im Code, `spots.js` war reines CRUD. `rankSpots()` ist eine
+    bewusst grobe, deterministische Heuristik (species_match aus eigener
+    Fanghistorie am Spot, season_match aus `rule_entries`/`isInClosedSeason`,
+    weather_match aus einem simplen Wind-Schwellenwert) — harte Filter
+    (nur eigene Spots) laufen vorher in der Route, nicht in der Bewertung. Jev
+    bekommt nur Name + die drei 0..1-Scores der Top-8-Kandidaten und darf
+    höchstens seine Top-Wahl an Position 1 verschieben, nie neue Spots
+    einführen. Fail-open auf die deterministische Reihenfolge.
+  - **Trip-Planer-Kontext-Routing wurde bewusst NICHT gebaut**: Anders als beim
+    Buddy-Chat (der bereits `wantsPlanning`-Kontext lädt) gibt es für
+    `TripPlanner.jsx`/`fishing_plans` **keine** bestehende KI-Feature-Basis
+    (keine Empfehlungslogik, kein LLM-Aufruf) — Jev dort "vorzubereiten" hieße,
+    ohne echte Datengrundlage eine komplette neue Produktfunktion zu erfinden.
+    Das verstößt gegen die „keine Platzhalter, echte Implementierung"-Regel.
+    Vor einer Jev-Anbindung müsste zuerst ein echtes Trip-Empfehlungsfeature
+    entstehen (analog zu `spotRecommendation.js`).
+
+### Feature-Flags (Env)
+- `JEV_ENABLED` — globaler Schalter, Default aus (`false`/nicht gesetzt). Ohne
+  ihn **und** ohne `TYPESAFE_API_KEY` ist `jevClient.js` ein reines No-op, kein
+  Netzwerk-Call.
+- `TYPESAFE_API_KEY` — serverseitiges Secret, wird **niemals** ans Frontend
+  ausgeliefert (analog zur Anthropic-Key-Regel).
+- `JEV_SHADOW_MODE` — Default an (jeder aktivierte Jev-Aufruf ist zunächst
+  Shadow-only), explizit `false` schaltet den Shadow-Vergleich ab.
+- `JEV_BUDDY` — Phase 2, Default aus. Nur setzen, nachdem die Shadow-Mode-Daten
+  des Buddy-Context-Routers ausgewertet wurden (siehe oben). Mit `JEV_BUDDY=true`
+  **und** `JEV_ENABLED=true` steuert Jev aktiv, welcher App-Kontext geladen wird
+  — der Shadow-Vergleich (Phase 1) läuft dann nicht mehr parallel, weil es
+  nichts mehr zu vergleichen gibt (Jevs Entscheidung wird ja bereits verwendet).
+- `JEV_FANGBUCH` — Phase 3a, Default aus. Erst nach Auswertung der
+  Fangbuch-Shadow-Daten setzen (siehe oben).
+- `JEV_SPOTS` — Phase 3b, Default aus. Erst nach Auswertung der
+  Spot-Ranking-Shadow-Daten setzen (siehe oben).
+- `JEV_VISION` — Phase 5, Default aus. Erst nach Auswertung der
+  Vision-Confidence-Shadow-Daten setzen (siehe unten).
+- `JEV_REVIEW` — Phase 6, Default aus. Erst nach Auswertung der
+  Review-Priority-Shadow-Daten setzen (siehe unten).
+
+- **Phase 4 (Voice/Live) — bewusst NICHT gebaut:** Untersucht wurden
+  `src/lib/wakeWord.js` (`detectWakeWord`, harte Muster-Erkennung, keine
+  Ambiguitäts-/Konfidenz-Wertung) und `src/pages/AnglerMode.jsx`
+  (`MOVE_THRESHOLD_M`-Ortswechsel-Erkennung, reines Timeline-Event, keine
+  Entscheidung, die Jev verfeinern könnte). Der einzige echte
+  LLM-Routing-Punkt ist ein harter Match, kein Grenzfall — und selbst dort
+  würde ein zusätzlicher Netzwerk-Roundtrip zu Jev (Timeout 800 ms) genau dem
+  Live-Sprach-Pfad Latenz hinzufügen, der im Projekt am stärksten auf
+  Geschwindigkeit ausgelegt ist (Hands-free/Voice-Buddy, siehe „Nicht
+  scrollbar"/Latenz-Regeln oben). Erst wenn die Wake-Word-Erkennung selbst
+  eine echte Unsicherheits-Metrik bekäme, gäbe es hier eine echte Basis.
+- **Phase 5 (Kamera): Vision-Confidence-Routing** — echte Basis vorhanden:
+  `POST /analyze-photo` liefert bereits einen `confidence`-Wert (0..1), den
+  `src/components/log/FishRecognitionResult.jsx` deterministisch in
+  Farbe/Label einordnet (≥75 % grün "sicher", ≥45 % gelb, sonst rot).
+  `backend/src/lib/jevVisionConfidence.js` spiegelt dieselbe Schwelle
+  serverseitig (`classifyConfidenceBand`) und liefert zusätzlich
+  `confidence_band` im Response — Jev darf diese Einordnung fail-open
+  verfeinern (Flag `JEV_VISION`), bekommt dafür nur die Zahl + die erkannte
+  Art (nie das Bild) und **ändert nie** die Erkennung selbst oder den rohen
+  `confidence`-Wert. `/ai/vision` und `/ai/satellite-analysis` haben keine
+  vergleichbare Zahl (Satellit nutzt nur ein kategoriales
+  hoch/mittel/gering-Label direkt aus dem LLM) und wurden deshalb nicht
+  angefasst; `/ai/recognize-gear` hat pro Gegenstand ein `confidence`-Feld und
+  wäre mit demselben Modul erweiterbar, ist aber (noch) nicht verdrahtet.
+- **Phase 6 (Community): Prüf-Warteschlangen-Priorisierung** — echte Basis
+  vorhanden: `checkSubmission()` in `backend/src/lib/submissionPlausibility.js`
+  erzeugt bereits pro Wettbewerbs-Einreichung eine Liste von Auffälligkeits-
+  Checks; `GET /events/:id/review` zeigte sie bisher nur chronologisch an.
+  `classifyReviewPriority()` (deterministisch, aus der Anzahl fehlgeschlagener
+  `review`-Checks) plus `backend/src/lib/jevReviewPriority.js` (Flag
+  `JEV_REVIEW`) sortieren die Warteschlange jetzt nach Dringlichkeit für den
+  Veranstalter um — **ändert nie**, ob eine Einreichung zählt oder wie viele
+  Punkte sie bringt (`blocked`/`needsReview`/`calculated_points` bleiben
+  unangetastet), nur die Sichtungsreihenfolge. Jev bekommt ausschließlich die
+  Check-IDs/Schweregrade, nie Artname/Länge/Gewicht/Foto. Bewusst **nicht**
+  angefasst: die öffentlichen Wettbewerbs-/Clan-Ranglisten
+  (`community.js`/`events.js` `total_score`-Sortierung) — das wäre
+  Ergebnismanipulation, keine Priorisierung einer internen Prüf-Queue, und ist
+  laut ursprünglicher Architekturvorgabe ausdrücklich ausgeschlossen. Die
+  Community-Post-Feeds und `src/lib/actionNotifications.js` haben keine
+  bestehende Relevanz-/Prioritätslogik (nur chronologisch bzw. reine
+  Bestätigungs-Dispatches mit 4-Sekunden-Dedupe) — dort eine Jev-Schicht zu
+  bauen hieße, ohne echte Grundlage ein neues Feature zu erfinden (wie beim
+  Trip-Planer in Phase 3).
+- **Phase 7 (Optimierung) — kann jetzt noch nicht sinnvoll bearbeitet werden:**
+  Diese Phase bedeutet laut Architekturvorgabe, Jevs Entscheidungen gegen
+  echte Nutzeraktionen zu messen und Schwellenwerte pro Modul anzupassen. Das
+  setzt reale Shadow-Mode-Daten aus Produktion voraus (`[jev-shadow]`-Logs aus
+  Phase 1/3/5/6) — die gibt es erst, sobald `JEV_ENABLED` in einer echten
+  Umgebung mit gültigem `TYPESAFE_API_KEY` läuft. Ohne diese Daten jetzt
+  „Optimierungen" zu programmieren hieße, Schwellenwerte zu erfinden statt sie
+  zu messen — das wäre wieder ein Verstoß gegen die Platzhalter-Regel. Sobald
+  Produktionsdaten vorliegen: Log-Auswertung (Mismatch-Rate pro Modul aus den
+  `[jev-shadow]`-Zeilen) schreiben, danach erst einzelne `JEV_*`-Flags aktivieren.
+
+### Feste Grenzen (siehe auch „Regel: Nur Anthropic Cloud API als Cloud-LLM-Quelle")
+Jev darf **niemals**:
+- Login/Auth, Premium-Entitlements, Zahlungsstatus (Stripe/Play Billing) oder
+  RLS-/Berechtigungslogik kontrollieren — diese bleiben strikt deterministisch.
+- als authoritative Quelle für gesetzliche Angelregeln dienen — Jev darf
+  höchstens auf die passende Regel-Datenbank routen, die Regel selbst kommt
+  immer aus `rule_entries`/`RuleAssistant`.
+- eine Benutzeraktion (Fang speichern, Konto löschen, Nachricht senden) direkt
+  auslösen, ohne dass die bestehende deterministische App-Logik die eigentliche
+  Aktion ausführt.
+- als Ersatz für Anthropic Claude als Text-/Vision-Modell fungieren.
+
+### Ausfallsicherheit
+Jeder Jev-Aufruf hat ein hartes Timeout (`jevClient.js`, 800 ms) und ist
+**fail-open**: Timeout, Netzwerk- oder Upstream-Fehler liefern `null`, der
+Aufrufer fällt automatisch auf die bestehende deterministische/regelbasierte
+Logik zurück. Kein kritischer Screen darf jemals auf Jev warten.
+
+---
+
 ## 🎣 3D-Köderanimation (Seite `Koeder3D`)
 
 Zeigt Kunstköder (Wobbler, Gummifisch am Jigkopf, Spinner, Blinker, Popper/Stickbait) als 3D-Animation mit echtem Laufverhalten (Jiggen, Faulenzen, Stop-and-Go, Twitchen, Walk the Dog).
@@ -653,7 +821,7 @@ die passende Android-Permission deklariert ist. `CAMERA`,
 - ⏳ Vercel bleibt bis zum Domain-Umzug produktiv (`vercel.json`/`api/[...path].mjs`)
 - ⚠️ **Zwei Vercel-Projekte:** `BACKEND_URL` (`bait-buddy.vercel.app`, Konto „Sebastian's projects“) ist wegen der Abrechnung gesperrt und steht auf PR #368. Merges deployt das Projekt im Konto `ssbedburg` (`VERCEL_BACKEND_URL`, per Deployment Protection gesperrt). Der Worker schaltet erst dorthin, wenn das Worker-Secret `VERCEL_PROTECTION_BYPASS` gesetzt ist (`backendTarget` in `cloudflare/worker.js`). Weist Vercel den Bypass-Wert ab (Redirect auf `vercel.com/sso-api` bzw. 401-HTML) oder stürzt die Function dort ab (Header `x-vercel-error`, z. B. `FUNCTION_INVOCATION_FAILED` bei fehlendem `SUPABASE_SERVICE_ROLE_KEY`), fällt der Worker für 5 Min. auf `BACKEND_URL` zurück (`isVercelFailure`) — ein falscher Wert oder ein kaputtes neues Backend legt die API also nicht lahm (am 2026-09-25 passiert, bevor es diesen Rückfall gab). Der Wert muss aus dem Projekt stammen, zu dem `VERCEL_BACKEND_URL` gehört. Symptom bei altem Backend: Features, die neue API-Felder brauchen (z. B. `is_superuser` → Admin-Bereich), fehlen trotz aktuellem Frontend. Prüfen: `/api/superadmin/stats` → 404 = altes Backend.
 - ⏳ Backend-Container vorbereitet: eigener Worker `baitbuddy-api` (`cloudflare/backend/`, Workflow `deploy-cloudflare-backend.yml`). Braucht Workers Paid Plan + Secrets; Umschalten über `BACKEND_URL` in der Root-`wrangler.toml` (Schritte in `docs/CLOUDFLARE_MIGRATION.md`). Neue Backend-Env-Variablen auch in `cloudflare/backend/containerEnv.js` eintragen.
-- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services) — einzige vom Betreiber freigegebene Ausnahme: Clerk als optionaler Zusatz-Login (siehe Auth-Architektur)
+- ❌ **Keine** weiteren externen Dienste/Backends (kein Render, keine zusätzlichen MCP-Services) — vom Betreiber freigegebene Ausnahmen: Clerk als optionaler Zusatz-Login (siehe Auth-Architektur) und TypeSafe/Jev als Decision-Layer (siehe „Jev Decision Layer", Entscheidung des Projektinhabers, 2026-09-25)
 
 > **Rate-Limiting-Store:** Das API-Rate-Limiting (`backend/src/middleware/rateLimit.js`)
 > nutzt optional **Vercel KV** (Upstash Redis, ioredis-kompatibel) als
