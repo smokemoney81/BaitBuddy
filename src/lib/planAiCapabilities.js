@@ -1,6 +1,7 @@
 // Was die KI je Tarif tatsächlich unterscheidet. Gespiegelt aus
 // backend/src/lib/personalizationEngine.js (contextBudget, sentenceRange) und
-// backend/src/middleware/rateLimit.js (Chat-Limit ohne Plan);
+// backend/src/middleware/rateLimit.js (Chat-Limit ohne Plan); das KI-Volumen
+// kommt zur Laufzeit vom Server (GET /api/ai/usage);
 // planAiCapabilities.test.js prüft, dass beide Seiten übereinstimmen.
 export const PLAN_TIERS = [
   { planId: 'free', tier: 'guest', label: 'Gast' },
@@ -29,9 +30,28 @@ export const FREE_CHAT_MESSAGES_PER_DAY = 5;
 // Stufe 0–3 steuert die Farbpunkte der Vergleichstabelle.
 const LEVEL = { guest: 0, basic: 1, pro: 2, ultimate: 3 };
 
-export function capabilityRows({ voiceRequiredPlanRank }) {
+// Server-Plan-ID je Stufe für das KI-Volumen (GET /api/ai/usage → plan_quotas).
+const QUOTA_KEY = { guest: 'free', basic: 'basic', pro: 'pro', ultimate: 'elite' };
+
+export function formatTokens(value) {
+  return Number(value || 0).toLocaleString('de-DE');
+}
+
+export function capabilityRows({ voiceRequiredPlanRank, tokenQuotas = null }) {
   const planRank = { guest: 0, basic: 1, pro: 2, ultimate: 3 };
+  // Das Monatsvolumen kommt vom Server (Quelle: aiTokenQuota.js); ohne Antwort
+  // bleibt die Zeile weg statt geschätzte Zahlen zu zeigen.
+  const volumeRow = tokenQuotas ? [{
+    id: 'volume',
+    label: 'KI-Volumen',
+    hint: 'Buddy-Tokens pro Monat für Chat, Voice-Chat, Vorlesen, Foto-Analyse und KI-Werkzeuge.',
+    cells: PLAN_TIERS.map(({ tier }) => ({
+      level: LEVEL[tier],
+      text: `${formatTokens(tokenQuotas[QUOTA_KEY[tier]])} / Monat`,
+    })),
+  }] : [];
   return [
+    ...volumeRow,
     {
       id: 'context',
       label: 'Kontext\u00ADtiefe',
@@ -69,10 +89,10 @@ export function capabilityRows({ voiceRequiredPlanRank }) {
     {
       id: 'chat',
       label: 'Chat-Limit',
-      hint: 'Nachrichten an den KI-Buddy pro Tag.',
+      hint: 'Nachrichten an den KI-Buddy pro Tag (zusätzlich zum KI-Volumen).',
       cells: PLAN_TIERS.map(({ tier }) => ({
         level: tier === 'guest' ? 0 : 3,
-        text: tier === 'guest' ? `${FREE_CHAT_MESSAGES_PER_DAY} Nachrichten/Tag` : 'Unbegrenzt',
+        text: tier === 'guest' ? `${FREE_CHAT_MESSAGES_PER_DAY} Nachrichten/Tag` : 'Kein Tageslimit',
       })),
     },
     {

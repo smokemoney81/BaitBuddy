@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { auth } from "@/api/auth";
-import { planMeetsRequirement } from "@/components/premium/planHierarchy";
+import React, { useState } from "react";
+import { usePlan } from "@/components/premium/PlanContext";
 import {
   Radio,
   Camera,
@@ -25,35 +24,12 @@ import PageTitle from "@/components/layout/PageTitle";
 
 export default function DevicesPage() {
   useFeatureTracking("geraete");
-  const [user, setUser] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await auth.me();
-        setUser(currentUser);
-
-        const planId = currentUser?.premium_plan_id || 'free';
-        const isPremium = planMeetsRequirement(planId, 'pro');
-
-        let isTrialActive = false;
-        if (currentUser?.trial_end_date) {
-          const now = new Date();
-          const trialEnd = new Date(currentUser.trial_end_date);
-          isTrialActive = now < trialEnd;
-        }
-
-        setHasAccess(isPremium || isTrialActive);
-      } catch (e) {
-        console.error("Fehler beim Laden der Benutzerdaten:", e);
-      }
-      setLoading(false);
-    };
-    loadUser();
-  }, []);
+  // Plan vom Server (inkl. Testphase, Pass und Admin-Schalter „alle Tools
+  // kostenlos“). Früher las die Seite premium_plan_id aus den Nutzer-Metadaten —
+  // dort steht der Plan nicht, echte Pro-Kunden sahen die Sperre.
+  const { hasFeature, loading } = usePlan();
+  const hasAccess = hasFeature('pro');
 
   const devices = [
     {
@@ -313,7 +289,6 @@ export default function DevicesPage() {
 
   return (
     <PremiumGuard
-      user={user}
       requiredPlan="pro"
       feature="Die Geräteintegration ist ein Pro-Feature"
     >

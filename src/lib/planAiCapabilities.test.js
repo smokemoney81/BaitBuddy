@@ -25,4 +25,11 @@ describe('planAiCapabilities – Spiegel der Backend-Tarifstufen', () => {
     const voice = capabilityRows({ voiceRequiredPlanRank: 1 }).find(r => r.id === 'voice');
     expect(voice.cells.map(c => c.text)).toEqual(['Nicht verfügbar', 'Verfügbar', 'Verfügbar', 'Verfügbar']);
   });
+
+  it('zeigt das KI-Volumen nur mit Server-Werten', () => {
+    expect(capabilityRows({ voiceRequiredPlanRank: 1 }).some(r => r.id === 'volume')).toBe(false);
+    const quotas = { free: 500, basic: 5000, pro: 12000, elite: 30000, friends: 40000 };
+    const volume = capabilityRows({ voiceRequiredPlanRank: 1, tokenQuotas: quotas }).find(r => r.id === 'volume');
+    expect(volume.cells.map(c => c.text)).toEqual(['500 / Monat', '5.000 / Monat', '12.000 / Monat', '30.000 / Monat']);
+  });
 });

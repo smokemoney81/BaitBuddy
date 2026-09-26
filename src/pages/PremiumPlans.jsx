@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle, ChevronRight, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { functions, premium } from "@/api/frontendClient";
+import { functions, premium, ai } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import {
   startGooglePlayPurchase,
@@ -10,12 +10,13 @@ import {
   restoreGooglePlayPurchases
 } from "@/components/premium/googlePlayBilling";
 import WebCheckoutButton from "@/components/premium/WebCheckoutButton";
+import AiVolumeCard from "@/components/premium/AiVolumeCard";
 import PageTitle from "@/components/layout/PageTitle";
 import { useBuddyPreferences } from "@/lib/BuddyPreferencesContext";
 import { DETAIL_OPTIONS } from "@/lib/buddyPreferences";
 import { useTool } from "@/hooks/useTool";
 import { getPlanLevel } from "@/components/premium/planHierarchy";
-import { PLAN_TIERS, capabilityRows } from "@/lib/planAiCapabilities";
+import { PLAN_TIERS, capabilityRows, formatTokens } from "@/lib/planAiCapabilities";
 import { SUPPORT_EMAIL } from "@/lib/supportContact";
 
 // Offener Stripe-Kauf, dessen Aktivierung noch nicht bestätigt ist. Zwischen
@@ -73,6 +74,7 @@ export default function PremiumPlans() {
   const [paymentMethods, setPaymentMethods] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPlanId, setSelectedPlanId] = useState('pro');
+  const [aiUsage, setAiUsage] = useState(null);
   const { buddy, saveBuddy } = useBuddyPreferences();
   const { getTool } = useTool();
 
@@ -161,10 +163,22 @@ export default function PremiumPlans() {
     }
   };
 
+  // KI-Volumen (Monatsstand + Volumen je Plan). Ein Fehler blendet nur die
+  // Volumen-Anzeige aus, die Seite bleibt voll nutzbar.
+  const loadAiUsage = async () => {
+    try {
+      const usage = await ai.usage();
+      if (usage?.ok) setAiUsage(usage);
+    } catch (error) {
+      console.error('[PremiumPlans] KI-Volumen konnte nicht geladen werden:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       const currentUser = await auth.me();
       setUser(currentUser);
+      loadAiUsage();
 
       const planStatusResponse = await functions.invoke('getPlanStatus');
       const planPayload = planStatusResponse?.data ?? planStatusResponse;
@@ -280,7 +294,7 @@ export default function PremiumPlans() {
       popular: false,
       features: [
         'Alles aus Free - komplett werbefrei',
-        'KI-Buddy Chat unbegrenzt - BaitBuddy',
+        'KI-Buddy Chat ohne Tageslimit (im KI-Volumen)',
         'KI-Foto-Analyse von Faengen',
         'Wetter 5 Tage + Wetter-Alarme',
         'Eigene Spots speichern & verwalten',
@@ -320,16 +334,16 @@ export default function PremiumPlans() {
       price: 36,
       icon: Crown,
       color: 'from-amber-500 to-orange-600',
-      description: 'Alles inklusive - jede Funktion ohne Limit',
+      description: 'Alles inklusive - jede Funktion, groesstes KI-Volumen',
       popular: false,
       features: [
-        'Alles aus Pro - jede Funktion ohne Einschraenkung',
+        'Alles aus Pro - jede Funktion freigeschaltet',
         'KI Voice Live Chat (nur Ultimate)',
         'Live-Bissanzeiger per Smartphone-Kamera',
         'KI-Kamera: Echtzeit-Fischerkennung',
         'CatchCam - KI-Analyse direkt vom Foto',
         'Weibliche KI-Stimme "Matilda" (ElevenLabs)',
-        'KI-Buddy Chat & Foto-Analyse unbegrenzt',
+        'KI-Buddy Chat & Foto-Analyse mit groesstem KI-Volumen',
         'KI-Fangprognosen & Gewaesseranalyse (Open-Meteo)',
         '3D-Koederfuehrung, AR-Gewaesser & AR-Knotenassistent',
         'Tiefenkarten, Wasseranalyse & KI-Koeder-Mischer',
@@ -378,7 +392,12 @@ export default function PremiumPlans() {
   const currentId = currentPlan?.id || 'free';
   const selected = plans.find(plan => plan.id === selectedPlanId) || tierPlans[2];
   const voiceTool = getTool('voice-buddy');
-  const rows = capabilityRows({ voiceRequiredPlanRank: getPlanLevel(voiceTool?.requires || 'basic') });
+  const rows = capabilityRows({
+    voiceRequiredPlanRank: getPlanLevel(voiceTool?.requires || 'basic'),
+    tokenQuotas: aiUsage?.plan_quotas || null,
+  });
+  // Volumen des gewählten Plans (Server-Wert, Schlüssel = Plan-ID).
+  const selectedQuota = aiUsage?.plan_quotas?.[selected.id];
   const isUltimateActive = getPlanLevel(currentId) >= getPlanLevel('elite');
 
   const selectPlan = (planId) => {
@@ -519,6 +538,9 @@ export default function PremiumPlans() {
           </section>
         )}
 
+        {/* Monatsstand des KI-Volumens */}
+        {user && <AiVolumeCard usage={aiUsage} />}
+
         {/* Ultimate-Hinweis */}
         {isUltimateActive ? (
           <section className="bb-ultimate-banner" aria-label="Ultimate aktiv">
@@ -533,7 +555,7 @@ export default function PremiumPlans() {
             <Crown size={40} aria-hidden="true" className="bb-ultimate-crown" />
             <span className="flex-1 min-w-0 text-left">
               <strong>Ultimate: alle Premium-KI-Tools</strong>
-              <span>Maximale Kontexttiefe, proaktive Tipps und jede Funktion ohne Limit.</span>
+              <span>Maximale Kontexttiefe, proaktive Tipps und das größte KI-Volumen.</span>
             </span>
             <ChevronRight size={26} aria-hidden="true" />
           </button>
@@ -581,6 +603,9 @@ export default function PremiumPlans() {
             <p className="mt-2 text-sm font-semibold text-emerald-400">Freundschafts-Rabatt: {formatPrice(discountEuro)} gespart</p>
           )}
           <ul className="bb-plan-features">
+            {typeof selectedQuota === 'number' && (
+              <li><Check size={16} aria-hidden="true" />KI-Volumen: {formatTokens(selectedQuota)} Buddy-Tokens pro Monat</li>
+            )}
             {selected.features.map(feature => (
               <li key={feature}><Check size={16} aria-hidden="true" />{feature}</li>
             ))}

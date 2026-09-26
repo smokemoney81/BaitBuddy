@@ -225,6 +225,8 @@ describe('GET /api/admin/users', () => {
     expect(res.body).toHaveLength(3);
     expect(res.body[0]).toMatchObject({
       email: expect.stringContaining('@baitbuddy.test'),
+      // Name kommt aus user_metadata (früher fälschlich aus app_metadata → immer leer).
+      full_name: expect.stringMatching(/^Angler \d+$/),
       premium_plan_id: 'free',
     });
     // Keine Rohdaten des Auth-Users nach aussen geben.

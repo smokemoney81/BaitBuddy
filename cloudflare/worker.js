@@ -32,9 +32,10 @@ const CRON_ROUTES = {
 // Vercel-Projekt) gesetzt ist, und schickt es als Header mit. Ohne Secret
 // bleibt BACKEND_URL das Ziel, und Entfernen des Secrets schaltet zurueck.
 //
-// Weist Vercel den Wert trotzdem ab (falsches Projekt, falsch kopiert), faellt
-// der Worker auf BACKEND_URL zurueck (siehe isVercelAuthRedirect) — ein
-// falscher Wert darf nie die ganze API auf die Vercel-Anmeldung umleiten.
+// Weist Vercel den Wert trotzdem ab (falsches Projekt, falsch kopiert) oder
+// stuerzt das neue Backend ab (z. B. fehlende Env-Variablen dort), faellt der
+// Worker auf BACKEND_URL zurueck (siehe isVercelFailure) — das neue Ziel darf
+// nie die ganze API lahmlegen.
 const VERCEL_REJECT_BACKOFF_MS = 5 * 60 * 1000;
 let vercelRejectedUntil = 0;
 
@@ -45,7 +46,8 @@ function fallbackTarget(env) {
 }
 
 export function backendTarget(env, now = Date.now()) {
-  const bypass = (env.VERCEL_PROTECTION_BYPASS || '').trim();
+  // VERCEL_PROTECTION: so wurde das Secret im Cloudflare-Dashboard angelegt.
+  const bypass = (env.VERCEL_PROTECTION_BYPASS || env.VERCEL_PROTECTION || '').trim();
   const vercelBase = (env.VERCEL_BACKEND_URL || '').replace(/\/+$/, '');
   if (bypass && vercelBase && now >= vercelRejectedUntil) {
     const hasFallback = Boolean((env.BACKEND_URL || '').trim());
@@ -54,9 +56,13 @@ export function backendTarget(env, now = Date.now()) {
   return fallbackTarget(env);
 }
 
-// Vercel beantwortet eine nicht freigegebene Anfrage mit 401 oder einem
-// Redirect auf https://vercel.com/sso-api — nie mit einer Antwort der App.
-export function isVercelAuthRedirect(res) {
+// Antworten, die nie von der App stammen:
+// - nicht freigegeben: 401 (kein JSON) oder Redirect auf https://vercel.com/sso-api
+// - Plattformfehler: Header x-vercel-error (FUNCTION_INVOCATION_FAILED beim
+//   Absturz der Function, DEPLOYMENT_NOT_FOUND …). Fehler der App selbst kommen
+//   als JSON aus Express und tragen diesen Header nicht.
+export function isVercelFailure(res) {
+  if (res.headers.get('x-vercel-error')) return true;
   if (res.status === 401 && (res.headers.get('server') || '').toLowerCase() === 'vercel'
     && !(res.headers.get('content-type') || '').includes('application/json')) return true;
   if (res.status < 300 || res.status >= 400) return false;
@@ -66,7 +72,7 @@ export function isVercelAuthRedirect(res) {
 
 function markVercelRejected() {
   vercelRejectedUntil = Date.now() + VERCEL_REJECT_BACKOFF_MS;
-  console.error('[backend] Vercel lehnt VERCEL_PROTECTION_BYPASS ab — nutze BACKEND_URL. Secret pruefen.');
+  console.error('[backend] VERCEL_BACKEND_URL nicht nutzbar (Bypass abgewiesen oder Function-Absturz) — nutze BACKEND_URL.');
 }
 
 // Nur fuer Tests.
@@ -97,7 +103,7 @@ export default {
       // Kopie vor dem ersten Versuch: der Body laesst sich nur einmal lesen.
       const retry = request.clone();
       const res = await fetch(proxyRequest(target, request, url));
-      if (!isVercelAuthRedirect(res)) return res;
+      if (!isVercelFailure(res)) return res;
       markVercelRejected();
       return fetch(proxyRequest(fallbackTarget(env), retry, url));
     }
@@ -121,7 +127,7 @@ export default {
       });
       const target = backendTarget(env);
       let res = await call(target);
-      if (target.canFallback && isVercelAuthRedirect(res)) {
+      if (target.canFallback && isVercelFailure(res)) {
         markVercelRejected();
         res = await call(fallbackTarget(env));
       }

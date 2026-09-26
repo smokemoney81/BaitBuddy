@@ -26,6 +26,7 @@ import { isJevBuddyActive, isJevVisionActive } from '../lib/jevClient.js';
 import { runBuddyContextShadow } from '../lib/jevShadow.js';
 import { resolveActiveContextFlags } from '../lib/jevBuddyContext.js';
 import { runVisionConfidenceShadow, resolveActiveConfidenceBand, classifyConfidenceBand } from '../lib/jevVisionConfidence.js';
+import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas } from '../lib/aiTokenQuota.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -342,12 +343,12 @@ ${buildActionPromptSection()}${context}`;
   return { ok: true, prompt: `${systemPrompt}\n\n${history}\n\nAntworte:` };
 }
 
-router.post('/ai/chat', requireAuth, checkChatRateLimit, async (req, res) => {
+router.post('/ai/chat', requireAuth, checkChatRateLimit, meterAiTokens('chat'), async (req, res) => {
   try {
     const built = await buildChatPrompt(req);
     if (!built.ok) return res.status(built.status).json(built.body);
 
-    const reply = await invokeLLM({ prompt: built.prompt });
+    const reply = await invokeLLM({ prompt: built.prompt, onUsage: req.aiTokens?.setUsage });
 
     const { action, cleanReply } = extractAction(reply);
 
@@ -391,7 +392,7 @@ router.post('/ai/chat', requireAuth, checkChatRateLimit, async (req, res) => {
 // vom LLM kommen, damit das Frontend satzweise vorlesen kann, BEVOR die ganze
 // Antwort fertig ist ("quasi live"). Am Ende wird der Aktions-Block aus dem
 // Volltext extrahiert und als 'done'-Event mit der bereinigten Antwort gesendet.
-router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, async (req, res) => {
+router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, meterAiTokens('chat'), async (req, res) => {
   // Client-Disconnect abfangen, um den Upstream-Stream abzubrechen.
   const abort = new AbortController();
   res.on('close', () => abort.abort());
@@ -419,16 +420,21 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, async (req, res)
   const send = (event, data) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
+  // Status bleibt beim Stream immer 200 — abgerechnet wird deshalb nur nach
+  // einer vollständigen Antwort (vor dem 'done'-Event), nie bei Stream-Fehlern.
+  if (req.aiTokens) req.aiTokens.deferred = true;
 
   try {
     const full = await invokeLLMStream({
       prompt: built.prompt,
       signal: abort.signal,
+      onUsage: req.aiTokens?.setUsage,
       onDelta: (delta) => send('delta', { text: delta }),
     });
 
     const { action, cleanReply } = extractAction(full);
     const finalReply = cleanReply || (action ? 'OK, mache das gleich!' : 'Entschuldige, ich konnte das nicht verstehen.');
+    await req.aiTokens?.charge();
     send('done', { ok: true, reply: finalReply, message: finalReply, action });
     res.end();
   } catch (e) {
@@ -445,7 +451,7 @@ router.post('/ai/chat/stream', requireAuth, checkChatRateLimit, async (req, res)
   }
 });
 
-router.post('/ai/analyze-catch', requireAuth, async (req, res) => {
+router.post('/ai/analyze-catch', requireAuth, meterAiTokens('vision'), async (req, res) => {
   try {
     const { image_base64, file_url } = req.body;
     let imageBase64 = image_base64 || file_url;
@@ -474,7 +480,7 @@ router.post('/ai/analyze-catch', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/analyze-photo', requireAuth, async (req, res) => {
+router.post('/analyze-photo', requireAuth, meterAiTokens('vision'), async (req, res) => {
   try {
     let imageBase64 = req.body.imageBase64 || req.body.image;
 
@@ -558,7 +564,7 @@ Regeln:
   }
 });
 
-router.post('/ai/evaluate-catch', requireAuth, async (req, res) => {
+router.post('/ai/evaluate-catch', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const { catch_data, context } = req.body;
     if (catch_data == null) {
@@ -575,7 +581,7 @@ router.post('/ai/evaluate-catch', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/ai/generate-catch-report', requireAuth, async (req, res) => {
+router.post('/ai/generate-catch-report', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const { period } = req.body;
     // Freitext-Periode validieren und begrenzen, bevor sie in den Prompt fließt.
@@ -600,7 +606,7 @@ const WMO = {
   95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'schweres Gewitter'
 };
 
-router.post('/ai/fishing-recommendation', requireAuth, async (req, res) => {
+router.post('/ai/fishing-recommendation', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const coords = parseCoordinates(req.body?.latitude, req.body?.longitude);
     if (!coords.ok) return res.status(400).json({ error: coords.error });
@@ -694,7 +700,10 @@ const DEFAULT_VOICE_ID = 'onwK4e9ZLuTAKqWW03F9';
 // ist wie Daniel im Free-Plan per API nutzbar.
 const FEMALE_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX';
 
-router.post('/ai/tts', requireAuth, async (req, res) => {
+// Vorlesen kostet nach Textlänge (ein Aufruf je Satz aus der Vorlese-Queue).
+const ttsCost = (req) => costFor('tts', { textLength: typeof req.body?.text === 'string' ? req.body.text.length : 0 });
+
+router.post('/ai/tts', requireAuth, meterAiTokens('tts', { cost: ttsCost }), async (req, res) => {
   const { text, voice } = req.body || {};
   // Typ prüfen: Ein Nicht-String (z. B. eine Zahl) ließ .trim() werfen → 500.
   if (typeof text !== 'string' || text.trim().length === 0) {
@@ -703,8 +712,8 @@ router.post('/ai/tts', requireAuth, async (req, res) => {
 
   // Premium Voice is granted by an active Ultimate plan OR a permanent,
   // server-owned level/purchase unlock. The client can only request a voice;
-  // it cannot claim ownership. Monthly quota consumption remains a separate
-  // server-side concern and will be enabled once production limits are set.
+  // it cannot claim ownership. The monthly volume is charged by meterAiTokens
+  // (aiTokenQuota.js) before this handler runs.
   let voiceUsed = voice === 'female' ? 'female' : 'male';
   if (voiceUsed === 'female') {
     const access = await resolveServerToolAccess({
@@ -728,7 +737,7 @@ router.post('/ai/tts', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/ai/fish-behavior-analysis', requireAuth, async (req, res) => {
+router.post('/ai/fish-behavior-analysis', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const { species, water_data = {}, air_pressure } = req.body;
     const coords = parseOptionalCoordinates(req.body.latitude, req.body.longitude);
@@ -824,7 +833,7 @@ function getOpenAIKey() {
     || null;
 }
 
-router.post('/ai/realtime-session', requireAuth, async (req, res) => {
+router.post('/ai/realtime-session', requireAuth, meterAiTokens('realtime'), async (req, res) => {
   const apiKey = getOpenAIKey();
   if (!apiKey) {
     console.warn('[AI] /ai/realtime-session: kein OpenAI-Key gefunden. Relevante Env-Variablen:',
@@ -922,7 +931,7 @@ router.post('/ai/realtime-session', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/ai/vision', requireAuth, async (req, res) => {
+router.post('/ai/vision', requireAuth, meterAiTokens('vision'), async (req, res) => {
   try {
     const { image_base64 } = req.body;
     if (typeof image_base64 !== 'string' || image_base64.length === 0) {
@@ -959,7 +968,7 @@ Antworte prägnant (3-5 Sätze), als würdest du einem Freund am Wasser helfen.`
 // ──────────────────────────────────────────────────────────────────────────────
 // Rezeptvorschläge nach Fang
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/fish-recipes', requireAuth, async (req, res) => {
+router.post('/ai/fish-recipes', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const { species, weight_g, length_cm, catch_date, keep } = req.body;
     if (!species) return res.status(400).json({ error: 'species erforderlich' });
@@ -1028,7 +1037,7 @@ Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
 // ──────────────────────────────────────────────────────────────────────────────
 // Ausrüstungserkennung per Foto
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/recognize-gear', requireAuth, async (req, res) => {
+router.post('/ai/recognize-gear', requireAuth, meterAiTokens('vision'), async (req, res) => {
   try {
     const { image_base64 } = req.body;
     if (typeof image_base64 !== 'string' || image_base64.length === 0) {
@@ -1083,7 +1092,7 @@ Antworte NUR mit dem JSON-Objekt, kein Markdown.`;
 // ──────────────────────────────────────────────────────────────────────────────
 // Ausrüstungswartungs-Empfehlungen
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/gear-maintenance-tips', requireAuth, async (req, res) => {
+router.post('/ai/gear-maintenance-tips', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const { gearItems = [] } = req.body;
     if (!Array.isArray(gearItems) || gearItems.length === 0) {
@@ -1138,7 +1147,7 @@ Antworte NUR mit dem JSON-Objekt.`;
 // ──────────────────────────────────────────────────────────────────────────────
 // Satellitenanalyse 2.0 — KI-gestützte Gewässerqualitätsanalyse
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/ai/satellite-analysis', requireAuth, async (req, res) => {
+router.post('/ai/satellite-analysis', requireAuth, meterAiTokens('tool'), async (req, res) => {
   try {
     const { latitude, longitude, spot_name = null } = req.body || {};
     const lat = parseFloat(latitude);
@@ -1270,6 +1279,17 @@ Antworte NUR mit dem JSON-Objekt.`;
       data_source: 'Open-Meteo + Anthropic Claude',
       fetched_at: new Date().toISOString(),
     });
+  } catch (e) {
+    return sendDbError(res, e);
+  }
+});
+
+// KI-Volumen des angemeldeten Nutzers: Monatsstand, Kosten je Werkzeug und
+// das Volumen aller Pläne (für die Plan-Übersicht; Quelle bleibt der Server).
+router.get('/ai/usage', requireAuth, async (req, res) => {
+  try {
+    const usage = await getTokenUsage(req.user);
+    return res.json({ ok: true, ...usage, costs: getTokenCosts(), plan_quotas: getTokenQuotas() });
   } catch (e) {
     return sendDbError(res, e);
   }

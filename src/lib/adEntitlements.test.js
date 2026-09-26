@@ -56,6 +56,13 @@ describe('getAdCapabilities', () => {
     }
   );
 
+  it('Admin-Schalter „Werbung aus“ schaltet jede Werbung ab, auch für Gäste', () => {
+    for (const [plan, authed] of [[null, false], ['free', true], ['basic', true]]) {
+      const caps = getAdCapabilities(plan, authed, { adsEnabled: false });
+      expect(caps).toMatchObject({ interstitialAds: false, nativeAds: false, bannerAds: false, rewardedAds: false, adFree: true });
+    }
+  });
+
   it('null-Plan (eingeloggt) wird als free behandelt', () => {
     const caps = getAdCapabilities(null, true);
     expect(caps.nativeAds).toBe(true);

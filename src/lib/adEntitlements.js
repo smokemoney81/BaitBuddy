@@ -53,6 +53,15 @@ export const AD_BLACKLIST_CONTEXTS = new Set([
   'checkout',
 ]);
 
+// Keine Werbung — für werbefreie Pläne und den Admin-Hauptschalter „Werbung aus“.
+const NO_ADS = Object.freeze({
+  interstitialAds: false,
+  nativeAds: false,
+  bannerAds: false,
+  rewardedAds: false,
+  adFree: true,
+});
+
 /**
  * Berechnet Ad-Capabilities aus Plan-ID und Auth-Status.
  * Sicherheitsregel: Diese Funktion darf niemals vom Client überschrieben werden.
@@ -60,10 +69,15 @@ export const AD_BLACKLIST_CONTEXTS = new Set([
  *
  * @param {string|null} planId — Plan-ID vom Backend
  * @param {boolean} isAuthenticated — ob ein bb_token vorhanden ist
+ * @param {{ adsEnabled?: boolean }} [options] — adsEnabled=false: Admin hat Werbung für alle abgeschaltet
  * @returns {AdCapabilities}
  */
-export function getAdCapabilities(planId, isAuthenticated) {
+export function getAdCapabilities(planId, isAuthenticated, { adsEnabled = true } = {}) {
   const id = planId ?? 'free';
+
+  if (!adsEnabled) {
+    return { ...NO_ADS, tier: 'disabled' };
+  }
 
   // Gast (kein Token) → nur Interstitials
   if (!isAuthenticated) {
@@ -80,14 +94,7 @@ export function getAdCapabilities(planId, isAuthenticated) {
   // Pro / Ultimate / Friends / Trial / Pass → vollständig werbefrei
   const adFreePlans = new Set(['pro', 'elite', 'ultimate', 'friends', 'friends_monthly', 'trial_10_10']);
   if (adFreePlans.has(id)) {
-    return {
-      interstitialAds: false,
-      nativeAds: false,
-      bannerAds: false,
-      rewardedAds: false,
-      adFree: true,
-      tier: 'premium',
-    };
+    return { ...NO_ADS, tier: 'premium' };
   }
 
   // Basic / Free (eingeloggt ohne bezahlten Plan) → dezente Werbung

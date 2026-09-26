@@ -35,7 +35,7 @@ export default function FishingRecommendationCard() {
       toast.error(e?.status === 401
         ? "Bitte melde dich an, um die Empfehlung zu nutzen."
         : e?.status === 429
-          ? "Tageslimit erreicht. Bitte spaeter erneut versuchen."
+          ? (e?.data?.error || "Limit erreicht. Bitte spaeter erneut versuchen.")
           : "Fehler bei der Analyse. Bitte spaeter erneut versuchen.");
     } finally {
       setLoading(false);

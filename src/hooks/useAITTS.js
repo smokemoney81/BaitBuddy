@@ -1,15 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { usePlan } from '@/components/premium/PlanContext';
-import { planMeetsRequirement } from '@/components/premium/planHierarchy';
 import { speakWithElevenLabs, cancelElevenLabs } from '@/components/utils/elevenLabsTTS';
 
 export function useAITTS() {
-  const { plan } = usePlan();
+  const { hasFeature } = usePlan();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef(null);
 
-  const planId = plan?.id || 'free';
-  const isPremiumVoice = planMeetsRequirement(planId, 'elite');
+  const isPremiumVoice = hasFeature('elite');
 
   const stop = useCallback(() => {
     cancelElevenLabs();

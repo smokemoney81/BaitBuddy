@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.js';
 import { requireAuth, requireSuperuser } from '../middleware/auth.js';
 import { listAllUsers } from '../lib/adminUsers.js';
 import { resolvePlan } from '../lib/planResolver.js';
+import { assignPlan } from '../lib/planAssignment.js';
+import { getAppSettings, updateAppSettings } from '../lib/appSettings.js';
 import { sendDbError } from '../lib/errorResponse.js';
 import { getMailTransporter, mailFrom, supportEmail, escapeHtml, textToHtml } from '../lib/mailer.js';
 
@@ -444,6 +446,93 @@ function mailRecipients(users) {
   }
   return out;
 }
+
+// ── Nutzer & Pläne ──────────────────────────────────────────────────────────
+// Alle Konten mit Anmeldedaten und dem Plan, der gerade tatsächlich gilt
+// (resolvePlan: Abo, Trial oder Pass). Daneben steht der gespeicherte Abo-Plan,
+// damit sichtbar ist, warum ein Nutzer z. B. trotz Basic-Abo Ultimate hat.
+// Bewusst schmal: keine Tokens, Identitäten oder rohen Metadaten.
+function toSuperadminUser(user, now) {
+  const meta = user.user_metadata || {};
+  const app = user.app_metadata || {};
+  const plan = resolvePlan(user, now);
+  const providers = Array.isArray(app.providers) && app.providers.length
+    ? app.providers
+    : (app.provider ? [app.provider] : []);
+  return {
+    id: user.id,
+    email: user.email || '',
+    full_name: meta.full_name || meta.nickname || '',
+    created_at: user.created_at || null,
+    last_sign_in_at: user.last_sign_in_at || null,
+    email_confirmed: Boolean(user.email_confirmed_at || user.confirmed_at),
+    providers,
+    plan: {
+      id: plan.effectiveId,
+      source: plan.source,
+      expires_at: plan.expiresAt,
+    },
+    subscription: {
+      id: app.premium_plan_id || 'free',
+      expires_at: app.premium_expires_at || null,
+      payment_method: app.premium_payment_method || null,
+      assigned_by: app.premium_assigned_by || null,
+    },
+  };
+}
+
+function byLastSignIn(a, b) {
+  // Zuletzt angemeldete zuerst, nie angemeldete ans Ende (nach Registrierung).
+  const la = a.last_sign_in_at || '';
+  const lb = b.last_sign_in_at || '';
+  if (la !== lb) return lb.localeCompare(la);
+  return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+}
+
+router.get('/superadmin/users', safe(async (req, res) => {
+  const { users, error } = await listAllUsers(supabase);
+  if (error) return sendDbError(res, error);
+  const now = new Date();
+  const list = users.map((u) => toSuperadminUser(u, now)).sort(byLastSignIn);
+  return res.json({ total: list.length, users: list });
+}));
+
+router.post('/superadmin/users/:id/plan', safe(async (req, res) => {
+  const { plan_id, duration_days } = req.body || {};
+  const result = await assignPlan({
+    targetUserId: req.params.id,
+    planId: plan_id,
+    durationDays: duration_days,
+    assignedBy: req.user.email,
+  });
+  if (result.error) return sendDbError(res, result.error);
+  if (result.status !== 200) return res.status(result.status).json(result.body);
+  return res.json({ ...result.body, user: toSuperadminUser(result.user, new Date()) });
+}));
+
+// ── App-Schalter ────────────────────────────────────────────────────────────
+// Werbung an/aus und „alle Tools kostenlos“ für alle Nutzer (lib/appSettings.js).
+router.get('/superadmin/settings', safe(async (req, res) => {
+  return res.json(await getAppSettings({ fresh: true }));
+}));
+
+router.patch('/superadmin/settings', safe(async (req, res) => {
+  const patch = {};
+  for (const key of ['ads_enabled', 'all_tools_free']) {
+    if (key in (req.body || {})) {
+      if (typeof req.body[key] !== 'boolean') return res.status(400).json({ error: `${key} muss true oder false sein` });
+      patch[key] = req.body[key];
+    }
+  }
+  if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Keine Einstellung angegeben' });
+  const { settings, error } = await updateAppSettings(patch, req.user.email);
+  if (error) {
+    console.error('[superadmin] Einstellungen speichern fehlgeschlagen:', error.message || error);
+    return res.status(503).json({ error: 'Einstellungen konnten nicht gespeichert werden (Tabelle app_config fehlt? Migrationen prüfen).' });
+  }
+  console.log(`[superadmin] ${req.user.email} setzt App-Schalter`, patch);
+  return res.json(settings);
+}));
 
 router.get('/superadmin/mail/status', safe(async (req, res) => {
   const { users, error } = await listAllUsers(supabase);

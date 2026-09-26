@@ -1,10 +1,15 @@
-// Ad Remote Config — wird von /api/ads/config geladen und 1h gecacht.
-// Änderungen am Werbemodell ohne App-Update möglich.
+// Ad Remote Config — wird von /api/ads/config geladen und 5 Min. gecacht.
+// Änderungen am Werbemodell ohne App-Update möglich. `ads_enabled` ist der
+// Hauptschalter aus dem Admin-Bereich (Werbung für alle aus).
+import { timeoutSignal } from '@/lib/abortCompat';
 
 const CACHE_KEY = 'bb_ad_config';
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 Stunde
+// Kurz, damit „Werbung aus“ im Admin-Bereich zügig bei allen ankommt.
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export const DEFAULT_AD_CONFIG = {
+  ads_enabled: true,
+
   guest_interstitial_enabled: true,
   guest_interstitial_cooldown_s: 120,
   guest_interstitial_duration_s: 30,
@@ -63,7 +68,7 @@ export async function loadAdConfig() {
   _fetchPromise = (async () => {
     try {
       const res = await fetch('/api/ads/config', {
-        signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined,
+        signal: timeoutSignal(4000),
       });
       if (res.ok) {
         const data = await res.json();

@@ -11,6 +11,7 @@ import { sendDbError } from '../lib/errorResponse.js';
 import { parseCoordinates } from '../lib/coordinates.js';
 import { fetchWithTimeout } from '../lib/fetchWithTimeout.js';
 import { listAllUsers, toAdminUserSummary } from '../lib/adminUsers.js';
+import { getAppSettings } from '../lib/appSettings.js';
 
 const router = Router();
 
@@ -311,6 +312,13 @@ router.post('/user/sessions/start', requireAuth, async (req, res) => {
 
 router.post('/user/sessions/:id/end', requireAuth, async (req, res) => {
   return res.json({ ok: true });
+});
+
+// Globale Schalter aus dem Admin-Bereich (öffentlich, auch für Gäste):
+// Werbung an/aus und „alle Tools kostenlos“. Frontend: src/lib/appSettings.js.
+router.get('/app/settings', async (_req, res) => {
+  const { ads_enabled, all_tools_free } = await getAppSettings();
+  res.json({ ads_enabled, all_tools_free });
 });
 
 // Lieferte bis hierher eine fest verdrahtete leere Liste — die

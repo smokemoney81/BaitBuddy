@@ -90,7 +90,7 @@ export default function TrialOfferPopup({ currentPlan, onPurchaseSuccess }) {
         </div>
 
         <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-2 text-sm text-gray-300">
-          <div>KI-Buddy Chat unbegrenzt</div>
+          <div>KI-Buddy Chat ohne Tageslimit</div>
           <div>KI-Foto-Analyse aller Fänge</div>
           <div>Gewässeranalyse mit Messwerten</div>
           <div>Fangprognosen</div>

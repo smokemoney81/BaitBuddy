@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js';
 import { resolvePlan, planRank } from './planResolver.js';
 import { resolveToolAccess } from './entitlementResolver.js';
+import { isAllToolsFree } from './appSettings.js';
 
 const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/;
 
@@ -9,8 +10,8 @@ const TOOL_ID_PATTERN = /^[a-z0-9_-]+$/;
  * supply an entitlement flag; only an active Premium plan or a non-revoked
  * server-owned ledger entry can make a request eligible.
  *
- * Usage limits intentionally remain a separate concern. Callers may pass a
- * server-defined limit and current usage when quota enforcement is introduced.
+ * The monthly AI volume (Buddy-Tokens) is enforced separately by
+ * meterAiTokens in aiTokenQuota.js.
  *
  * `requiredPlanRank` (planResolver.PLAN_RANK) limits the plan path to a minimum
  * tier, e.g. the female voice is Ultimate-only (rank 3). Basic/Pro then count as
@@ -47,7 +48,8 @@ export async function resolveServerToolAccess({ user, toolId, requiredPlanRank =
   }
 
   const { isActive, effectiveId } = resolvePlan(user);
-  const premiumActive = isActive && planRank(effectiveId) >= requiredPlanRank;
+  // Modus „alle Tools kostenlos“ (Admin-Bereich) zählt wie ein passender Plan.
+  const premiumActive = (isActive && planRank(effectiveId) >= requiredPlanRank) || await isAllToolsFree();
   return resolveToolAccess({
     premiumActive,
     permanentUnlock: Boolean(permanentUnlock),

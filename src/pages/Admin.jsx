@@ -2,15 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  BarChart3, MessageSquare, Trophy, LifeBuoy, Mail, Trash2, RotateCcw, Loader2, ShieldAlert, Send, Users, Crown, Fish,
+  BarChart3, MessageSquare, Trophy, LifeBuoy, Mail, Trash2, RotateCcw, Loader2, ShieldAlert, Send, Users, Crown, Fish, Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import PageTitle from "@/components/layout/PageTitle";
 import { auth } from "@/api/auth";
 import { superAdmin } from "@/api/frontendClient";
 import { TOOLS } from "@/lib/toolRegistry";
+import { publishAppSettings } from "@/lib/appSettings";
 
 // Admin-Bereich des Superusers. Die Oberfläche blendet sich für alle anderen
 // aus; die eigentliche Sperre sitzt serverseitig (requireSuperuser).
@@ -523,6 +526,250 @@ function TicketsAdmin() {
   );
 }
 
+// ── Nutzer & Pläne ─────────────────────────────────────────────────────────
+// Alle Konten aus /api/superadmin/users. „Plan" ist der Plan, der gerade gilt
+// (Abo, Testphase oder Pass); weicht das gespeicherte Abo davon ab, steht es
+// daneben — sonst wäre nicht zu erkennen, warum eine Zuweisung scheinbar nicht
+// greift (ein laufender Pass/Trial überdeckt ein kleineres Abo).
+const ASSIGN_PLANS = ["basic", "pro", "elite", "friends_monthly", "friends"];
+const ASSIGN_DAYS = [7, 30, 90, 180, 365];
+const USERS_PAGE = 50;
+const PROVIDER_LABELS = { email: "E-Mail", google: "Google", apple: "Apple" };
+const PLAN_SOURCE = { subscription: "", trial: "Testphase", premium_pass: "Pass" };
+
+function planText(plan) {
+  const label = PLAN_LABELS[plan.id] || plan.id;
+  if (plan.id === "free") return label;
+  const source = PLAN_SOURCE[plan.source];
+  const until = plan.expires_at ? `bis ${formatDate(plan.expires_at)}` : "ohne Ablauf";
+  return [label, source, until].filter(Boolean).join(" · ");
+}
+
+function PlanAssign({ user, onAssigned }) {
+  const [planId, setPlanId] = useState(ASSIGN_PLANS.includes(user.subscription.id) ? user.subscription.id : "basic");
+  const [days, setDays] = useState(30);
+  const [saving, setSaving] = useState(false);
+  const revoke = planId === "free";
+
+  const save = async () => {
+    const who = user.email || user.full_name;
+    const question = revoke
+      ? `Abo von ${who} entziehen? Ein laufender Pass oder eine Testphase bleibt bestehen.`
+      : `${PLAN_LABELS[planId]} für ${days} Tage an ${who} vergeben? Die Laufzeit beginnt jetzt.`;
+    if (!window.confirm(question)) return;
+    setSaving(true);
+    try {
+      const res = await superAdmin.assignPlan(user.id, planId, days);
+      onAssigned(res.user);
+      toast.success(revoke ? "Abo entzogen" : `${PLAN_LABELS[planId]} vergeben`);
+    } catch (e) {
+      toast.error(errorText(e, "Zuweisung fehlgeschlagen"));
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 min-w-0">
+      <select value={planId} onChange={e => setPlanId(e.target.value)} className="bb-admin-select flex-1 min-w-0 basis-36" aria-label="Plan">
+        {ASSIGN_PLANS.map(id => <option key={id} value={id}>{PLAN_LABELS[id]}</option>)}
+        <option value="free">Abo entziehen</option>
+      </select>
+      <select value={days} onChange={e => setDays(Number(e.target.value))} className="bb-admin-select" aria-label="Laufzeit" disabled={revoke}>
+        {ASSIGN_DAYS.map(d => <option key={d} value={d}>{d} Tage</option>)}
+      </select>
+      <button type="button" className="bb-action" onClick={save} disabled={saving}>
+        {saving ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Crown size={16} aria-hidden="true" />}
+        Speichern
+      </button>
+    </div>
+  );
+}
+
+function UserRow({ user, onAssigned }) {
+  const [open, setOpen] = useState(false);
+  const providers = user.providers.map(p => PROVIDER_LABELS[p] || p).join(", ") || "unbekannt";
+  const subscriptionDiffers = user.subscription.id !== "free" && user.subscription.id !== user.plan.id;
+
+  return (
+    <li className="bb-admin-ticket min-w-0">
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-100 break-all">{user.full_name || user.email}</h3>
+          {user.full_name && <p className="text-xs bb-muted break-all">{user.email}</p>}
+        </div>
+        <span className={`shrink-0 text-xs font-semibold${user.plan.id === "free" ? " bb-muted" : ""}`} style={user.plan.id === "free" ? undefined : { color: "var(--bb-cyan)" }}>
+          {PLAN_LABELS[user.plan.id] || user.plan.id}
+        </span>
+      </div>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs [&>dd]:break-words">
+        <dt className="bb-muted">Letzter Login</dt><dd className="text-slate-200">{user.last_sign_in_at ? formatDate(user.last_sign_in_at) : "noch nie"}</dd>
+        <dt className="bb-muted">Registriert</dt><dd className="text-slate-200">{formatDate(user.created_at)}{user.email_confirmed ? "" : " · E-Mail unbestätigt"}</dd>
+        <dt className="bb-muted">Anmeldung über</dt><dd className="text-slate-200">{providers}</dd>
+        <dt className="bb-muted">Plan</dt><dd className="text-slate-200">{planText(user.plan)}</dd>
+        {subscriptionDiffers && (
+          <><dt className="bb-muted">Abo</dt><dd className="text-slate-200">{planText({ ...user.subscription, source: "subscription" })}</dd></>
+        )}
+        {user.subscription.payment_method === "admin" && user.subscription.assigned_by && (
+          <><dt className="bb-muted">Vergeben von</dt><dd className="text-slate-200 break-all">{user.subscription.assigned_by}</dd></>
+        )}
+      </dl>
+      {open ? (
+        <PlanAssign user={user} onAssigned={(next) => { onAssigned(next); setOpen(false); }} />
+      ) : (
+        <button type="button" className="bb-admin-range self-start" onClick={() => setOpen(true)}>Plan zuweisen</button>
+      )}
+    </li>
+  );
+}
+
+function UsersAdmin() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [visible, setVisible] = useState(USERS_PAGE);
+
+  useEffect(() => {
+    superAdmin.users()
+      .then(res => setData(Array.isArray(res?.users) ? res.users : []))
+      .catch(e => setError(errorText(e, "Nutzer konnten nicht geladen werden")));
+  }, []);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (data || []).filter(u => {
+      if (filter === "paid" && u.plan.id === "free") return false;
+      if (filter === "free" && u.plan.id !== "free") return false;
+      return !q || u.email.toLowerCase().includes(q) || u.full_name.toLowerCase().includes(q);
+    });
+  }, [data, query, filter]);
+
+  useEffect(() => { setVisible(USERS_PAGE); }, [query, filter]);
+
+  const replace = (next) => setData(list => list.map(u => (u.id === next.id ? next : u)));
+  const filters = [["all", "Alle"], ["paid", "Mit Plan"], ["free", "Kostenlos"]];
+
+  return (
+    <section className="bb-card">
+      <div className="bb-section-head">
+        <h2 className="bb-section-title"><Users size={20} aria-hidden="true" />Nutzer</h2>
+        {data && <span className="text-xs bb-muted">{fmt(shown.length)} von {fmt(data.length)}</span>}
+      </div>
+      <div className="relative mb-2">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        <Input
+          type="search"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="E-Mail oder Name suchen"
+          aria-label="Nutzer suchen"
+          className="bg-gray-800/50 border-gray-700 text-white"
+          style={{ paddingLeft: "2.25rem" }}
+        />
+      </div>
+      <div className="flex gap-1 mb-3" role="group" aria-label="Nutzer filtern">
+        {filters.map(([value, label]) => (
+          <button key={value} type="button" className={`bb-admin-range${filter === value ? " is-active" : ""}`} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>
+        ))}
+      </div>
+      {error ? <Empty>{error}</Empty> : !data ? <Busy /> : shown.length === 0 ? <Empty>Keine Nutzer in dieser Auswahl.</Empty> : (
+        <>
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">
+            {shown.slice(0, visible).map(user => <UserRow key={user.id} user={user} onAssigned={replace} />)}
+          </ul>
+          {shown.length > visible && (
+            <button type="button" className="bb-action w-full mt-3" onClick={() => setVisible(v => v + USERS_PAGE)}>
+              Weitere {Math.min(USERS_PAGE, shown.length - visible)} anzeigen
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+// ── App-Schalter ───────────────────────────────────────────────────────────
+// Gelten sofort für alle Nutzer (Server-Cache 30 s, Werbe-Konfiguration im
+// Browser bis 5 Min.). Gespeichert in app_config (lib/appSettings.js).
+const APP_SWITCHES = [
+  {
+    key: "ads_enabled",
+    title: "Werbung anzeigen",
+    on: "Werbung läuft wie im Tarif vorgesehen (Gäste, Kostenlos, Basic).",
+    off: "Keine Werbung für niemanden.",
+  },
+  {
+    key: "all_tools_free",
+    title: "Alle Tools kostenlos",
+    on: "Jede Funktion ist für alle freigeschaltet, auch ohne Plan. Das KI-Tageslimit für kostenlose Konten entfällt.",
+    off: "Funktionen richten sich nach dem gebuchten Plan.",
+    confirmOn: "Alle Tools für alle Nutzer freischalten? Das gilt, bis du es wieder ausschaltest.",
+  },
+];
+
+function AppSettingsAdmin() {
+  const [settings, setSettings] = useState(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState("");
+
+  useEffect(() => {
+    superAdmin.settings()
+      .then(setSettings)
+      .catch(e => setError(errorText(e, "Einstellungen konnten nicht geladen werden")));
+  }, []);
+
+  const toggle = async (sw, value) => {
+    if (value && sw.confirmOn && !window.confirm(sw.confirmOn)) return;
+    setSaving(sw.key);
+    try {
+      const next = await superAdmin.updateSettings({ [sw.key]: value });
+      setSettings(next);
+      publishAppSettings(next);
+      toast.success(`${sw.title}: ${value ? "an" : "aus"}`);
+    } catch (e) {
+      toast.error(errorText(e, "Speichern fehlgeschlagen"));
+    }
+    setSaving("");
+  };
+
+  return (
+    <section className="bb-card">
+      <div className="bb-section-head">
+        <h2 className="bb-section-title"><SlidersHorizontal size={20} aria-hidden="true" />App-Schalter</h2>
+      </div>
+      {error ? <Empty>{error}</Empty> : !settings ? <Busy /> : (
+        <>
+          <ul className="grid gap-3">
+            {APP_SWITCHES.map(sw => {
+              const value = settings[sw.key] === true;
+              return (
+                <li key={sw.key} className="bb-admin-item items-center justify-between">
+                  <div className="min-w-0">
+                    <p id={`switch-${sw.key}`} className="text-sm font-semibold text-slate-100">{sw.title}</p>
+                    <p className="text-xs bb-muted">{value ? sw.on : sw.off}</p>
+                  </div>
+                  <Switch
+                    className="bb-switch"
+                    checked={value}
+                    disabled={saving === sw.key}
+                    onCheckedChange={(next) => toggle(sw, next)}
+                    aria-labelledby={`switch-${sw.key}`}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          {settings.updated_at && (
+            <p className="text-xs bb-muted mt-3">
+              Zuletzt geändert {formatDate(settings.updated_at)}{settings.updated_by ? ` von ${settings.updated_by}` : ""}.
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 // ── Rundmail ───────────────────────────────────────────────────────────────
 function BroadcastMail() {
   const [status, setStatus] = useState(null);
@@ -626,16 +873,20 @@ export default function Admin() {
 
   return (
     <div className="bb-page">
-      <PageTitle title="Admin Bereich" subtitle="Statistik, Moderation und Support" />
+      <PageTitle title="Admin Bereich" subtitle="Statistik, Nutzer, Moderation und Support" />
       <Tabs defaultValue="stats" className="w-full min-w-0">
         <TabsList className="flex w-full justify-start overflow-x-auto scrollbar-hide">
           <TabsTrigger value="stats">Statistik</TabsTrigger>
+          <TabsTrigger value="users">Nutzer</TabsTrigger>
+          <TabsTrigger value="app">App</TabsTrigger>
           <TabsTrigger value="community">Community</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
           <TabsTrigger value="mail">Rundmail</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-4"><Statistics /></TabsContent>
+        <TabsContent value="users" className="mt-4"><UsersAdmin /></TabsContent>
+        <TabsContent value="app" className="mt-4"><AppSettingsAdmin /></TabsContent>
         <TabsContent value="community" className="mt-4"><CommunityAdmin /></TabsContent>
         <TabsContent value="events" className="mt-4"><EventsAdmin /></TabsContent>
         <TabsContent value="tickets" className="mt-4"><TicketsAdmin /></TabsContent>
