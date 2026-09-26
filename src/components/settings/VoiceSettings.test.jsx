@@ -64,7 +64,7 @@ describe('VoiceSettings – KI-Buddy-Stimme (Ultimate-Gate)', () => {
     expect(femaleOption).toHaveAttribute('aria-checked', 'false');
     expect(localStorage.getItem('buddy-tts-voice')).not.toBe('female');
     // Upgrade-Hinweis wird angezeigt.
-    expect(screen.getByText('Die weibliche Stimme ist im Ultimate-Plan enthalten.')).toBeInTheDocument();
+    expect(screen.getByText(/Premium-Stimmen \(Daniel und Matilda\) sind im Ultimate-Plan enthalten/)).toBeInTheDocument();
   });
 
   it('erlaubt die weibliche Stimme mit Ultimate-Plan und speichert die Wahl', async () => {
@@ -77,7 +77,7 @@ describe('VoiceSettings – KI-Buddy-Stimme (Ultimate-Gate)', () => {
     expect(femaleOption).toHaveAttribute('aria-checked', 'true');
     expect(localStorage.getItem('buddy-tts-voice')).toBe('female');
     // Ohne Ultimate-Sperre gibt es keinen Upgrade-Hinweis.
-    expect(screen.queryByText('Die weibliche Stimme ist im Ultimate-Plan enthalten.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Premium-Stimmen \(Daniel und Matilda\) sind im Ultimate-Plan enthalten/)).not.toBeInTheDocument();
   });
 
   it('setzt die Auswahl auf Standard zurück, wenn der Ultimate-Plan wegfällt', async () => {

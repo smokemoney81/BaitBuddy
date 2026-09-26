@@ -3,6 +3,7 @@ import { functions } from "@/api/frontendClient";
 import { planMeetsRequirement, getPlanLevel } from './planHierarchy';
 import { startGooglePlayReconciliation } from './googlePlayBilling';
 import { loadAppSettings, APP_SETTINGS_EVENT } from '@/lib/appSettings';
+import { setVoiceTier } from "@/lib/ttsVoice";
 
 const PlanContext = createContext();
 
@@ -89,6 +90,11 @@ export function PlanProvider({ children }) {
 
   const basePlanLevel = getPlanLevel(plan?.id || 'free');
   const planLevel = allToolsFree ? Math.max(basePlanLevel, getPlanLevel('friends')) : basePlanLevel;
+
+  // Sprachausgabe: Premium-Stimme ab Ultimate, darunter die Gerätestimme.
+  useEffect(() => {
+    setVoiceTier(planLevel >= getPlanLevel('elite') ? 'premium' : 'browser');
+  }, [planLevel]);
 
   return (
     <PlanContext.Provider value={{ plan, loading, hasFeature, planLevel, allToolsFree, reload: loadPlan }}>

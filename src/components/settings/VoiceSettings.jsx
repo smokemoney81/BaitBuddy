@@ -211,7 +211,10 @@ export default function VoiceSettings() {
 
           {!hasUltimate && (
             <div className="flex items-center justify-between gap-2 text-xs text-gray-400 bg-gray-800/50 p-3 rounded-lg">
-              <span>Die weibliche Stimme ist im Ultimate-Plan enthalten.</span>
+              <span>
+                Dein Plan spricht mit der schnellen Gerätestimme. Die natürlichen
+                Premium-Stimmen (Daniel und Matilda) sind im Ultimate-Plan enthalten.
+              </span>
               <Button
                 type="button"
                 size="sm"

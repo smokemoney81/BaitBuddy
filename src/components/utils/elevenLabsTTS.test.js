@@ -235,3 +235,70 @@ describe('createSpeechQueue – satzweise, pipelined Wiedergabe', () => {
     newQ.cancel();
   });
 });
+
+describe('Stimmen-Stufe nach Plan', () => {
+  let spoken;
+  class FakeUtterance {
+    constructor(text) { this.text = text; }
+  }
+  beforeEach(async () => {
+    spoken = [];
+    vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance);
+    vi.stubGlobal('speechSynthesis', {
+      speak: (u) => { spoken.push(u); },
+      cancel: vi.fn(),
+      getVoices: () => [{ lang: 'de-DE', localService: true, name: 'Deutsch' }],
+    });
+  });
+  afterEach(async () => {
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('browser');
+  });
+
+  it('Basic/Pro (browser) sprechen mit der Gerätestimme ohne Server-Aufruf', async () => {
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('browser');
+    const p = speakWithFallback('Hallo Angler', { voiceEnabled: true });
+    await tick();
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(spoken).toHaveLength(1);
+    expect(spoken[0].lang).toBe('de-DE');
+    spoken[0].onend();
+    await p;
+  });
+
+  it('Ultimate (premium) nutzt die Server-Stimme', async () => {
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('premium');
+    const p = speakWithFallback('Hallo Angler', { voiceEnabled: true });
+    await tick();
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(spoken).toHaveLength(0);
+    lastAudio.onended();
+    await p;
+  });
+
+  it('fällt bei 403 premium_voice_required auf die Gerätestimme zurück und bleibt dort', async () => {
+    const { setVoiceTier, getVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('premium');
+    invokeMock.mockRejectedValueOnce(Object.assign(new Error('HTTP 403'), { status: 403, data: { code: 'premium_voice_required' } }));
+    const p = speakWithFallback('Hallo', { voiceEnabled: true });
+    await tick();
+    expect(spoken).toHaveLength(1);
+    expect(getVoiceTier()).toBe('browser');
+    spoken[0].onend();
+    await p;
+  });
+
+  it('Satz-Queue spricht im Browser-Modus satzweise mit der Gerätestimme', async () => {
+    const q = createSpeechQueue();
+    q.push('Das ist der erste lange Satz hier. Und das ist der zweite lange Satz.');
+    q.flush();
+    await tick();
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(spoken).toHaveLength(1);
+    spoken[0].onend();
+    await tick(); await tick();
+    expect(spoken).toHaveLength(2);
+  });
+});
