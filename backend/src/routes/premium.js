@@ -262,6 +262,15 @@ const CHECKOUT_PLANS = {
   friends_monthly: { name: 'Freundschaft Monatlich', amountCents: 3600 },
 };
 
+const PLAY_PRODUCTS = {
+  baitbuddy_basic_monthly: 'basic',
+  baitbuddy_pro_monthly: 'pro',
+  baitbuddy_ultimate_monthly: 'elite',
+  baitbuddy_friends_yearly: 'friends',
+  baitbuddy_friends_monthly: 'friends_monthly',
+  baitbuddy_trial_10_10: 'trial_10_10',
+};
+
 // Fulfillment für Credit-Topup-Käufe (Stripe). Idempotent über die
 // Session-ID als request_id: addTopupCredits/add_topup_credits lehnt einen
 // bereits verbuchten request_id-Wert ab (Teilauftrag 1), ein doppelt
@@ -461,7 +470,7 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   if (!plan_id) {
     return res.status(400).json({ error: 'plan_id erforderlich' });
   }
-  if (!CHECKOUT_PLANS[plan_id] && !(plan_id in PLAN_RANK)) {
+  if (!CHECKOUT_PLANS[plan_id] && plan_id !== 'trial_10_10') {
     return res.status(400).json({ error: 'Unbekannte plan_id' });
   }
   if (!purchase_token && !transaction_id) {
@@ -469,7 +478,6 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
       error: 'purchase_token (Google Play) oder transaction_id erforderlich — keine Zahlung verifiziert'
     });
   }
-
   const verificationConfigured = purchase_token
     ? GOOGLE_PLAY_VERIFICATION_CONFIGURED
     : STRIPE_PAYMENT_VERIFICATION_CONFIGURED;
@@ -477,6 +485,13 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     return res.status(501).json({
       error: 'Kaufverifikation ist serverseitig noch nicht konfiguriert — Premium kann derzeit nicht aktiviert werden'
     });
+  }
+  // Günstiger lokaler Vorab-Check: ist ein product_id angegeben, muss es zum
+  // angeforderten Plan passen, bevor wir dafür die Play-API bemühen. Fehlt
+  // product_id ganz (z. B. bei Stripe oder einem unvollständigen Request),
+  // entscheidet stattdessen die echte Verifikation unten (402 statt 400).
+  if (purchase_token && product_id && PLAY_PRODUCTS[product_id] !== plan_id) {
+    return res.status(400).json({ error: 'Google-Play-Produkt gehört nicht zum angeforderten Plan' });
   }
 
   // Echte Verifikation beim jeweiligen Anbieter — siehe purchaseVerification.js
@@ -493,10 +508,10 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   // günstigeren Plan bezahlte Session einen höheren Plan freischaltet.
   if (!purchase_token) {
     const session = verification.raw || {};
-    if (session.client_reference_id && session.client_reference_id !== req.user.id) {
+    if (session.client_reference_id !== req.user.id || (session.metadata?.user_id && session.metadata.user_id !== req.user.id)) {
       return res.status(403).json({ error: 'Zahlung gehört zu einem anderen Konto' });
     }
-    if (session.metadata?.plan_id && session.metadata.plan_id !== plan_id) {
+    if (session.metadata?.plan_id !== plan_id) {
       return res.status(400).json({ error: 'Zahlung gehört zu einem anderen Plan' });
     }
   }
@@ -545,22 +560,6 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
       note: 'Transaktion bereits verarbeitet'
     });
   }
-  const previousActivatedAt = current.premium_activated_at;
-
-  // Idempotenz: Wenn gleicher Plan in letzten 5 Sekunden aktiviert wurde, skip update
-  if (previousActivatedAt && !extendsRuntime) {
-    const timeSinceLastActivation = Date.now() - new Date(previousActivatedAt).getTime();
-    if (timeSinceLastActivation < 5000 && current.premium_plan_id === plan_id) {
-      return res.json({
-        ok: true,
-        plan_id,
-        expires_at: current.premium_expires_at,
-        updated: false,
-        note: 'Plan bereits aktiviert (Idempotenz)'
-      });
-    }
-  }
-
   const storedPlanId = checkoutPlan.grantsPlan || plan_id;
   const isPremiumPass = plan_id === 'premium_24h';
   const isUltimateTier = (PLAN_RANK[storedPlanId] ?? 0) >= PLAN_RANK.elite;

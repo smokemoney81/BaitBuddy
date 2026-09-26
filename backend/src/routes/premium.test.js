@@ -88,7 +88,7 @@ describe('POST /api/premium/activate', () => {
     const res = await request(app)
       .post('/api/premium/activate')
       .set('Authorization', 'Bearer test-token')
-      .send({ plan_id: 'elite', purchase_token: 'echter-play-token' });
+      .send({ plan_id: 'elite', purchase_token: 'echter-play-token', product_id: 'baitbuddy_ultimate_monthly' });
 
     expect(res.status).toBe(200);
     expect(res.body.plan_id).toBe('elite');
@@ -124,6 +124,17 @@ describe('POST /api/premium/activate (Google-Play-Laufzeit)', () => {
   }
 
   const daysFromNow = (days) => Date.now() + days * 24 * 3600 * 1000;
+
+  it('lehnt ein bezahltes Produkt für einen anderen Plan ab', async () => {
+    const configuredApp = await playApp();
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'elite', purchase_token: 'basic-token', product_id: 'baitbuddy_basic_monthly' });
+    expect(res.status).toBe(400);
+    expect(purchaseVerificationMock.verifyGooglePlayPurchase).not.toHaveBeenCalled();
+    expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
 
   it('uebernimmt das von Play gemeldete Ablaufdatum statt pauschal 30 Tage', async () => {
     const playExpiry = daysFromNow(45);
@@ -324,6 +335,17 @@ describe('POST /api/premium/activate (Stripe-Härtung)', () => {
     return (await import('../server.js')).default;
   }
 
+  it('lehnt eine bezahlte Session ohne BaitBuddy-Konto und Planbindung ab', async () => {
+    const configuredApp = await stripeApp();
+    purchaseVerificationMock.verifyStripePayment.mockResolvedValue({ valid: true, raw: {} });
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'elite', transaction_id: 'cs_test_1' });
+    expect(res.status).toBe(403);
+    expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
   it('aktiviert einen Plan mit passender, bezahlter Stripe-Session', async () => {
     const configuredApp = await stripeApp();
     purchaseVerificationMock.verifyStripePayment.mockResolvedValue({
@@ -468,6 +490,26 @@ describe('POST /api/premium/activate – Replay-Schutz über alle Transaktionen'
     expect(res.body.updated).toBe(true);
     expect(supabaseMock.current.__adminUsers[0].app_metadata.premium_processed_transactions).toEqual(['cs_a', 'cs_b']);
   });
+
+  it('verbucht zwei verschiedene Käufe desselben Plans auch kurz nacheinander', async () => {
+    const configuredApp = await stripeUserApp({
+      premium_plan_id: 'pro',
+      premium_expires_at: new Date(Date.now() + 20 * 86400000).toISOString(),
+      premium_transaction_id: 'cs_first',
+      premium_activated_at: new Date().toISOString(),
+    });
+    purchaseVerificationMock.verifyStripePayment.mockResolvedValue({
+      valid: true,
+      raw: { client_reference_id: 'user-1', metadata: { plan_id: 'pro' } },
+    });
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'pro', transaction_id: 'cs_second' });
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(true);
+    expect(supabaseMock.current.__adminUsers[0].app_metadata.premium_transaction_id).toBe('cs_second');
+  });
 });
 
 describe('Referral: 10-EUR-Ultimate-Rabatt', () => {
@@ -543,7 +585,7 @@ describe('Referral: 10-EUR-Ultimate-Rabatt', () => {
     const res = await request(configuredApp)
       .post('/api/premium/activate')
       .set('Authorization', 'Bearer test-token')
-      .send({ plan_id: 'basic', purchase_token: 'echter-play-token' });
+      .send({ plan_id: 'basic', purchase_token: 'echter-play-token', product_id: 'baitbuddy_basic_monthly' });
 
     expect(res.status).toBe(200);
     expect(res.body.plan_id).toBe('basic');
