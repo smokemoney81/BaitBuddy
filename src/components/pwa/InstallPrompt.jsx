@@ -3,10 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { X, Download, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
+import { shouldShowOnboarding } from '@/lib/onboarding';
 
 const DISMISS_KEY = 'pwa_install_dismissed';
 const DECLINED_KEY = 'pwa_install_declined';
-const DISMISS_COOLDOWN_DAYS = 7;
+const ACCEPTED_KEY = 'pwa_install_accepted';
+const ACCEPTED_COOLDOWN_DAYS = 7;
 const SHOW_DELAY_MS = 400;
 
 function isStandaloneMode() {
@@ -33,40 +36,50 @@ function isIOSSafari() {
   return isIOS && isSafari;
 }
 
-function isCooldownActive() {
-  if (localStorage.getItem(DECLINED_KEY) === 'true') return true;
-  const dismissed = localStorage.getItem(DISMISS_KEY);
-  if (!dismissed) return false;
-  const days = (Date.now() - parseInt(dismissed, 10)) / (1000 * 60 * 60 * 24);
-  return days < DISMISS_COOLDOWN_DAYS;
+function isPromptSuppressed() {
+  try {
+    // "Verstanden" und "Nein, danke" aus älteren Versionen waren Ablehnungen.
+    if (localStorage.getItem(DECLINED_KEY) === 'true' || localStorage.getItem(DISMISS_KEY)) return true;
+    const accepted = Number(localStorage.getItem(ACCEPTED_KEY));
+    return accepted > 0 && Date.now() - accepted < ACCEPTED_COOLDOWN_DAYS * 86400000;
+  } catch {
+    return false;
+  }
 }
 
 export default function InstallPrompt() {
+  const { onboarding, canSave } = useBuddyPreferences();
+  const onboardingActive = shouldShowOnboarding(onboarding, { canSave });
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [mode, setMode] = useState(null);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
 
   useEffect(() => {
-    if (isStandaloneMode() || isCapacitorNative()) return;
-    if (isCooldownActive()) return;
+    if (isStandaloneMode() || isCapacitorNative() || isPromptSuppressed()) return;
 
     let iosTimer = null;
 
     const handler = (e) => {
-      if (isCooldownActive()) return;
+      if (isPromptSuppressed()) return;
       e.preventDefault();
       setDeferredPrompt(e);
       setMode('native');
-      setShowPrompt(true);
+      if (!onboardingActive) setShowPrompt(true);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
-    if (isIOSSafari()) {
+    if (onboardingActive) {
+      setShowPrompt(false);
+    } else if (deferredPrompt) {
+      setMode('native');
+      setShowPrompt(true);
+    } else if (isIOSSafari()) {
       iosTimer = setTimeout(() => {
+        if (isPromptSuppressed()) return;
         setMode((prev) => prev || 'ios');
-        setShowPrompt((prev) => prev || true);
+        setShowPrompt(true);
       }, SHOW_DELAY_MS);
     }
 
@@ -74,7 +87,7 @@ export default function InstallPrompt() {
       window.removeEventListener('beforeinstallprompt', handler);
       if (iosTimer) clearTimeout(iosTimer);
     };
-  }, []);
+  }, [onboardingActive, deferredPrompt]);
 
   const handleInstall = async () => {
     if (mode === 'ios') {
@@ -86,14 +99,14 @@ export default function InstallPrompt() {
     try {
       await deferredPrompt.userChoice;
     } finally {
-      localStorage.setItem(DISMISS_KEY, Date.now().toString());
+      try { localStorage.setItem(ACCEPTED_KEY, Date.now().toString()); } catch { /* storage disabled */ }
       setDeferredPrompt(null);
       setShowPrompt(false);
     }
   };
 
   const handleDismiss = () => {
-    localStorage.setItem(DECLINED_KEY, 'true');
+    try { localStorage.setItem(DECLINED_KEY, 'true'); } catch { /* storage disabled */ }
     setShowPrompt(false);
   };
 
