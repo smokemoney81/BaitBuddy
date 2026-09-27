@@ -92,6 +92,14 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
   const nextWindow = conditions.window;
   const timezone = conditions.data?.timezone;
   const weather = conditions.data?.current;
+  const daily = conditions.data?.daily;
+  const forecast = Array.isArray(daily?.time) ? daily.time.slice(0, 7).map((time, i) => ({
+    time,
+    code: daily.weather_code?.[i],
+    low: daily.temperature_2m_min?.[i],
+    high: daily.temperature_2m_max?.[i],
+    rainChance: daily.precipitation_probability_max?.[i],
+  })).filter(day => Number.isFinite(day.low) && Number.isFinite(day.high)) : [];
   const bite = currentHourIndex(conditions.hours);
   const hour = new Date().getHours();
   const greeting = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend';
@@ -165,6 +173,32 @@ export default function DashboardOverview({ user, nearestSpots = [], nextTrip = 
                 <div><dt><Gauge size={14} aria-hidden="true" />Luftdruck</dt><dd>{Math.round(weather.pressure_msl)} hPa</dd></div>
                 <div><dt><Droplets size={14} aria-hidden="true" />Luftfeuchte</dt><dd>{weather.relative_humidity_2m != null ? `${Math.round(weather.relative_humidity_2m)}%` : '–'}</dd></div>
               </dl>
+              {forecast.length > 0 && (
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h3 className="text-sm font-semibold text-white">7-Tage-Vorhersage</h3>
+                    <Link to="/Weather" className="text-xs text-cyan-300 flex items-center gap-1">
+                      Details <ArrowRight size={14} aria-hidden="true" />
+                    </Link>
+                  </div>
+                  <div className="grid gap-2" aria-label="Wettervorhersage für sieben Tage">
+                    {forecast.map((day, i) => (
+                      <div key={day.time} className="grid grid-cols-[4.5rem_minmax(0,1fr)_3rem_4rem] items-center gap-2 text-sm">
+                        <span className="font-medium text-slate-200">
+                          {i === 0 ? 'Heute' : new Intl.DateTimeFormat('de-DE', { weekday: 'short', timeZone: timezone || 'UTC' }).format(new Date(day.time * 1000))}
+                        </span>
+                        <span className="truncate text-slate-300">{weatherDescription(day.code)}</span>
+                        <span className="text-right text-blue-300" aria-label={Number.isFinite(day.rainChance) ? `Regenwahrscheinlichkeit ${Math.round(day.rainChance)} Prozent` : 'Regenwahrscheinlichkeit unbekannt'}>
+                          {Number.isFinite(day.rainChance) ? `${Math.round(day.rainChance)}%` : '–'}
+                        </span>
+                        <span className="text-right whitespace-nowrap text-white" aria-label={`Temperatur ${Math.round(day.low)} bis ${Math.round(day.high)} Grad`}>
+                          <span className="text-slate-400">{Math.round(day.low)}°</span> / {Math.round(day.high)}°
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : conditions.isLoading ? (
             <div className="h-24 rounded-xl bg-slate-800/60 animate-pulse mt-3" role="status" aria-label="Wetter wird geladen" />
