@@ -5,6 +5,7 @@ import { X, Download, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DISMISS_KEY = 'pwa_install_dismissed';
+const DECLINED_KEY = 'pwa_install_declined';
 const DISMISS_COOLDOWN_DAYS = 7;
 const SHOW_DELAY_MS = 400;
 
@@ -33,6 +34,7 @@ function isIOSSafari() {
 }
 
 function isCooldownActive() {
+  if (localStorage.getItem(DECLINED_KEY) === 'true') return true;
   const dismissed = localStorage.getItem(DISMISS_KEY);
   if (!dismissed) return false;
   const days = (Date.now() - parseInt(dismissed, 10)) / (1000 * 60 * 60 * 24);
@@ -43,6 +45,7 @@ export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [mode, setMode] = useState(null);
+  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
 
   useEffect(() => {
     if (isStandaloneMode() || isCapacitorNative()) return;
@@ -51,6 +54,7 @@ export default function InstallPrompt() {
     let iosTimer = null;
 
     const handler = (e) => {
+      if (isCooldownActive()) return;
       e.preventDefault();
       setDeferredPrompt(e);
       setMode('native');
@@ -73,6 +77,10 @@ export default function InstallPrompt() {
   }, []);
 
   const handleInstall = async () => {
+    if (mode === 'ios') {
+      setShowIOSInstructions(true);
+      return;
+    }
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     try {
@@ -85,7 +93,7 @@ export default function InstallPrompt() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    localStorage.setItem(DECLINED_KEY, 'true');
     setShowPrompt(false);
   };
 
@@ -111,7 +119,7 @@ export default function InstallPrompt() {
                   <h3 id="install-prompt-title" className="text-white font-semibold text-sm mb-1">
                     Moechtest du BaitBuddy installieren?
                   </h3>
-                  {mode === 'ios' ? (
+                  {mode === 'ios' && showIOSInstructions ? (
                     <p className="text-gray-400 text-xs mb-3">
                       Tippe in Safari unten auf <Share className="inline w-3 h-3 mx-0.5 align-[-2px]" aria-hidden="true" /> Teilen und dann auf &bdquo;Zum Home-Bildschirm&ldquo;.
                     </p>
@@ -122,13 +130,13 @@ export default function InstallPrompt() {
                   )}
 
                   <div className="flex gap-2">
-                    {mode === 'native' && (
+                    {!showIOSInstructions && (
                       <Button
                         size="sm"
                         onClick={handleInstall}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-xs h-8"
                       >
-                        Ja, installieren
+                        Ja
                       </Button>
                     )}
                     <Button
@@ -137,7 +145,7 @@ export default function InstallPrompt() {
                       onClick={handleDismiss}
                       className="flex-1 text-xs h-8 border-gray-600 text-gray-300 hover:text-white"
                     >
-                      {mode === 'native' ? 'Nein, danke' : 'Verstanden'}
+                      Nein
                     </Button>
                   </div>
                 </div>
