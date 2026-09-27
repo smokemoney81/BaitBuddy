@@ -151,9 +151,9 @@ export default function PremiumPlans() {
     }
   };
 
-  // Welche Zahlungswege der Server verifizieren kann. Bei einem Fehler bleibt
-  // der Wert null und die Kauf-Schaltflächen werden nicht gesperrt (fail-open):
-  // ein Ausfall dieser Abfrage darf keinen Verkauf verhindern.
+  // Käufe erst erlauben, wenn der Server die Verifikation des jeweiligen
+  // Zahlungswegs ausdrücklich bestätigt. Ein fehlgeschlagener Config-Request
+  // darf keinen Bezahlvorgang mit unklarer Freischaltung starten.
   const loadPaymentMethods = async () => {
     try {
       const config = await premium.config();
@@ -381,11 +381,8 @@ export default function PremiumPlans() {
 
   // Kann der Server den hier angebotenen Zahlungsweg überhaupt verifizieren?
   // Wenn nicht, würde der Nutzer erst bezahlen und danach eine Fehlermeldung
-  // bekommen — dann lieber vorher sperren. null = noch unbekannt/Abfrage
-  // fehlgeschlagen: dann nicht sperren.
-  const purchasesEnabled = paymentMethods === null
-    ? true
-    : Boolean(billingAvailable ? paymentMethods.google_play : paymentMethods.stripe);
+  // bekommen. null = noch unbekannt oder Abfrage fehlgeschlagen.
+  const purchasesEnabled = Boolean(billingAvailable ? paymentMethods?.google_play : paymentMethods?.stripe);
 
   const tierPlans = PLAN_TIERS.map(({ planId }) => plans.find(plan => plan.id === planId));
   const friendsPlan = plans.find(plan => plan.id === 'friends');
