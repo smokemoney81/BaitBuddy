@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeFishing, DEFAULT_FISHING_PREFERENCES, normalizeAngler, DEFAULT_ANGLER, EXPERIENCE_OPTIONS } from './buddyPreferences';
+import { BUDDIES, normalizeBuddy, normalizeFishing, DEFAULT_FISHING_PREFERENCES, normalizeAngler, DEFAULT_ANGLER, EXPERIENCE_OPTIONS } from './buddyPreferences';
 
 describe('normalizeFishing', () => {
   it('returns empty defaults for missing or invalid input', () => {
@@ -66,5 +66,14 @@ describe('normalizeAngler', () => {
 
   it('ignoriert Ziele, die keine Zeichenketten sind', () => {
     expect(normalizeAngler({ goals: [1, null, { a: 1 }, 'Entspannung'] }).goals).toEqual(['Entspannung']);
+  });
+});
+
+
+describe('Buddy-Auswahl nach Entfernen von Finn', () => {
+  it('zeigt nur Marina und wandelt gespeicherte Finn-Auswahlen um', () => {
+    expect(Object.keys(BUDDIES)).toEqual(['female_default']);
+    expect(normalizeBuddy({ gender: 'male', avatarId: 'male_default', chosen: true }))
+      .toMatchObject({ gender: 'female', avatarId: 'female_default', chosen: true });
   });
 });
