@@ -12,6 +12,7 @@ import { detectWakeWord, HANDS_FREE_EXAMPLES, HANDS_FREE_IDLE_SECONDS } from '@/
 import { fishImageFor } from '@/lib/fishImages';
 
 const FATAL_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'audio-capture']);
+const RESTART_DELAY_MS = 500;
 
 function getRecognition() {
   if (typeof window === 'undefined') return null;
@@ -27,38 +28,24 @@ function formatSince(startMs, now) {
 }
 
 const STEPS = [
-  { id: 'wake', icon: Check, title: 'Erkannt', text: '„Hey Buddy“' },
+  { id: 'wake', icon: Check, title: 'Erkannt', text: 'Aktivierungswort' },
   { id: 'listening', icon: Mic, title: 'Mikro offen', text: 'Ich höre zu …' },
   { id: 'thinking', icon: AudioLines, title: 'Ende erkannt', text: 'Ich denke nach' },
   { id: 'speaking', icon: MessageSquare, title: 'Antwort', text: 'Ich antworte dir' },
 ];
 const STEP_INDEX = { waiting: -1, listening: 1, thinking: 2, speaking: 3 };
 
-/**
- * Hands-free-Modus des gemeinsamen "Buddy Live"-Screens: Wake-Word-Schleife,
- * nur während eines aktiven Trips. Stellt Fragen über die vom Elternteil
- * geteilte Gesprächs-Engine (onAsk → derselbe Verlauf/dieselbe Sprachausgabe
- * wie im Chat-Modus) statt eine eigene Sitzung zu führen.
- *
- * @param {{
- *   onAsk: (question: string) => void,
- *   registerSpeakingDoneHandler: (fn: (() => void) | null) => void,
- *   speakingStatus: string,
- *   lastAnswerText: string | null,
- * }} props
- */
 export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHandler, speakingStatus, lastAnswerText }) {
   const navigate = useNavigate();
-  const [prefs] = useState(() => readPrivacyPrefs());
+  const [prefs, setPrefs] = useState(() => readPrivacyPrefs());
   const wakeWordOn = prefs.wakeWord;
+  const wakePhrase = prefs.wakeWordPhrase || 'Hey Buddy';
   const Recognition = getRecognition();
 
   const [plan, setPlan] = useState(null);
   const [loadingTrip, setLoadingTrip] = useState(true);
   const [startMs, setStartMs] = useState(null);
   const [now, setNow] = useState(Date.now());
-
-  // off | waiting | listening | thinking | speaking | paused
   const [phase, setPhase] = useState('off');
   const [heard, setHeard] = useState('');
   const [notice, setNotice] = useState('');
@@ -68,12 +55,19 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
   const activeRef = useRef(false);
   const recRef = useRef(null);
   const restartRef = useRef(null);
+  const generationRef = useRef(0);
   const lastSpeechRef = useRef(Date.now());
   const utteranceRef = useRef(() => {});
 
   const setPhaseBoth = useCallback((next) => {
     phaseRef.current = next;
     setPhase(next);
+  }, []);
+
+  useEffect(() => {
+    const update = (event) => setPrefs(event.detail || readPrivacyPrefs());
+    window.addEventListener('privacy-prefs-changed', update);
+    return () => window.removeEventListener('privacy-prefs-changed', update);
   }, []);
 
   useEffect(() => {
@@ -101,9 +95,18 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
 
   const stopRecognition = useCallback(() => {
     clearTimeout(restartRef.current);
+    generationRef.current += 1;
     const rec = recRef.current;
     recRef.current = null;
-    try { rec?.abort ? rec.abort() : rec?.stop(); } catch { /* bereits beendet */ }
+    if (!rec) return;
+    rec.onresult = null;
+    rec.onerror = null;
+    rec.onend = null;
+    try { rec.abort ? rec.abort() : rec.stop(); } catch { /* bereits beendet */ }
+  }, []);
+
+  const releaseVoiceSession = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('baitbuddy-voice-session-end'));
   }, []);
 
   const stopHandsFree = useCallback((message = '') => {
@@ -112,13 +115,15 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
     setPhaseBoth('off');
     setHeard('');
     setIdleLeft(HANDS_FREE_IDLE_SECONDS);
+    releaseVoiceSession();
     if (message) setNotice(message);
-  }, [setPhaseBoth, stopRecognition]);
+  }, [releaseVoiceSession, setPhaseBoth, stopRecognition]);
 
   const listenPhase = wakeWordOn ? 'waiting' : 'listening';
 
   const startRecognition = useCallback(() => {
-    if (!Recognition || recRef.current || !activeRef.current) return;
+    if (!Recognition || recRef.current || !activeRef.current || document.visibilityState !== 'visible') return;
+    const generation = generationRef.current;
     const rec = new Recognition();
     rec.lang = 'de-DE';
     rec.continuous = true;
@@ -126,6 +131,7 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
     rec.maxAlternatives = 1;
 
     rec.onresult = (event) => {
+      if (generation !== generationRef.current || recRef.current !== rec) return;
       let finalText = '';
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
@@ -136,20 +142,23 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
       if (interim || finalText) lastSpeechRef.current = Date.now();
       if (interim && phaseRef.current === 'listening') setHeard(interim);
       const text = finalText.trim();
-      if (!text) return;
-      utteranceRef.current(text);
+      if (text) utteranceRef.current(text);
     };
     rec.onerror = (event) => {
+      if (generation !== generationRef.current || recRef.current !== rec) return;
       if (FATAL_ERRORS.has(event?.error)) {
         stopHandsFree('Kein Zugriff auf das Mikrofon. Erlaube es unter Privatsphäre & Berechtigungen.');
       }
     };
     rec.onend = () => {
+      if (generation !== generationRef.current) return;
       if (recRef.current === rec) recRef.current = null;
       const p = phaseRef.current;
-      if (activeRef.current && (p === 'waiting' || p === 'listening')) {
+      if (activeRef.current && document.visibilityState === 'visible' && (p === 'waiting' || p === 'listening')) {
         clearTimeout(restartRef.current);
-        restartRef.current = setTimeout(() => startRecognition(), 250);
+        restartRef.current = setTimeout(() => {
+          if (generation === generationRef.current) startRecognition();
+        }, RESTART_DELAY_MS);
       }
     };
     try {
@@ -177,7 +186,7 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
 
   utteranceRef.current = (text) => {
     if (phaseRef.current === 'waiting') {
-      const { detected, command } = detectWakeWord(text);
+      const { detected, command } = detectWakeWord(text, wakePhrase);
       if (!detected) return;
       if (command) { ask(command); return; }
       setHeard('');
@@ -188,7 +197,8 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
   };
 
   const startHandsFree = () => {
-    if (!Recognition) return;
+    if (!Recognition || document.visibilityState !== 'visible') return;
+    window.dispatchEvent(new CustomEvent('baitbuddy-voice-session-start'));
     setNotice('');
     activeRef.current = true;
     lastSpeechRef.current = Date.now();
@@ -198,30 +208,24 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
 
   const togglePause = () => {
     if (phaseRef.current === 'paused') {
+      window.dispatchEvent(new CustomEvent('baitbuddy-voice-session-start'));
       resumeListening();
       return;
     }
     stopRecognition();
     setPhaseBoth('paused');
+    releaseVoiceSession();
   };
 
-  // Sobald der Buddy fertig gesprochen hat (Sprech-Queue des Eltern-Screens
-  // ist leer), hier statt im Chat-Modus weiterlauschen — solange dieser
-  // Modus aktiv ist. Beim Verlassen des Modus wieder abmelden.
   useEffect(() => {
     registerSpeakingDoneHandler(() => resumeListening());
     return () => registerSpeakingDoneHandler(null);
   }, [registerSpeakingDoneHandler, resumeListening]);
 
-  // Solange die Antwort läuft (Eltern-Status "speaking"), den Schritt-Indikator
-  // entsprechend zeigen.
   useEffect(() => {
-    if (speakingStatus === 'speaking' && phaseRef.current === 'thinking') {
-      setPhaseBoth('speaking');
-    }
+    if (speakingStatus === 'speaking' && phaseRef.current === 'thinking') setPhaseBoth('speaking');
   }, [speakingStatus, setPhaseBoth]);
 
-  // 60 Sekunden ohne Sprache → Modus beendet sich (Akku, Privatsphäre).
   useEffect(() => {
     const id = setInterval(() => {
       setNow(Date.now());
@@ -234,7 +238,6 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
     return () => clearInterval(id);
   }, [stopHandsFree]);
 
-  // App im Hintergrund → Mikrofon freigeben.
   useEffect(() => {
     const onHide = () => {
       if (document.visibilityState === 'hidden' && activeRef.current) stopHandsFree('Hands-free pausiert, weil die App in den Hintergrund ging.');
@@ -243,13 +246,14 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
     return () => document.removeEventListener('visibilitychange', onHide);
   }, [stopHandsFree]);
 
-  // Modus verlassen/Screen verlassen → Mikrofon sauber freigeben.
   useEffect(() => () => {
     activeRef.current = false;
     clearTimeout(restartRef.current);
+    generationRef.current += 1;
     try { recRef.current?.abort?.(); } catch { /* ignore */ }
     recRef.current = null;
-  }, []);
+    releaseVoiceSession();
+  }, [releaseVoiceSession]);
 
   if (!prefs.handsFree) {
     return (
@@ -306,7 +310,7 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
         >
           {phase === 'paused' || !active ? <MicOff size={64} aria-hidden="true" /> : <Mic size={64} aria-hidden="true" />}
         </button>
-        <p className="bb-hf-wake">{wakeWordOn ? '„Hey Buddy“' : 'Sprich einfach los'}</p>
+        <p className="bb-hf-wake">{wakeWordOn ? `„${wakePhrase}“` : 'Sprich einfach los'}</p>
         <p className={`bb-hf-status is-${phase}`} role="status" aria-live="polite">
           {!Recognition ? 'Spracherkennung wird hier nicht unterstützt'
             : phase === 'off' ? 'Tippe, um Hands-free zu starten'
@@ -331,22 +335,18 @@ export default function BuddyLiveHandsFreeView({ onAsk, registerSpeakingDoneHand
             <li key={step.id} className={`is-${state}`}>
               <span className="bb-hf-step-ring"><Icon size={22} aria-hidden="true" /></span>
               <strong>{step.title}</strong>
-              <small>{step.text}</small>
+              <small>{step.id === 'wake' && wakeWordOn ? `„${wakePhrase}“` : step.text}</small>
             </li>
           );
         })}
       </ol>
 
-      {lastAnswerText && (
-        <p className="bb-card bb-hf-answer">{lastAnswerText}</p>
-      )}
+      {lastAnswerText && <p className="bb-card bb-hf-answer">{lastAnswerText}</p>}
       {notice && <p className="bb-card bb-card-warn bb-hf-answer">{notice}</p>}
 
       <section className="bb-card bb-hf-examples">
         <h2 className="bb-hf-examples-title"><Lightbulb size={20} aria-hidden="true" />Du kannst z. B. sagen:</h2>
-        <ul>
-          {HANDS_FREE_EXAMPLES.map(example => <li key={example}>„{example}“</li>)}
-        </ul>
+        <ul>{HANDS_FREE_EXAMPLES.map(example => <li key={example}>„{example}“</li>)}</ul>
       </section>
 
       {active && phase !== 'paused' && (phase === 'waiting' || phase === 'listening') && (
