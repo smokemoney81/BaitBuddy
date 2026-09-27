@@ -4,7 +4,7 @@ import { auth } from '@/api/auth';
 import { BUDDIES, normalizeBuddy, normalizeNavigation, normalizeFishing, normalizeAngler } from './buddyPreferences';
 import { normalizeOnboarding } from './onboarding';
 import { normalizeTutorial } from './tutorial';
-import { setPreferredTtsVoice, setActiveBuddyAudio } from './ttsVoice';
+import { setActiveBuddyAudio } from './ttsVoice';
 
 const PreferencesContext = createContext(null);
 export function BuddyPreferencesProvider({ children }) {
@@ -22,7 +22,7 @@ export function BuddyPreferencesProvider({ children }) {
   const angler = useMemo(() => normalizeAngler(source?.angler), [source?.angler]);
   const onboarding = useMemo(() => normalizeOnboarding(source?.onboarding), [source?.onboarding]);
   const tutorial = useMemo(() => normalizeTutorial(source?.tutorial), [source?.tutorial]);
-  useEffect(() => { setPreferredTtsVoice(buddy.voiceId); setActiveBuddyAudio(buddy); }, [buddy, userId]);
+  useEffect(() => { setActiveBuddyAudio(buddy); }, [buddy, userId]);
   const savePreferences = useCallback((section, value) => {
     if (!userId) return Promise.reject(new Error('Bitte melde dich an, um deine Einstellungen zu speichern.'));
     const owner = userId;

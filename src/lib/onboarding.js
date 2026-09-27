@@ -12,7 +12,6 @@
 export const ONBOARDING_STEPS = [
   { id: 'welcome', title: 'Willkommen', section: null },
   { id: 'buddy', title: 'Dein Buddy', section: 'buddy' },
-  { id: 'voice', title: 'Stimme', section: 'buddy' },
   { id: 'tone', title: 'Antwortstil', section: 'buddy' },
   { id: 'experience', title: 'Deine Erfahrung', section: 'angler' },
   { id: 'methods', title: 'Angelmethoden', section: 'fishing' },

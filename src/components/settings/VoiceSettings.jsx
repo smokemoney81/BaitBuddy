@@ -6,61 +6,25 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/api/auth";
-import { Volume2, VolumeX, Lock, Crown, Play } from "lucide-react";
+import { Volume2, VolumeX, Crown, Play } from "lucide-react";
 import { toast } from "sonner";
 import { useOptimisticMutation } from "@/lib/useOptimisticMutation";
 import { usePlan } from "@/components/premium/PlanContext";
 import { getPlanLevel } from "@/components/premium/planHierarchy";
-import { getPreferredTtsVoice, setPreferredTtsVoice } from "@/lib/ttsVoice";
 import { speakWithFallback } from "@/components/utils/elevenLabsTTS";
 import { isVoiceGuideEnabled, setVoiceGuideEnabled } from "@/lib/voicePageGuide";
-
-// Auswählbare KI-Buddy-Stimmen. Die weibliche Stimme ist ein Ultimate-Feature;
-// das verbindliche Gate sitzt serverseitig in POST /api/ai/tts — die Sperre
-// hier ist die passende UI dazu.
-const VOICES = [
-  { id: 'male', name: 'Daniel', description: 'Männliche Standardstimme — natürlich und klar', requiresUltimate: false },
-  { id: 'female', name: 'Matilda', description: 'Weibliche Stimme — warm und freundlich', requiresUltimate: true },
-];
 
 const VOICE_SAMPLE_TEXT = 'Hallo, ich bin dein KI-Buddy. Petri Heil und ab ans Wasser!';
 
 export default function VoiceSettings() {
   const navigate = useNavigate();
   const { planLevel, loading: planLoading } = usePlan();
-  const hasUltimate = planLevel >= getPlanLevel('elite');
+  const hasPremiumVoice = planLevel >= getPlanLevel('pro');
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [speechSpeed, setSpeechSpeed] = useState(1.0);
   const [initialState, setInitialState] = useState({ audioEnabled: true, speechSpeed: 1.0 });
-  const [selectedVoice, setSelectedVoice] = useState(() => getPreferredTtsVoice());
   const [isSampling, setIsSampling] = useState(false);
   const [voiceGuide, setVoiceGuide] = useState(() => isVoiceGuideEnabled());
-
-  // Fällt der Plan weg (z.B. Ultimate abgelaufen), Auswahl auf Standard
-  // zurücksetzen — das Backend würde ohnehin auf die Standardstimme wechseln,
-  // die Anzeige soll dann nicht Gegenteiliges behaupten. WICHTIG: Solange der
-  // Plan noch lädt, ist planLevel vorübergehend 'free' — in dieser Phase darf
-  // die gespeicherte weibliche Stimme eines Ultimate-Nutzers NICHT gelöscht
-  // werden, sonst verliert er seine Auswahl bei jedem Öffnen der Seite.
-  useEffect(() => {
-    if (planLoading) return;
-    if (!hasUltimate && selectedVoice === 'female') {
-      setSelectedVoice('male');
-      setPreferredTtsVoice('male');
-    }
-  }, [planLoading, hasUltimate, selectedVoice]);
-
-  // Während der Plan lädt, nicht sperren — das verbindliche Gate sitzt
-  // serverseitig; nach dem Laden korrigiert der Effekt oben die Auswahl.
-  const selectVoice = (voice) => {
-    if (voice.requiresUltimate && !hasUltimate && !planLoading) {
-      toast.error('Die weibliche Stimme gibt es nur mit dem Ultimate-Plan.');
-      return;
-    }
-    setSelectedVoice(voice.id);
-    setPreferredTtsVoice(voice.id);
-    toast.success(`Stimme "${voice.name}" ausgewählt`);
-  };
 
   const playSample = async () => {
     if (isSampling) return;
@@ -185,52 +149,34 @@ export default function VoiceSettings() {
           </div>
         </div>
 
-        {/* KI-Buddy-Stimme */}
+        {/* KI-Buddy-Stimme — eine feste, weibliche Stimme für alle; nur die
+            Technik (Gerät vs. Premium-Server) richtet sich nach dem Tarif. */}
         <div className="space-y-2">
           <Label className="text-gray-300">KI-Buddy-Stimme</Label>
-          <div className="space-y-2" role="radiogroup" aria-label="KI-Buddy-Stimme auswählen">
-            {VOICES.map((voice) => {
-              const locked = voice.requiresUltimate && !hasUltimate && !planLoading;
-              const active = selectedVoice === voice.id;
-              return (
-                <button
-                  key={voice.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  aria-label={`Stimme ${voice.name}${locked ? ' (nur mit Ultimate-Plan)' : ''}`}
-                  onClick={() => selectVoice(voice)}
-                  disabled={!audioEnabled}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-left transition-colors disabled:opacity-50 ${
-                    active
-                      ? 'border-cyan-400 bg-cyan-950/40'
-                      : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'
-                  }`}
-                >
-                  <div>
-                    <p className={`text-sm font-semibold ${active ? 'text-cyan-300' : 'text-gray-200'}`}>
-                      {voice.name}
-                    </p>
-                    <p className="text-xs text-gray-400">{voice.description}</p>
-                  </div>
-                  {voice.requiresUltimate && (
-                    <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
-                      locked ? 'bg-gray-700 text-gray-300' : 'bg-amber-500/20 text-amber-300'
-                    }`}>
-                      {locked ? <Lock className="w-3 h-3" /> : <Crown className="w-3 h-3" />}
-                      Ultimate
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-700 bg-gray-800/50">
+            <div>
+              <p className="text-sm font-semibold text-gray-200">
+                {hasPremiumVoice ? 'Premium-Stimme' : 'Schnelle Gerätestimme'}
+              </p>
+              <p className="text-xs text-gray-400">
+                {hasPremiumVoice
+                  ? 'Natürliche Server-Stimme, im Pro- und Ultimate-Plan enthalten.'
+                  : 'Spricht direkt auf deinem Gerät — ohne Netz und ohne KI-Volumen.'}
+              </p>
+            </div>
+            {hasPremiumVoice && (
+              <span className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-amber-500/20 text-amber-300">
+                <Crown className="w-3 h-3" />
+                Pro
+              </span>
+            )}
           </div>
 
-          {!hasUltimate && (
+          {!hasPremiumVoice && !planLoading && (
             <div className="flex items-center justify-between gap-2 text-xs text-gray-400 bg-gray-800/50 p-3 rounded-lg">
               <span>
-                Dein Plan spricht mit der schnellen Gerätestimme. Die natürlichen
-                Premium-Stimmen (Daniel und Matilda) sind im Ultimate-Plan enthalten.
+                Dein Plan spricht mit der schnellen Gerätestimme. Die natürliche
+                Premium-Stimme ist ab dem Pro-Plan enthalten.
               </span>
               <Button
                 type="button"
@@ -238,10 +184,10 @@ export default function VoiceSettings() {
                 variant="outline"
                 onClick={() => navigate('/PremiumPlans')}
                 className="border-amber-400/50 text-amber-300 hover:bg-amber-500/10 flex-shrink-0"
-                aria-label="Ultimate-Plan ansehen"
+                aria-label="Pro-Plan ansehen"
               >
                 <Crown className="w-3 h-3 mr-1" />
-                Ultimate ansehen
+                Pro ansehen
               </Button>
             </div>
           )}
@@ -261,7 +207,7 @@ export default function VoiceSettings() {
 
         {/* Hinweis */}
         <div className="text-xs text-gray-500 bg-gray-800/50 p-3 rounded-lg">
-          Tipp: Die Sprechgeschwindigkeit beeinflusst, wie schnell der KI-Buddy antwortet. Die Stimmen-Auswahl gilt sofort für alle Sprachausgaben des KI-Buddys.
+          Tipp: Die Sprechgeschwindigkeit beeinflusst, wie schnell der KI-Buddy antwortet und gilt sofort für alle Sprachausgaben des KI-Buddys.
         </div>
 
         {/* Speichern Button */}

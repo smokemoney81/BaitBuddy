@@ -88,7 +88,7 @@ describe('POST /api/premium/activate', () => {
     const res = await request(app)
       .post('/api/premium/activate')
       .set('Authorization', 'Bearer test-token')
-      .send({ plan_id: 'elite', purchase_token: 'gefaelschter-token' });
+      .send({ plan_id: 'elite', purchase_token: 'gefaelschter-token', product_id: 'baitbuddy_ultimate_monthly' });
 
     expect(res.status).toBe(402);
   });

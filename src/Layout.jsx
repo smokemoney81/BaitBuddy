@@ -74,8 +74,8 @@ function AdInterstitialOverlay() {
 
 // Banner-Slot — zeigt dezentes Banner für Basic-Nutzer über der Navigation
 function AdBannerSlot() {
-  const { capabilities } = useAdGate();
-  if (!capabilities.bannerAds) return null;
+  const { capabilities, bannerAllowed } = useAdGate();
+  if (!bannerAllowed) return null;
   return (
     <BannerAd
       ad={null}

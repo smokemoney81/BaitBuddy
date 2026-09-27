@@ -2,11 +2,12 @@ import React, { useState, useCallback, useRef, createContext, useContext, useEff
 import { useLocation } from 'react-router-dom';
 import { usePlan } from '@/components/premium/PlanContext';
 import { useAuth } from '@/lib/AuthContext';
-import { getAdCapabilities, isAdAllowedOnRoute, MAIN_TOOL_ROUTES } from '@/lib/adEntitlements';
+import { getAdCapabilities, isAdAllowedOnRoute, isAdAllowedInContext, MAIN_TOOL_ROUTES } from '@/lib/adEntitlements';
 import { canShowInterstitial, } from '@/components/ads/InterstitialAd';
 import { getAdConfig, loadAdConfig } from '@/lib/adConfig';
 import { trackAdEvent } from '@/lib/adAnalytics';
 import { APP_SETTINGS_EVENT } from '@/lib/appSettings';
+import { getActiveAdContexts, subscribeAdContexts } from '@/lib/adActiveContext';
 
 const AdGateContext = createContext(null);
 
@@ -21,9 +22,22 @@ export function AdGateProvider({ children }) {
   const location = useLocation();
   const [pendingInterstitial, setPendingInterstitial] = useState(null);
   const prevPathRef = useRef(location.pathname);
+  // Verhindert eine Werbeanzeige unmittelbar beim App-Start: Ohne dieses Flag
+  // war previousPath beim allerersten Effect-Lauf identisch zu currentPath,
+  // wodurch der "nur beim Wechsel zwischen Haupttools"-Guard unten (der genau
+  // diesen Fall ausschließen soll) wirkungslos war und ein Gast, der per
+  // Deep-Link direkt auf einer Haupttool-Route landete, sofort ein
+  // Interstitial sah — die App muss aber zuerst normal öffnen.
+  const hasNavigatedRef = useRef(false);
   const configRef = useRef(null);
   // Hauptschalter aus dem Admin-Bereich (/api/ads/config → ads_enabled).
   const [adsEnabled, setAdsEnabled] = useState(() => getAdConfig().ads_enabled !== false);
+  // Laufende, nicht unterbrechbare Sessions (Drill/Bisserkennung, Kamera,
+  // Sprachausgabe …) melden sich über setAdContextActive an — unabhängig von
+  // der Route, z.B. wenn die Bisserkennung auf einer sonst unauffälligen Seite läuft.
+  const [activeAdContexts, setActiveAdContexts] = useState(() => getActiveAdContexts());
+
+  useEffect(() => subscribeAdContexts(setActiveAdContexts), []);
 
   // Config laden
   useEffect(() => {
@@ -55,9 +69,16 @@ export function AdGateProvider({ children }) {
     const previousPath = prevPathRef.current;
     prevPathRef.current = currentPath;
 
+    // Erster Lauf nach App-Start: keine echte Navigation, also kein Interstitial.
+    if (!hasNavigatedRef.current) {
+      hasNavigatedRef.current = true;
+      return;
+    }
+
     // Nur Gäste mit Interstitials
     if (!capabilities.interstitialAds) return;
     if (!isAdAllowedOnRoute(currentPath)) return;
+    if (!isAdAllowedInContext(activeAdContexts)) return;
     if (!MAIN_TOOL_ROUTES.has(currentPath)) return;
     // Nur beim Wechsel zwischen Haupttools
     if (!MAIN_TOOL_ROUTES.has(previousPath) && previousPath !== currentPath) return;
@@ -74,14 +95,20 @@ export function AdGateProvider({ children }) {
     });
 
     setPendingInterstitial({ sourceTool: previousPath, targetPath: currentPath });
-  }, [location.pathname, capabilities.interstitialAds, planLoading]);
+  }, [location.pathname, capabilities.interstitialAds, planLoading, activeAdContexts]);
 
   const dismissInterstitial = useCallback(() => {
     setPendingInterstitial(null);
   }, []);
 
+  // Banner sollen zusätzlich zur Plan-Berechtigung Route- und Kontext-Blacklist
+  // respektieren (vorher prüfte der Banner-Slot nur capabilities.bannerAds).
+  const bannerAllowed = capabilities.bannerAds
+    && isAdAllowedOnRoute(location.pathname)
+    && isAdAllowedInContext(activeAdContexts);
+
   return (
-    <AdGateContext.Provider value={{ capabilities, pendingInterstitial, dismissInterstitial }}>
+    <AdGateContext.Provider value={{ capabilities, bannerAllowed, pendingInterstitial, dismissInterstitial }}>
       {children}
     </AdGateContext.Provider>
   );

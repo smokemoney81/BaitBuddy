@@ -5,6 +5,7 @@ import { User } from "@/entities/User";
 import { Activity, BrainCircuit, Crosshair, BellRing, Clock, Fish, ChevronRight } from "lucide-react";
 import { useSound } from "@/components/utils/SoundManager";
 import { useHaptic } from "@/components/utils/HapticFeedback";
+import { setAdContextActive } from "@/lib/adActiveContext";
 import BiteDetectorControls from "./BiteDetectorControls";
 import BiteDetectorMetrics from "./BiteDetectorMetrics";
 import BiteDetectorInstructions from "./BiteDetectorInstructions";
@@ -47,6 +48,13 @@ function BiteDetectorSectionInner() {
   const runningRef = useRef(false);
   const workerRef = useRef(null);
   const rafIdRef = useRef(null);
+
+  // Werbung während einer laufenden Bisserkennung/Drill-Situation sperren —
+  // unabhängig davon, ob dieser Screen zufällig auf einer blacklisteten Route liegt.
+  useEffect(() => {
+    setAdContextActive('bite_detector', running);
+    return () => setAdContextActive('bite_detector', false);
+  }, [running]);
 
   // Internal state für die Bite Detection
   const stateRef = useRef({

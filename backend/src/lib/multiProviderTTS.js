@@ -43,13 +43,30 @@ function buildProviderChain(text, voiceId) {
  * Holt TTS-Audio über die erste erreichbare Provider-Quelle.
  * @param {string} text
  * @param {string} [voiceId] ElevenLabs-Voice-ID (male/female-Gate in der Route)
+ * @param {string|null} [preferredProvider] Name eines Providers, der für
+ *   diesen Aufruf verbindlich ist (siehe unten) — verhindert einen
+ *   Stimmwechsel mitten in einer mehrsätzigen Antwort: Der Client pinnt den
+ *   Provider, der den ersten Satz einer Antwort geliefert hat, und schickt ihn
+ *   bei jedem weiteren Satz derselben Antwort erneut mit. Schlägt genau dieser
+ *   Provider fehl, wird NICHT auf einen anderen Cloud-Provider (= andere
+ *   Stimme) ausgewichen — das überließe dem Aufrufer (Route) den kontrollierten
+ *   Fallback auf die Gerätestimme, statt zwei Cloud-Stimmen im selben Turn
+ *   gegeneinander zu starten.
  * @returns {Promise<{ audioBase64: string, contentType: string, provider: string }>}
  */
-export async function getTTSAudio(text, voiceId = null) {
+export async function getTTSAudio(text, voiceId = null, preferredProvider = null) {
   const providers = buildProviderChain(text, voiceId);
 
   if (providers.length === 0) {
     throw new Error('Kein TTS-Provider konfiguriert');
+  }
+
+  if (preferredProvider) {
+    const pinned = providers.find((p) => p.name === preferredProvider);
+    if (!pinned) throw new Error(`Provider ${preferredProvider} nicht verfügbar`);
+    const result = await pinned.fn();
+    if (!result || !result.audioBase64) throw new Error(`Provider ${preferredProvider} lieferte kein Audio`);
+    return { ...result, provider: pinned.name };
   }
 
   for (const provider of providers) {

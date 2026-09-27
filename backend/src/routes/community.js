@@ -75,12 +75,32 @@ router.post('/community/posts/:id/like', requireAuth, async (req, res) => {
 
 // Kommentare zu Community-Posts. community_posts nutzt created_by (E-Mail) als
 // Autor-Kennung; community_comments folgt demselben Schema.
+//
+// `post_id` (einzelner Post) oder `post_ids` (kommagetrennt, für einen
+// geladenen Feed-Ausschnitt) grenzen die Abfrage auf bekannte Posts ein, damit
+// das Limit unten neue Kommentare nie verdeckt. Ohne einen der beiden Filter
+// wird plattformweit sortiert nach neuesten zuerst geliefert (Sicherheitsnetz),
+// statt aufsteigend + hartem Cap, was ältere Kommentare bevorzugt und neue
+// Kommentare nach Überschreiten des Caps dauerhaft verschwinden lässt.
 router.get('/community/comments', optionalAuth, async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  const postIds = req.query.post_ids
+    ? String(req.query.post_ids).split(',').map(id => id.trim()).filter(Boolean)
+    : null;
+  const hasPostFilter = !!(req.query.post_id || (postIds && postIds.length > 0));
+  const maxLimit = hasPostFilter ? 2000 : 500;
+  const limit = Math.min(parseInt(req.query.limit) || (hasPostFilter ? 500 : 100), maxLimit);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  let query = supabase.from('community_comments')
-    .select('*').order('created_at', { ascending: true }).range(offset, offset + limit - 1);
-  if (req.query.post_id) query = query.eq('post_id', req.query.post_id);
+
+  let query = supabase.from('community_comments').select('*');
+  if (req.query.post_id) {
+    query = query.eq('post_id', req.query.post_id).order('created_at', { ascending: true });
+  } else if (postIds && postIds.length > 0) {
+    query = query.in('post_id', postIds).order('created_at', { ascending: true });
+  } else {
+    query = query.order('created_at', { ascending: false });
+  }
+  query = query.range(offset, offset + limit - 1);
+
   const { data, error } = await query;
   if (error) return sendDbError(res, error);
   return res.json(data || []);

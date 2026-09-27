@@ -20,6 +20,7 @@ vi.mock('@/entities/User', () => ({
 
 const likePost = vi.fn(async () => ({}));
 const commentCreate = vi.fn(async () => ({ id: 'c1', post_id: 'p1', text: 'nice', created_by: 'me@x.de' }));
+const commentFilter = vi.fn(async () => ([]));
 
 vi.mock('@/api/frontendClient', () => ({
   integrations: { Core: { UploadFile: vi.fn() } },
@@ -27,7 +28,7 @@ vi.mock('@/api/frontendClient', () => ({
   community: { likePost: (...a) => likePost(...a) },
   entities: {
     Post: { list: vi.fn(async () => ([{ id: 'p1', created_by: 'other@x.de', text: 'Hallo Welt', likes: 2, created_at: new Date().toISOString() }])), update: vi.fn(), delete: vi.fn() },
-    Comment: { list: vi.fn(async () => []), create: (...a) => commentCreate(...a) },
+    Comment: { filter: (...a) => commentFilter(...a), create: (...a) => commentCreate(...a) },
     Competition: { list: vi.fn(async () => []), filter: vi.fn(async () => []) },
     ChatSession: { filter: vi.fn(async () => []) },
   },
@@ -71,5 +72,19 @@ describe('Community – Feed-Interaktionen (memoisierte PostCard)', () => {
     fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13 });
 
     await waitFor(() => expect(commentCreate).toHaveBeenCalledWith({ post_id: 'p1', text: 'nice' }));
+  });
+
+  // Regressionstest zum Community-Kommentar-Bug: Kommentare wurden früher
+  // plattformweit ohne post_id-Filter geladen (entities.Comment.list('', 1000)),
+  // wodurch sie hinter einem harten Server-Limit verschwinden konnten. Jetzt
+  // werden nur die Kommentare der aktuell geladenen Posts angefragt.
+  it('lädt Kommentare gefiltert nach den geladenen Post-IDs, nicht platt die ganze Plattform', async () => {
+    render(<Community />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Feed/ }));
+    await screen.findByText('Hallo Welt');
+
+    await waitFor(() => expect(commentFilter).toHaveBeenCalledWith(
+      expect.objectContaining({ post_ids: 'p1' })
+    ));
   });
 });

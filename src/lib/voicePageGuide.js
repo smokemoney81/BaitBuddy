@@ -27,7 +27,6 @@ export const PAGE_VOICE_INTROS = {
   AngelscheinPruefungSchonzeiten: 'Hier bereitest du dich auf die Fischerprüfung vor und findest Schonzeiten und Mindestmaße für dein Bundesland. Ich lese dir die Fragen vor, mit der Lautlos-Taste schaltest du das ab.',
   RuleAssistant: 'Hier beantworte ich deine Fragen zu Angelregeln, Schonzeiten und Mindestmaßen.',
   Quiz: 'Hier ist das Angel-Quiz. Wähl einen Schwierigkeitsgrad. Ich lese dir jede Frage vor, mit der Lautlos-Taste schaltest du das ab.',
-  Tutorials: 'Hier findest du Anleitungen zu Montagen, Knoten und Techniken.',
   Profile: 'Das ist dein Profil mit deinen Angaben und Erfolgen.',
   Settings: 'Hier stellst du die App ein, auch meine Stimme und die Sprach-Hinweise.',
   PremiumPlans: 'Hier siehst du die Tarife. Mit Ultimate bekommst du meine Premium-Stimme und das Live-Gespräch.',

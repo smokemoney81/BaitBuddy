@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -29,6 +29,11 @@ vi.mock('@/api/frontendClient', () => ({
   },
   events: { getActiveEvent: vi.fn(async () => ({})) },
   ai: { chatStream: vi.fn() },
+  // Buddy Live: HandsFree-/Live-Ansicht werden immer mitimportiert (auch wenn
+  // im Standardmodus "text" nicht gerendert) — entities/functions brauchen
+  // daher einen Mock, auch wenn diese Tests nur den Chat-Modus prüfen.
+  entities: { FishingPlan: { list: vi.fn(async () => []) } },
+  functions: { invoke: vi.fn() },
 }));
 // Sprech-Queue wegmocken: die Chat-/History-Logik ist hier der Prüfgegenstand,
 // nicht die (bereits separat getestete) TTS-Wiedergabe.
@@ -216,7 +221,7 @@ describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
     renderBuddy();
     await ask('Wie geht die Bundesliga aus?');
 
-    expect(await screen.findByText('Offline-Modus: Keine Internetverbindung.')).toBeInTheDocument();
+    expect(await screen.findByText(/Du bist gerade offline/)).toBeInTheDocument();
     expect(ai.chatStream).not.toHaveBeenCalled();
   });
 
@@ -227,5 +232,69 @@ describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
 
     expect(await screen.findByText(/Meine Online-KI ist gerade nicht erreichbar/)).toBeInTheDocument();
     expect(ai.chatStream).toHaveBeenCalledTimes(1);
+  });
+
+  it('zeigt bei einem echten Verbindungsfehler ohne lokalen Treffer eine menschliche Meldung mit Retry statt eines rohen Fehlers', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    catchgbtChat.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderBuddy();
+    await ask('asdkjhwqe unsinnige anfrage 12345 xyz');
+
+    // Keine rohe Fehlermeldung ("TypeError", "Failed to fetch") im UI —
+    // stattdessen eine Buddy-artige Meldung mit Retry-Button.
+    const retryButton = await screen.findByRole('button', { name: 'Nochmal versuchen' }, { timeout: 5000 });
+    expect(screen.getByText(/Ich erreiche meinen Dienst gerade nicht/)).toBeInTheDocument();
+    expect(screen.queryByText(/TypeError/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
+    // Der technische Fehler wird geloggt, aber nicht angezeigt.
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    // Retry stellt dieselbe Frage erneut.
+    catchgbtChat.mockResolvedValueOnce({ reply: 'Antwort nach Retry.' });
+    fireEvent.click(retryButton);
+    expect(await screen.findByText('Antwort nach Retry.')).toBeInTheDocument();
+
+    consoleErrorSpy.mockRestore();
+  }, 10000);
+});
+
+describe('KiBuddyBeta – Datenquelle (Punkt 8: Wissen vs. KI-Modell)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ai.chatStream.mockRejectedValue(new Error('kein Stream'));
+    Element.prototype.scrollIntoView = vi.fn();
+    localStorage.clear();
+  });
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('Modus "Datenbank": ruft nie das Modell auf, auch bei personenbezogenen Fragen', async () => {
+    localStorage.setItem('bb_buddy_data_source', 'database');
+    renderBuddy();
+    await ask('Welche Köder passen zu meinen letzten Fängen?');
+
+    // Antwort kommt ausschließlich aus der Wissensbasis (Treffer oder ehrlicher
+    // Fallback) — nie aus einer Modellanfrage. Auf die Antwort-Bubble warten,
+    // bevor "wurde nicht aufgerufen" geprüft wird (sonst prüft man zu früh).
+    await waitFor(() => expect(document.querySelectorAll('.bb-voice-bubble').length).toBeGreaterThan(1));
+    expect(ai.chatStream).not.toHaveBeenCalled();
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('Modus "KI-Modell": ruft auch bei einer sonst sofort lokal beantworteten Standardfrage das Modell auf', async () => {
+    catchgbtChat.mockResolvedValueOnce({ reply: 'Antwort vom Modell.' });
+    localStorage.setItem('bb_buddy_data_source', 'model');
+    renderBuddy();
+    await ask('Welcher Köder ist gut für Hecht?');
+
+    expect(await screen.findByText('Antwort vom Modell.')).toBeInTheDocument();
+    expect(ai.chatStream).toHaveBeenCalledTimes(1);
+  });
+
+  it('Modus "Auto" (Standard): beantwortet Standardfragen weiterhin sofort lokal', async () => {
+    renderBuddy();
+    await ask('Welcher Köder ist gut für Hecht?');
+
+    expect(await screen.findByText(/Für Hecht haben sich drei Köder bewährt/)).toBeInTheDocument();
+    expect(ai.chatStream).not.toHaveBeenCalled();
   });
 });

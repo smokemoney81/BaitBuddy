@@ -91,9 +91,10 @@ export function PlanProvider({ children }) {
   const basePlanLevel = getPlanLevel(plan?.id || 'free');
   const planLevel = allToolsFree ? Math.max(basePlanLevel, getPlanLevel('friends')) : basePlanLevel;
 
-  // Sprachausgabe: Premium-Stimme ab Ultimate, darunter die Gerätestimme.
+  // Sprachausgabe: Premium-Stimme ab Pro (Punkt 3: "Stimme nach Plan"),
+  // darunter (Free/Basic) die Gerätestimme.
   useEffect(() => {
-    setVoiceTier(planLevel >= getPlanLevel('elite') ? 'premium' : 'browser');
+    setVoiceTier(planLevel >= getPlanLevel('pro') ? 'premium' : 'browser');
   }, [planLevel]);
 
   return (

@@ -784,10 +784,12 @@
   border-top: 1px solid var(--bb-border-hover) !important;
   border-radius: 28px 28px 0 0;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, .6), 0 -1px 22px rgba(0, 229, 255, .18);
+  /* Kein interner Scrollbereich: der Inhalt (kompakte Zeilenliste statt großer
+     Bild-Kacheln) ist bewusst so kurz gehalten, dass er ohne Scrollen passt —
+     max-height bleibt nur als äußerste Sicherheitsgrenze, nie als Scroll-Trigger. */
   max-height: 92vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 10px 16px calc(20px + env(safe-area-inset-bottom)) !important;
+  overflow: hidden;
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom)) !important;
 }
 .bb-quick-sheet-handle {
   width: 44px;
@@ -839,114 +841,105 @@
   outline: 2px solid var(--bb-cyan);
   outline-offset: 2px;
 }
-.bb-quick-sheet-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+/* Kompakte Zeilenliste statt großer Bild-Kacheln (Issue: Popup war auf
+   niedrigen Viewports scrollbar). Eine Spalte, kleine Icon-Kreise statt
+   Fotos — hält den Gesamtinhalt des Sheets bewusst kurz genug, um ohne
+   internen Scroll zu passen. Höhenabhängige Regeln darunter schrumpfen bei
+   Bedarf weiter, statt irgendetwas abzuschneiden (gleiches Muster wie
+   useFitToViewport/KiBuddyBeta). */
+.bb-quick-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   max-width: 36rem;
   margin: 0 auto;
 }
-.bb-quick-tile {
+.bb-quick-row {
   position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  border-radius: 18px;
-  overflow: hidden;
+  border-radius: 14px;
   text-align: left;
   text-decoration: none;
   color: #eef5fa;
+  padding: 9px 44px 9px 10px;
   background: linear-gradient(180deg, rgba(16, 34, 52, .92), rgba(10, 22, 36, .96));
   border: 1px solid rgba(0, 229, 255, .35);
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .7), inset 0 0 18px rgba(0, 229, 255, .06);
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .7), inset 0 0 14px rgba(0, 229, 255, .06);
   transition: border-color var(--bb-motion), transform var(--bb-motion), box-shadow var(--bb-motion);
   -webkit-tap-highlight-color: transparent;
+  width: 100%;
 }
-.bb-quick-sheet .bb-quick-tile { align-items: stretch; justify-content: flex-start; }
-.bb-quick-tile:not(.is-locked):hover,
-.bb-quick-tile:not(.is-locked):focus-visible {
+.bb-quick-row:not(.is-locked):hover,
+.bb-quick-row:not(.is-locked):focus-visible {
   border-color: var(--bb-cyan);
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .7), 0 0 16px rgba(0, 229, 255, .3);
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 229, 255, .3);
   outline: none;
 }
-.bb-quick-tile:not(.is-locked):active { transform: scale(.97); }
-.bb-quick-tile.is-locked { cursor: not-allowed; }
-.bb-quick-tile.is-locked .bb-quick-tile-media { filter: grayscale(1) brightness(.5); }
-.bb-quick-tile-media {
-  position: relative;
-  display: block;
-  height: 88px;
-  overflow: hidden;
-}
-.bb-quick-tile-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-/* Bild weich in die Kartenflaeche auslaufen lassen */
-.bb-quick-tile-media::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(10, 22, 36, 0) 45%, rgba(12, 26, 42, .95) 100%);
-}
-.bb-quick-tile-icon {
-  position: relative;
-  z-index: 1;
-  width: 44px;
-  height: 44px;
-  margin: -24px 0 0 12px;
-  align-self: flex-start;
+.bb-quick-row:not(.is-locked):active { transform: scale(.98); }
+.bb-quick-row.is-locked { cursor: not-allowed; }
+.bb-quick-row-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(8, 18, 30, .92);
   border: 1px solid currentColor;
-  box-shadow: 0 0 12px -2px currentColor;
+  box-shadow: 0 0 10px -2px currentColor;
 }
 .bb-tone-cyan   { color: var(--bb-cyan); }
 .bb-tone-green  { color: var(--bb-green); }
 .bb-tone-orange { color: var(--bb-orange); }
 .bb-tone-muted  { color: #64748b; }
-.bb-quick-tile-text {
+.bb-quick-row-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 48px 14px 12px;
+  gap: 1px;
   min-width: 0;
 }
-.bb-quick-tile-label {
-  font-size: 16px;
+.bb-quick-row-label {
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.2;
   color: #f4f8fb;
 }
-.bb-quick-tile-hint {
+.bb-quick-row-hint {
   font-size: 12px;
-  line-height: 1.3;
+  line-height: 1.25;
   color: #b9cbdb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.bb-quick-tile-go {
+.bb-quick-row-go {
   position: absolute;
   right: 10px;
-  bottom: 12px;
-  width: 32px;
-  height: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   color: var(--bb-cyan);
   border: 1.5px solid var(--bb-cyan);
-  box-shadow: 0 0 10px rgba(0, 229, 255, .35);
+  box-shadow: 0 0 8px rgba(0, 229, 255, .35);
 }
-@media (min-width: 480px) {
-  .bb-quick-tile-media { height: 112px; }
-  .bb-quick-tile-label { font-size: 18px; }
+
+/* Wenig Höhe (kleine/ältere Handys, Landscape): Nebentexte reduzieren, statt
+   irgendetwas abzuschneiden — gleiches Prinzip wie bei KiBuddyBeta. */
+@media (max-height: 700px) {
+  .bb-quick-sheet-brand .bb-brand-tagline { display: none; }
+  .bb-quick-sheet .bb-quick-sheet-subtitle { display: none; }
+  .bb-quick-row { padding-top: 7px; padding-bottom: 7px; }
 }
-@media (max-width: 340px) {
-  .bb-quick-tile-text { padding-right: 12px; }
-  .bb-quick-tile-go { display: none; }
+@media (max-height: 580px) {
+  .bb-quick-sheet-divider { margin: 8px auto 10px; }
+  .bb-quick-row-hint { display: none; }
 }
 
 /* Legacy aliases (keep old pages working until migrated) */
@@ -2176,6 +2169,65 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   --bb-voice-orb: clamp(64px, 11vh, 160px);
 }
 .bb-voice > * { flex-shrink: 0; }
+
+/* Buddy Live: Umschalter zwischen Chat/Voice, Live-Gespräch und Hands-free
+   (KiBuddyBeta.jsx, BuddyLiveModeSwitcher.jsx) — ein gemeinsamer Screen statt
+   dreier getrennter Seiten. */
+.bb-buddy-mode-switch {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(11, 19, 36, .6);
+  border: 1px solid var(--bb-border-hover);
+  flex-shrink: 0;
+}
+.bb-buddy-mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #9fb3c8;
+  background: transparent;
+  border: none;
+  transition: background var(--bb-motion), color var(--bb-motion);
+}
+.bb-buddy-mode-tab.is-active {
+  background: var(--bb-cyan);
+  color: #05131f;
+}
+
+/* Datenquelle des Buddys (Punkt 8): Wissensbasis vs. KI-Modell. */
+.bb-buddy-source-switch {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.bb-buddy-source-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #7c93a8;
+  background: rgba(11, 19, 36, .4);
+  border: 1px solid transparent;
+}
+.bb-buddy-source-tab.is-active {
+  color: var(--bb-cyan);
+  border-color: rgba(0, 229, 255, .4);
+  background: rgba(0, 229, 255, .08);
+}
 .bb-voice-orb { position: relative; display: grid; place-items: center; height: calc(var(--bb-voice-orb) + 14px); }
 .bb-voice-orb img {
   position: relative;
@@ -2251,6 +2303,17 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   background: rgba(8, 20, 34, .82);
   border: 1px solid rgba(0,229,255,.28);
   text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+.bb-voice-retry {
+  display: block;
+  margin: 8px auto 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bb-cyan);
+  background: rgba(0, 229, 255, .1);
+  border: 1px solid rgba(0, 229, 255, .4);
 }
 .bb-voice-row { display: flex; align-items: flex-end; gap: 6px; }
 .bb-voice-row.is-user { justify-content: flex-end; }
@@ -2371,7 +2434,10 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
    Nutzt die Höhenlogik von .bb-voice (useFitToViewport, kein Seiten-Scroll).
    Kopf, Buddy-Bühne und Bedienleiste sind fix, nur .bb-live-chat scrollt.
    Die Bedienleiste liegt IN der Seite über der Bottom-Nav statt fixed darunter. */
-.bb-live { gap: 10px; }
+/* Eigenständiger Container: seit "Buddy Live" (KiBuddyBeta.jsx) liegt dieser
+   Block innerhalb von .bb-page.bb-voice statt selbst darauf, braucht also sein
+   eigenes Flex-Layout statt es von der Kombination .bb-page.bb-voice zu erben. */
+.bb-live { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 10px; }
 .bb-live-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 4px; }
 .bb-live-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .bb-live-title h1 { margin: 0; font-size: 20px; font-weight: 800; color: #f4f8fb; white-space: nowrap; }
@@ -2669,7 +2735,9 @@ button.bb-switch[data-state='unchecked'] { background: rgba(138, 162, 184, .35);
 }
 
 /* ── Hands-free Buddy ── */
-.bb-hf { gap: 14px; }
+/* Eigenständiger Container: seit "Buddy Live" (KiBuddyBeta.jsx) liegt dieser
+   Block innerhalb von .bb-page.bb-voice statt selbst darauf. */
+.bb-hf { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; overflow-y: auto; flex: 1; min-height: 0; }
 .bb-hf-head { display: flex; align-items: flex-start; gap: 12px; }
 .bb-hf-head > div { flex: 1; }
 .bb-hf-title { font-size: 30px; font-weight: 800; line-height: 1.1; color: #f7fbfe; }

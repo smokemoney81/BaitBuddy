@@ -332,22 +332,6 @@ export default function OnboardingFlow() {
             </div>
           )}
 
-          {step.id === 'voice' && (
-            <div className="space-y-3">
-              <OptionCards
-                options={[
-                  { id: 'male', label: 'Daniel', description: 'Männliche Stimme, in allen Tarifen verfügbar.' },
-                  { id: 'female', label: 'Matilda', description: 'Weibliche Stimme, nur mit Ultimate.' },
-                ]}
-                value={draft.buddy.voiceId}
-                onSelect={(voiceId) => setDraftSection('buddy', { ...draft.buddy, voiceId })}
-              />
-              <p className="bb-muted text-sm">
-                Ohne Ultimate wird automatisch Daniel verwendet.
-              </p>
-            </div>
-          )}
-
           {step.id === 'tone' && (
             <OptionCards
               options={TONE_OPTIONS}

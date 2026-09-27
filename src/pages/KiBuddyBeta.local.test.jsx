@@ -23,6 +23,10 @@ vi.mock('@/api/frontendClient', () => ({
   },
   events: { getActiveEvent: vi.fn(async () => ({})) },
   ai: { chatStream: vi.fn() },
+  // Buddy Live: HandsFree-/Live-Ansicht werden immer mitimportiert (auch wenn
+  // im Standardmodus "text" nicht gerendert).
+  entities: { FishingPlan: { list: vi.fn(async () => []) } },
+  functions: { invoke: vi.fn() },
 }));
 vi.mock('@/components/utils/elevenLabsTTS', () => ({
   createSpeechQueue: vi.fn(() => ({ push: vi.fn(), flush: vi.fn(), cancel: vi.fn() })),

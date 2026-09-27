@@ -12,10 +12,10 @@ export const DETAIL_OPTIONS = [
   { id: 'normal', label: 'Normal' },
   { id: 'detailed', label: 'Detailliert' },
 ];
-export const DEFAULT_BUDDY = { gender: 'female', avatarId: 'female_default', voiceId: 'male', tone: 'friendly', speed: 1, voiceEnabled: true, detail: 'normal' };
+export const DEFAULT_BUDDY = { gender: 'female', avatarId: 'female_default', tone: 'friendly', speed: 1, voiceEnabled: true, detail: 'normal' };
 export function normalizeBuddy(value = {}) {
   const gender = value.gender === 'male' ? 'male' : 'female';
-  return { gender, avatarId: `${gender}_default`, voiceId: value.voiceId === 'female' ? 'female' : 'male',
+  return { gender, avatarId: `${gender}_default`,
     tone: ['friendly', 'direct', 'casual', 'professional', 'motivating'].includes(value.tone) ? value.tone : 'friendly',
     speed: Number.isFinite(value.speed) ? Math.min(1.2, Math.max(0.8, value.speed)) : 1,
     detail: DETAIL_OPTIONS.some(o => o.id === value.detail) ? value.detail : 'normal',

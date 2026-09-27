@@ -94,13 +94,9 @@ const Settings = lazyPage(() => import('./pages/Settings'));
 const Shop = lazyPage(() => import('./pages/Shop'));
 const StartFishing = lazyPage(() => import('./pages/StartFishing'));
 const TripPlanner = lazyPage(() => import('./pages/TripPlanner'));
-const Tutorials = lazyPage(() => import('./pages/Tutorials'));
 const UsedGear = lazyPage(() => import('./pages/UsedGear'));
-// VoiceChat und VoiceLecture waren fertig implementiert, aber ohne Route und
-// ohne Importeur — beide Seiten waren damit gar nicht erreichbar, obwohl die
-// Sprachsteuerung (voicePages.js) und die Buddy-Tipps (buddyTips.js) sie als
-// Ziel führen. VoiceChat ist zudem der einzige Aufrufer von
-// POST /api/ai/realtime-session, das im Backend existiert und getestet ist.
+// VoiceChat rendert seit "Buddy Live" denselben Screen wie KiBuddyBeta, nur
+// mit dem Live-Modus (WebRTC/POST /api/ai/realtime-session) vorausgewählt.
 const VoiceChat = lazyPage(() => import('./pages/VoiceChat'));
 const VoiceLecture = lazyPage(() => import('./pages/VoiceLecture'));
 const WaterAnalysis = lazyPage(() => import('./pages/WaterAnalysis'));
@@ -163,7 +159,6 @@ export const PAGES = {
     "Shop": Shop,
     "StartFishing": StartFishing,
     "TripPlanner": TripPlanner,
-    "Tutorials": Tutorials,
     "UsedGear": UsedGear,
     "VoiceChat": VoiceChat,
     "VoiceLecture": VoiceLecture,
