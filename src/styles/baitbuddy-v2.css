@@ -178,6 +178,30 @@
 .bb-event-timer > svg { flex-shrink: 0; }
 .bb-event-timer-name { min-width: 0; font-weight: 600; color: #e3eef7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bb-event-timer-time { flex-shrink: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Live-Guthabenanzeige (KI-Punkte, AiCreditBadge.jsx) — kompakte Pille in
+   der Kopfzeile neben Glocke/Avatar, Farbe je Verbrauchsstand. */
+.bb-ai-credit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bb-cyan);
+  background: rgba(10, 24, 40, .55);
+  border: 1.5px solid rgba(0, 229, 255, .45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color var(--bb-motion), box-shadow var(--bb-motion);
+}
+.bb-ai-credit-badge:hover { border-color: var(--bb-cyan); box-shadow: 0 0 20px rgba(0,229,255,.35); }
+.bb-ai-credit-badge--low { color: #fbbf24; border-color: rgba(245,158,11,.5); }
+.bb-ai-credit-badge--exhausted { color: #f87171; border-color: rgba(248,113,113,.5); }
+.bb-ai-credit-sheet { background: #0B1324; border-color: rgba(0,229,255,.25); color: #e3eef7; }
 .bb-topbar-icon {
   width: 44px;
   height: 44px;

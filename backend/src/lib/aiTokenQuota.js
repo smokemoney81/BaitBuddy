@@ -134,6 +134,26 @@ async function readUsed(userId, period) {
   }
 }
 
+// Letzte Verbrauchsbuchungen für die Verbrauchsübersicht (Punkt 10:
+// "letzte Nutzungen"). Fail-open wie der Rest dieses Moduls — fehlt die
+// Tabelle/Migration, liefert die Übersicht einfach eine leere Liste statt
+// den Aufruf scheitern zu lassen.
+export async function getRecentUsage(userId, limit = 15) {
+  try {
+    const { data, error } = await supabase
+      .from('ai_token_usage')
+      .select('feature, tokens, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.warn('[aiTokenQuota] Letzte Nutzungen nicht lesbar (fail-open):', e?.message || e);
+    return [];
+  }
+}
+
 /**
  * Aktueller Volumen-Stand eines Nutzers.
  * `limit === null` bedeutet unbegrenzt (Superuser).

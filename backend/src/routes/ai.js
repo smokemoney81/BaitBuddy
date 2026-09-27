@@ -26,7 +26,7 @@ import { isJevBuddyActive, isJevVisionActive } from '../lib/jevClient.js';
 import { runBuddyContextShadow } from '../lib/jevShadow.js';
 import { resolveActiveContextFlags } from '../lib/jevBuddyContext.js';
 import { runVisionConfidenceShadow, resolveActiveConfidenceBand, classifyConfidenceBand } from '../lib/jevVisionConfidence.js';
-import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas } from '../lib/aiTokenQuota.js';
+import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas, getRecentUsage } from '../lib/aiTokenQuota.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -1301,8 +1301,11 @@ Antworte NUR mit dem JSON-Objekt.`;
 // das Volumen aller Pläne (für die Plan-Übersicht; Quelle bleibt der Server).
 router.get('/ai/usage', requireAuth, async (req, res) => {
   try {
-    const usage = await getTokenUsage(req.user);
-    return res.json({ ok: true, ...usage, costs: getTokenCosts(), plan_quotas: getTokenQuotas() });
+    const [usage, recent] = await Promise.all([
+      getTokenUsage(req.user),
+      getRecentUsage(req.user.id),
+    ]);
+    return res.json({ ok: true, ...usage, costs: getTokenCosts(), plan_quotas: getTokenQuotas(), recent });
   } catch (e) {
     return sendDbError(res, e);
   }
