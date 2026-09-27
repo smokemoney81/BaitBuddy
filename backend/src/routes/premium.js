@@ -471,32 +471,6 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   const isPremiumPass = plan_id === 'premium_24h';
   const isUltimateTier = (PLAN_RANK[storedPlanId] ?? 0) >= PLAN_RANK.elite;
 
-  // Schutz vor versehentlichem Downgrade: pickBestPurchase() im Client wählt
-  // beim Play-Abgleich zwar immer den höchstwertigen aktiven Kauf, ein direkt
-  // im Play Store (außerhalb der App) gekaufter oder ein versehentlich per
-  // Stripe angestoßener niedrigerer Plan würde ohne diese Prüfung eine noch
-  // laufende höherwertige Laufzeit hier serverseitig überschreiben und der
-  // zahlende Nutzer würde die verbleibende Zeit seines teureren Plans
-  // verlieren. Der Kauf ist damit nicht ungültig — er wird nur nicht über den
-  // noch aktiven, höherwertigen Plan gelegt.
-  const currentStillActive = !!current.premium_expires_at && new Date(current.premium_expires_at).getTime() > Date.now();
-  const currentRank = currentStillActive ? (PLAN_RANK[current.premium_plan_id] ?? 0) : 0;
-  const newRank = PLAN_RANK[storedPlanId] ?? 0;
-  if (!isPremiumPass && currentStillActive && newRank < currentRank) {
-    const { error: dbError } = await supabase.auth.admin.updateUserById(req.user.id, {
-      app_metadata: { ...current, premium_processed_transactions: rememberTransaction(current, transaction_id || purchase_token) },
-    });
-    if (dbError) return sendDbError(res, dbError);
-    invalidateCachedUser(req.user.id);
-    return res.json({
-      ok: true,
-      plan_id: current.premium_plan_id,
-      expires_at: current.premium_expires_at,
-      updated: false,
-      note: 'Dein aktueller Plan ist höherwertig und bleibt bis zum Ablauf aktiv; der neue Kauf wurde erfasst.'
-    });
-  }
-
   const merged = {
     ...current,
     premium_plan_id: isPremiumPass ? current.premium_plan_id || 'free' : storedPlanId,
