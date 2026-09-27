@@ -30,7 +30,6 @@ const PAGE_PREFETCH_MAP = {
   'CatchCam': ['AI', 'Logbook'],
   'KiBuddyBeta': ['AI', 'Dashboard'],
   'Start': ['Dashboard', 'Home'],
-  'Tutorials': ['Dashboard', 'AngelscheinPruefungSchonzeiten'],
 };
 
 // Adaptive prefetch delay based on network conditions

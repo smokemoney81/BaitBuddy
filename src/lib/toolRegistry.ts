@@ -235,7 +235,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'live-trip',
     name: 'Live-Trip',
     description: 'Aktiver Angel-Ausflug mit Live-Tracking und Real-Time-Coaching',
-    route: '/LiveTripPage',
+    route: '/LiveTrip',
     category: 'planning',
     icon: 'Zap',
     requires: 'free',

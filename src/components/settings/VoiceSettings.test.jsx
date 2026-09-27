@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-// Plan-Level pro Test steuerbar: 0 = Free, 3 = Ultimate (elite).
+// Plan-Level pro Test steuerbar: 0 = Free, 2 = Pro, 3 = Ultimate (elite).
 const planState = { planLevel: 0 };
 
 vi.mock('@/components/premium/PlanContext', () => ({
@@ -36,7 +36,10 @@ function renderSettings() {
   );
 }
 
-describe('VoiceSettings – KI-Buddy-Stimme (Ultimate-Gate)', () => {
+// Regressionstests: Es gibt keine Männlich/Weiblich-Auswahl mehr (früher
+// "Daniel"/"Matilda") — eine einzige weibliche Stimme für alle, nur die
+// Technik (Gerät vs. Premium-Server) hängt vom Tarif ab (ab Pro).
+describe('VoiceSettings – KI-Buddy-Stimme (Pro-Gate, eine Stimme für alle)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -54,41 +57,28 @@ describe('VoiceSettings – KI-Buddy-Stimme (Ultimate-Gate)', () => {
     localStorage.clear();
   });
 
-  it('sperrt die weibliche Stimme ohne Ultimate-Plan', async () => {
+  it('zeigt die Gerätestimme + Upgrade-Hinweis ohne Pro-Plan', async () => {
     renderSettings();
 
-    const femaleOption = await screen.findByRole('radio', { name: /Matilda \(nur mit Ultimate-Plan\)/ });
-    fireEvent.click(femaleOption);
-
-    // Auswahl bleibt auf der Standardstimme, localStorage unverändert.
-    expect(femaleOption).toHaveAttribute('aria-checked', 'false');
-    expect(localStorage.getItem('buddy-tts-voice')).not.toBe('female');
-    // Upgrade-Hinweis wird angezeigt.
-    expect(screen.getByText(/Premium-Stimmen \(Daniel und Matilda\) sind im Ultimate-Plan enthalten/)).toBeInTheDocument();
+    expect(await screen.findByText('Schnelle Gerätestimme')).toBeInTheDocument();
+    expect(screen.getByText(/Die natürliche Premium-Stimme ist ab dem Pro-Plan enthalten/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Pro-Plan ansehen')).toBeInTheDocument();
   });
 
-  it('erlaubt die weibliche Stimme mit Ultimate-Plan und speichert die Wahl', async () => {
+  it('zeigt die Premium-Stimme ohne Upgrade-Hinweis ab dem Pro-Plan', async () => {
+    planState.planLevel = 2;
+    renderSettings();
+
+    expect(await screen.findByText('Premium-Stimme')).toBeInTheDocument();
+    expect(screen.queryByText(/ist ab dem Pro-Plan enthalten/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Pro-Plan ansehen')).not.toBeInTheDocument();
+  });
+
+  it('zeigt die Premium-Stimme auch im Ultimate-Plan', async () => {
     planState.planLevel = 3;
     renderSettings();
 
-    const femaleOption = await screen.findByRole('radio', { name: 'Stimme Matilda' });
-    fireEvent.click(femaleOption);
-
-    expect(femaleOption).toHaveAttribute('aria-checked', 'true');
-    expect(localStorage.getItem('buddy-tts-voice')).toBe('female');
-    // Ohne Ultimate-Sperre gibt es keinen Upgrade-Hinweis.
-    expect(screen.queryByText(/Premium-Stimmen \(Daniel und Matilda\) sind im Ultimate-Plan enthalten/)).not.toBeInTheDocument();
-  });
-
-  it('setzt die Auswahl auf Standard zurück, wenn der Ultimate-Plan wegfällt', async () => {
-    localStorage.setItem('buddy-tts-voice', 'female');
-    planState.planLevel = 0;
-
-    renderSettings();
-
-    const maleOption = await screen.findByRole('radio', { name: 'Stimme Daniel' });
-    expect(maleOption).toHaveAttribute('aria-checked', 'true');
-    expect(localStorage.getItem('buddy-tts-voice')).toBe('male');
+    expect(await screen.findByText('Premium-Stimme')).toBeInTheDocument();
   });
 
   it('spielt beim Probehören ein Sample mit der Sprachausgabe ab', async () => {

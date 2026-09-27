@@ -188,6 +188,30 @@ describe('POST /api/premium/activate (Google-Play-Laufzeit)', () => {
     expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
 
+  it('wendet den niedrigeren Plan an, sobald der höherwertige tatsächlich abgelaufen ist', async () => {
+    const expiredElite = Date.now() - 1000;
+    const configuredApp = await playApp({
+      premium_plan_id: 'elite',
+      premium_expires_at: new Date(expiredElite).toISOString(),
+      premium_purchase_token: 'elite-token',
+    });
+    const basicExpiry = daysFromNow(30);
+    purchaseVerificationMock.verifyGooglePlayPurchase.mockResolvedValue({
+      valid: true,
+      raw: { expiryTimeMillis: String(basicExpiry) },
+    });
+
+    const res = await request(configuredApp)
+      .post('/api/premium/activate')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'basic', purchase_token: 'basic-token', product_id: 'baitbuddy_basic_monthly' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(true);
+    expect(res.body.plan_id).toBe('basic');
+    expect(res.body.expires_at).toBe(new Date(basicExpiry).toISOString());
+  });
+
   it('gibt dem 10-Tage-Einmalprodukt 10 Tage Laufzeit auf Ultimate-Niveau', async () => {
     const configuredApp = await playApp();
     // Einmalprodukte liefern kein expiryTimeMillis — der Server rechnet selbst.

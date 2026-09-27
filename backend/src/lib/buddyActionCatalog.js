@@ -18,7 +18,7 @@ export const NAVIGATE_PAGES = [
   'dashboard', 'logbuch', 'karte', 'wetter', 'warnung', 'community',
   'ausruestung', 'chat', 'ki', 'trip', 'profil', 'einstellungen', 'rang',
   'wasser', 'angelschein', 'quiz', 'lizenzen', 'events', 'koeder', 'statistik',
-  'knoten', 'shop', 'premium', 'hilfe', 'tutorial', 'geraete', 'voice',
+  'knoten', 'shop', 'premium', 'hilfe', 'geraete', 'voice',
   'personalisierung', 'handsfree', 'level', 'vereine', 'privatsphaere', 'gastdaten',
 ];
 

@@ -13,7 +13,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { PERMISSION_KINDS, queryPermission, requestPermission, watchPermission } from '@/lib/devicePermissions';
-import { readPrivacyPrefs, writePrivacyPrefs, clearLocalCaches } from '@/lib/privacyPrefs';
+import { readPrivacyPrefs, writePrivacyPrefs, clearLocalCaches, sanitizeWakeWord } from '@/lib/privacyPrefs';
 
 const PERMISSIONS = {
   microphone: { icon: Mic, title: 'Mikrofon', text: 'Für Sprachsteuerung, Voice-Buddy und Hands-free Buddy.' },
@@ -31,13 +31,14 @@ const STATE_LABEL = {
 
 const REVOKE_HINT = 'Eine erteilte Berechtigung kann nur das System entziehen: Einstellungen > Apps > BaitBuddy > Berechtigungen (im Browser: Schloss-Symbol neben der Adresse).';
 
-function PrivacyTile({ icon: Icon, title, word, tone, text, control, wide = false }) {
+function PrivacyTile({ icon: Icon, title, word, tone, text, control, extra, wide = false }) {
   return (
     <div className={`bb-card bb-priv-tile is-${tone}${wide ? ' is-wide' : ''}`}>
       <span className="bb-priv-ring" aria-hidden="true"><Icon size={26} /></span>
       <div className="bb-priv-body">
         <p className="bb-priv-title">{title} {word && <span className="bb-priv-state">{word}</span>}</p>
         <p className="bb-priv-text">{text}</p>
+        {extra}
       </div>
       {control && <div className="bb-priv-control">{control}</div>}
     </div>
@@ -65,6 +66,7 @@ export default function Privatsphaere() {
   const queryClient = useQueryClient();
   const [states, setStates] = useState({ microphone: 'unknown', camera: 'unknown', geolocation: 'unknown' });
   const [prefs, setPrefs] = useState(() => readPrivacyPrefs());
+  const [wakeWordDraft, setWakeWordDraft] = useState(() => readPrivacyPrefs().wakeWordPhrase);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearing, setClearing] = useState(false);
 
@@ -99,6 +101,13 @@ export default function Privatsphaere() {
   };
 
   const setPref = (key, value) => setPrefs(writePrivacyPrefs({ [key]: value }));
+
+  const saveWakeWord = () => {
+    const phrase = sanitizeWakeWord(wakeWordDraft);
+    setWakeWordDraft(phrase);
+    setPrefs(writePrivacyPrefs({ wakeWordPhrase: phrase }));
+    toast.success(`Aktivierungswort gespeichert: „${phrase}“`);
+  };
 
   const checkAll = async () => {
     const next = await refresh();
@@ -160,12 +169,31 @@ export default function Privatsphaere() {
           control={<Switch className="bb-switch" checked={prefs.handsFree} onCheckedChange={value => setPref('handsFree', value)} aria-label="Hands-free Buddy erlauben" />}
         />
         <PrivacyTile
+          wide
           icon={AudioLines}
           title="Aktivierungswort"
-          word={prefs.handsFree && prefs.wakeWord ? 'an' : 'aus'}
-          tone={prefs.handsFree && prefs.wakeWord ? 'on' : 'off'}
-          text="Im Hands-free-Modus auf „Hey Buddy“ hören. Die Erkennung übernimmt die Spracherkennung deines Geräts (unter Android der Google-Sprachdienst)."
-          control={<Switch className="bb-switch" checked={prefs.handsFree && prefs.wakeWord} disabled={!prefs.handsFree} onCheckedChange={value => setPref('wakeWord', value)} aria-label="Aktivierungswort Hey Buddy" />}
+          word={prefs.wakeWord ? 'an' : 'aus'}
+          tone={prefs.wakeWord ? 'on' : 'off'}
+          text={`BaitBuddy lauscht beim App-Start auf „${prefs.wakeWordPhrase}“. Das Aktivierungswort ist unabhängig vom Hands-free-Modus und bleibt lokal auf diesem Gerät.`}
+          control={<Switch className="bb-switch" checked={prefs.wakeWord} onCheckedChange={value => setPref('wakeWord', value)} aria-label="Globales Aktivierungswort erlauben" />}
+          extra={(
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={wakeWordDraft}
+                maxLength={40}
+                onChange={event => setWakeWordDraft(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); saveWakeWord(); } }}
+                onBlur={saveWakeWord}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                placeholder="z. B. Hey Buddy"
+                aria-label="Eigenes Aktivierungswort"
+              />
+              <button type="button" onClick={saveWakeWord} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500">
+                Speichern
+              </button>
+            </div>
+          )}
         />
         <PrivacyTile
           icon={FileAudio}
@@ -180,7 +208,7 @@ export default function Privatsphaere() {
           title="Daueraufnahme:"
           word="Aus"
           tone="off"
-          text="Kamera und Mikrofon laufen nur, solange du eine Funktion wie Hands-free Buddy oder die Bisserkennung geöffnet hast. Im Hintergrund nimmt BaitBuddy nichts auf."
+          text="Kamera und Mikrofon laufen nur für aktivierte Sprachfunktionen. Das Wake-Word lauscht nur, solange die App im Vordergrund ist; im Hintergrund wird die Erkennung gestoppt."
         />
       </div>
 

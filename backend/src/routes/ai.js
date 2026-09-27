@@ -26,7 +26,7 @@ import { isJevBuddyActive, isJevVisionActive } from '../lib/jevClient.js';
 import { runBuddyContextShadow } from '../lib/jevShadow.js';
 import { resolveActiveContextFlags } from '../lib/jevBuddyContext.js';
 import { runVisionConfidenceShadow, resolveActiveConfidenceBand, classifyConfidenceBand } from '../lib/jevVisionConfidence.js';
-import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas } from '../lib/aiTokenQuota.js';
+import { meterAiTokens, costFor, getTokenUsage, getTokenCosts, getTokenQuotas, getRecentUsage } from '../lib/aiTokenQuota.js';
 
 // open-meteo ist optional/schnell — kurzes Timeout, damit ein hängender
 // Wetterdienst nie die KI-Antwort blockiert.
@@ -692,56 +692,56 @@ Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt in exakt diesem Format,
   }
 });
 
-// Männliche Standardstimme — "Daniel" ist eine natürliche deutsche
-// Premade-Voice, die auch im ElevenLabs-Free-Plan per API nutzbar ist.
-const DEFAULT_VOICE_ID = 'onwK4e9ZLuTAKqWW03F9';
-// Weibliche Stimme (nur Ultimate) — "Matilda" ist eine warme, natürliche
-// Premade-Voice; über eleven_multilingual_v2 spricht sie sauberes Deutsch und
-// ist wie Daniel im Free-Plan per API nutzbar.
+// Einzige konfigurierte Premium-Stimme (weiblich, für alle Pro/Ultimate-Nutzer
+// identisch — kein Stimmwechsel mehr je Nutzer/Anfrage). "Matilda" ist eine
+// warme, natürliche Premade-Voice; über eleven_multilingual_v2 spricht sie
+// sauberes Deutsch und ist auch im ElevenLabs-Free-Plan per API nutzbar.
 const FEMALE_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX';
 
 // Vorlesen kostet nach Textlänge (ein Aufruf je Satz aus der Vorlese-Queue).
 const ttsCost = (req) => costFor('tts', { textLength: typeof req.body?.text === 'string' ? req.body.text.length : 0 });
 
-// Premium-Stimme (Server-TTS) gibt es ab Ultimate. Free/Basic/Pro sprechen im
-// Client mit der Gerätestimme (src/lib/browserTTS.js). Das Gate läuft VOR dem
-// KI-Volumen, damit eine Ablehnung nichts kostet.
-// Live-Voice (Realtime-Sitzung) ist ebenfalls Ultimate-Feature.
+// Premium-Stimme (Server-TTS) gibt es ab Pro (Punkt 3: "Stimme nach Plan" —
+// Free/Basic sprechen im Client mit der Gerätestimme, src/lib/browserTTS.js).
+// Das Gate läuft VOR dem KI-Volumen, damit eine Ablehnung nichts kostet.
+// Live-Voice (Realtime-Sitzung) ist ebenfalls ab Pro enthalten.
 async function requirePremiumVoice(req, res, next) {
   try {
     const access = await resolveServerToolAccess({
       user: req.user,
       toolId: 'premium_voice',
-      requiredPlanRank: PLAN_RANK.elite,
+      requiredPlanRank: PLAN_RANK.pro,
     });
     if (access.allowed) return next();
   } catch (e) {
     console.error('[ai/tts] Plan-Prüfung fehlgeschlagen:', e.message);
   }
   return res.status(403).json({
-    error: 'Premium-Stimme und Live-Voice sind im Ultimate-Plan enthalten.',
+    error: 'Premium-Stimme und Live-Voice sind ab dem Pro-Plan enthalten.',
     code: 'premium_voice_required',
   });
 }
 
 router.post('/ai/tts', requireAuth, requirePremiumVoice, meterAiTokens('tts', { cost: ttsCost }), async (req, res) => {
-  const { text, voice } = req.body || {};
+  const { text, preferred_provider } = req.body || {};
   // Typ prüfen: Ein Nicht-String (z. B. eine Zahl) ließ .trim() werfen → 500.
   if (typeof text !== 'string' || text.trim().length === 0) {
     return res.status(400).json({ error: 'Text is required' });
   }
 
-  // requirePremiumVoice hat den Plan (Ultimate oder permanenter Unlock) bereits
-  // geprüft; beide Stimmen stehen damit offen.
-  const voiceUsed = voice === 'female' ? 'female' : 'male';
-
-  const voiceId = voiceUsed === 'female'
-    ? (process.env.ELEVENLABS_VOICE_ID_FEMALE || FEMALE_VOICE_ID)
-    : (process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID);
+  // Eine einzige Premiumstimme für alle — kein Auswahlparameter mehr.
+  const voiceId = process.env.ELEVENLABS_VOICE_ID_FEMALE || FEMALE_VOICE_ID;
+  // Vom Client gepinnter Provider (siehe elevenLabsTTS.js createSpeechQueue):
+  // hält eine mehrsätzige Antwort auf demselben Cloud-Provider, statt bei
+  // einem transienten Fehler mitten in der Antwort auf einen anderen Provider
+  // (= andere Stimme) auszuweichen. Schlägt genau dieser Provider fehl, gibt
+  // es hier bewusst KEINEN Cloud-Fallback mehr — das übernimmt kontrolliert
+  // die Gerätestimme im Client.
+  const preferredProvider = typeof preferred_provider === 'string' ? preferred_provider : null;
 
   try {
-    const result = await getTTSAudio(text, voiceId);
-    return res.json({ ...result, voice_used: voiceUsed });
+    const result = await getTTSAudio(text, voiceId, preferredProvider);
+    return res.json({ ...result, voice_used: 'female' });
   } catch (e) {
     console.error('TTS error (all providers failed):', e.message);
     return res.status(502).json({ error: 'TTS service error - keine Provider verfügbar' });
@@ -855,7 +855,9 @@ router.post('/ai/realtime-session', requireAuth, requirePremiumVoice, meterAiTok
   }
 
   const model = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime';
-  const voice = process.env.OPENAI_REALTIME_VOICE || 'verse';
+  // Weibliche Stimme als Standard (Punkt 3: "Für alle: weibliche Stimme"),
+  // konsistent mit der Premium-TTS-Stimme oben — per Env weiterhin umschaltbar.
+  const voice = process.env.OPENAI_REALTIME_VOICE || 'shimmer';
 
   try {
     // Persönlichen Kontext laden (Fänge + Schonzeiten parallel), damit sich das
@@ -1299,8 +1301,11 @@ Antworte NUR mit dem JSON-Objekt.`;
 // das Volumen aller Pläne (für die Plan-Übersicht; Quelle bleibt der Server).
 router.get('/ai/usage', requireAuth, async (req, res) => {
   try {
-    const usage = await getTokenUsage(req.user);
-    return res.json({ ok: true, ...usage, costs: getTokenCosts(), plan_quotas: getTokenQuotas() });
+    const [usage, recent] = await Promise.all([
+      getTokenUsage(req.user),
+      getRecentUsage(req.user.id),
+    ]);
+    return res.json({ ok: true, ...usage, costs: getTokenCosts(), plan_quotas: getTokenQuotas(), recent });
   } catch (e) {
     return sendDbError(res, e);
   }

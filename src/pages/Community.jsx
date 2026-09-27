@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { integrations, entities, api, community } from "@/api/frontendClient";
@@ -289,9 +288,6 @@ export default function Community() {
   });
   const [competitions, setCompetitions] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [_isRefreshing, setIsRefreshing] = useState(false);
-  const [_pullStart, setPullStart] = useState(0);
-  const [_pullDistance, setPullDistance] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [showChat, setShowChat] = useState(false);
   const [activeUserCount, setActiveUserCount] = useState(0);
@@ -306,51 +302,6 @@ export default function Community() {
     loadActiveUserCount();
     const interval = setInterval(loadActiveUserCount, 30000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    let startY = 0;
-    let currentDistance = 0;
-
-    const handleTouchStart = (e) => {
-      if (window.scrollY === 0) {
-        startY = e.touches[0].clientY;
-      }
-    };
-
-    const handleTouchMove = (e) => {
-      if (startY > 0) {
-        const distance = e.touches[0].clientY - startY;
-        if (distance > 0 && distance < 150) {
-          currentDistance = distance;
-          setPullDistance(distance);
-        }
-      }
-    };
-
-    const handleTouchEnd = async () => {
-      if (currentDistance > 80) {
-        setIsRefreshing(true);
-        await loadPosts();
-        await loadCompetitions();
-        await loadRecentActivity();
-        setIsRefreshing(false);
-      }
-      startY = 0;
-      currentDistance = 0;
-      setPullStart(0);
-      setPullDistance(0);
-    };
-
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd);
-
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
   }, []);
 
   const loadCurrentUser = async () => {
@@ -438,10 +389,14 @@ export default function Community() {
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const [postsData, allComments] = await Promise.all([
-        entities.Post.list("-created_at", 50),
-        entities.Comment.list('', 1000)
-      ]);
+      const postsData = await entities.Post.list("-created_at", 50);
+      const postIds = postsData.map(post => post.id).filter(Boolean);
+      // Nur Kommentare der aktuell geladenen Posts holen (statt aller Kommentare
+      // der Plattform) — verhindert, dass neue Kommentare hinter einem harten
+      // Server-Limit verschwinden, sobald es plattformweit mehr als 500 gibt.
+      const allComments = postIds.length > 0
+        ? await entities.Comment.filter({ post_ids: postIds.join(','), limit: 2000 })
+        : [];
 
       const newCache = { ...userCache };
       const allEmails = new Set();
@@ -658,8 +613,6 @@ export default function Community() {
     }
   }, [loadPosts]);
 
-  const queryClient = useQueryClient();
-
   if (loading) {
     return (
       <PageContainer>
@@ -675,9 +628,9 @@ export default function Community() {
 
   const handleRefresh = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['posts'] }),
-      queryClient.invalidateQueries({ queryKey: ['competitions'] }),
-      queryClient.invalidateQueries({ queryKey: ['recent-activity'] })
+      loadPosts(),
+      loadCompetitions(),
+      loadRecentActivity()
     ]);
   };
 

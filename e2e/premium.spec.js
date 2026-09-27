@@ -4,8 +4,8 @@ import { installApiMocks, dismissSplash } from './fixtures/apiMock.js';
 // E2E fuer den Kaufpfad. Abgesichert wird die dokumentierte Regel "vor dem Kauf
 // pruefen, ob der Server verifizieren kann": ohne konfiguriertes Zahlungs-Secret
 // muss die UI den Kauf sperren, sonst zahlt der Nutzer erst und bekommt danach
-// einen 501. Umgekehrt darf ein Ausfall der Config-Abfrage NICHT sperren
-// (fail-open) — sonst kostet ein Wackler im Backend echte Verkaeufe.
+// einen 501. Ein Ausfall der Config-Abfrage sperrt den Checkout, bis die
+// Verifikationsfähigkeit des Servers bestätigt ist.
 //
 // Die Tests laufen im Browser, also greift der Stripe-Zweig (kein
 // window.AndroidBilling).
@@ -57,14 +57,15 @@ test.describe('Premium-Kaufpfad', () => {
     }
   });
 
-  test('sperrt den Kauf NICHT, wenn die Config-Abfrage fehlschlaegt (fail-open)', async ({ page }) => {
+  test('sperrt den Kauf, wenn die Config-Abfrage fehlschlaegt', async ({ page }) => {
     await installApiMocks(page, {
       authenticated: true,
       handlers: { '/api/premium/config': { status: 500, body: { error: 'Config nicht ladbar' } } },
     });
     await openPremium(page);
 
-    await expect(page.getByText('Kauf derzeit nicht moeglich')).toHaveCount(0);
+    await expect(page.getByText('Kauf derzeit nicht moeglich')).toBeVisible();
+    await expect(page.getByRole('button', { name: CHECKOUT_BUTTON }).first()).toBeDisabled();
   });
 
   test('startet den Stripe-Checkout serverseitig und sendet nur die plan_id', async ({ page }) => {

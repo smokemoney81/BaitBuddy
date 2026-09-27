@@ -49,14 +49,14 @@ const TONE_OPTIONS = [
 
 const STEP_HEADLINES = {
   welcome: 'Willkommen bei BaitBuddy',
-  buddy: 'Wähle deinen Buddy',
+  buddy: 'Dein Buddy Marina',
   voice: 'Stimme auswählen',
   tone: 'Wie soll dein Buddy antworten?',
   experience: 'Wie würdest du dich einschätzen?',
 };
 
 const STEP_SUBLINES = {
-  buddy: 'Jeder Buddy hat seine eigene Persönlichkeit und Stimme. Du kannst ihn später jederzeit wechseln.',
+  buddy: 'Marina begleitet dich beim Angeln. Stimme und Antwortstil kannst du später ändern.',
   voice: 'Die Stimme, mit der dein Buddy dir antwortet.',
   tone: 'Der Antwortstil lässt sich in den Einstellungen jederzeit ändern.',
   experience: 'Damit Tipps weder zu einfach noch zu speziell sind.',
@@ -329,22 +329,6 @@ export default function OnboardingFlow() {
                   </button>
                 );
               })}
-            </div>
-          )}
-
-          {step.id === 'voice' && (
-            <div className="space-y-3">
-              <OptionCards
-                options={[
-                  { id: 'male', label: 'Daniel', description: 'Männliche Stimme, in allen Tarifen verfügbar.' },
-                  { id: 'female', label: 'Matilda', description: 'Weibliche Stimme, nur mit Ultimate.' },
-                ]}
-                value={draft.buddy.voiceId}
-                onSelect={(voiceId) => setDraftSection('buddy', { ...draft.buddy, voiceId })}
-              />
-              <p className="bb-muted text-sm">
-                Ohne Ultimate wird automatisch Daniel verwendet.
-              </p>
             </div>
           )}
 

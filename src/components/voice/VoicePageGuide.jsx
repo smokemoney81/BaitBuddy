@@ -4,7 +4,8 @@ import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { FishingPlan } from '@/entities/FishingPlan';
 import { selectNextTrip } from '@/lib/tripJourney';
 import { runWhenAudioReady } from '@/lib/audioUnlock';
-import { isVoiceMuted } from '@/lib/voiceActivity';
+import { isVoiceMuted, isVoiceSpeaking } from '@/lib/voiceActivity';
+import { getActiveAdContexts } from '@/lib/adActiveContext';
 import { speakWithFallback } from '@/components/utils/elevenLabsTTS';
 import {
   isVoiceGuideEnabled, pageIntroToSpeak, markPageIntroSpoken,
@@ -30,7 +31,13 @@ export default function VoicePageGuide({ pageName }) {
   useEffect(() => {
     if (!pageName || !voiceEnabled || !isVoiceGuideEnabled()) return undefined;
     let cancelled = false;
-    const stillHere = () => !cancelled && pageRef.current === pageName && !isVoiceMuted();
+    // Nicht mitten in einen kritischen Moment reden: läuft schon eine
+    // Sprachausgabe (der Buddy antwortet gerade, liest etwas vor …) oder eine
+    // nicht unterbrechbare Session (Bisserkennung/Drill, siehe
+    // adActiveContext.js), wartet der Hinweis einfach bis zum nächsten
+    // natürlichen Seitenaufruf, statt dazwischenzureden.
+    const stillHere = () => !cancelled && pageRef.current === pageName && !isVoiceMuted()
+      && !isVoiceSpeaking() && getActiveAdContexts().length === 0;
 
     const timer = setTimeout(() => {
       runWhenAudioReady(async () => {

@@ -3,13 +3,25 @@
 // und die Schalter gelten auch im Gastmodus.
 
 const KEY = 'bb_privacy_prefs';
+const DEFAULT_WAKE_WORD = 'Hey Buddy';
 
 export const DEFAULT_PRIVACY_PREFS = {
   // Hands-free Buddy darf gestartet werden.
   handsFree: true,
-  // Aktivierungswort "Hey Buddy" statt Antippen im Hands-free-Modus.
+  // Globales Aktivierungswort darf beim App-Start lauschen.
   wakeWord: true,
+  // Nutzerdefiniertes Aktivierungswort; bleibt lokal auf diesem Gerät.
+  wakeWordPhrase: DEFAULT_WAKE_WORD,
 };
+
+export function sanitizeWakeWord(value) {
+  const cleaned = String(value || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40);
+  return cleaned || DEFAULT_WAKE_WORD;
+}
 
 export function readPrivacyPrefs() {
   try {
@@ -17,6 +29,7 @@ export function readPrivacyPrefs() {
     return {
       handsFree: typeof raw.handsFree === 'boolean' ? raw.handsFree : DEFAULT_PRIVACY_PREFS.handsFree,
       wakeWord: typeof raw.wakeWord === 'boolean' ? raw.wakeWord : DEFAULT_PRIVACY_PREFS.wakeWord,
+      wakeWordPhrase: sanitizeWakeWord(raw.wakeWordPhrase || DEFAULT_PRIVACY_PREFS.wakeWordPhrase),
     };
   } catch {
     return { ...DEFAULT_PRIVACY_PREFS };
@@ -24,11 +37,21 @@ export function readPrivacyPrefs() {
 }
 
 export function writePrivacyPrefs(next) {
-  const merged = { ...readPrivacyPrefs(), ...next };
+  const current = readPrivacyPrefs();
+  const merged = {
+    ...current,
+    ...next,
+    wakeWordPhrase: sanitizeWakeWord(next?.wakeWordPhrase ?? current.wakeWordPhrase),
+  };
   try {
     localStorage.setItem(KEY, JSON.stringify(merged));
   } catch {
     // Speicher gesperrt (Private Mode): Schalter gilt nur für diese Sitzung.
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('privacy-prefs-changed', { detail: merged }));
+  } catch {
+    // SSR/Test-Umgebung ohne window.
   }
   return merged;
 }

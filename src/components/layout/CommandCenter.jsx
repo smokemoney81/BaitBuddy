@@ -28,7 +28,7 @@ const AREAS = [
   { name: 'Wetter & Prognosen', icon: CloudSun, items: [['Wetter, Bissprognose & Solunar', 'Weather']] },
   { name: 'Fangbuch', icon: Fish, items: [['Meine Fänge', 'Logbook'], ['Statistiken & Rekorde', 'CatchStats']] },
   { name: 'Ausrüstung', icon: Backpack, items: [['Equipment, Sets & Köder', 'Gear'], ['Wartung', 'GearMaintenance'], ['Meine Geräte', 'MyDevices'], ['Shop', 'Shop'], ['Gebrauchte Ausrüstung', 'UsedGear']] },
-  { name: 'Lernen', icon: GraduationCap, items: [['Prüfung & Schonzeiten', 'AngelscheinPruefungSchonzeiten'], ['Regel-Assistent', 'RuleAssistant'], ['Quiz', 'Quiz'], ['Anleitungen', 'Tutorials'], ['Lizenzen', 'Licenses']] },
+  { name: 'Lernen', icon: GraduationCap, items: [['Prüfung & Schonzeiten', 'AngelscheinPruefungSchonzeiten'], ['Regel-Assistent', 'RuleAssistant'], ['Quiz', 'Quiz'], ['Lizenzen', 'Licenses']] },
   { name: 'Einstellungen', icon: Settings, items: [['Profil', 'Profile'], ['KI-Buddy', 'Settings?tab=buddy'], ['Navigation', 'Settings?tab=navigation'], ['Benachrichtigungen', 'Settings?tab=notifications'], ['Audio & Stimme', 'Settings?tab=voice'], ['Privatsphäre & Berechtigungen', 'Privatsphaere'], ['Gastdaten übernehmen', 'GastdatenUebernehmen'], ['Akku & Konto', 'Settings'], ['Tarif & KI-Zugriff', 'PremiumPlans']] },
   { name: 'Hilfe & Rechtliches', icon: LifeBuoy, items: [['Hilfe, FAQ & Support', 'Help'], ['Datenschutz', 'Datenschutz'], ['Impressum', 'Impressum'], ['AGB', 'AGB']] },
 ];

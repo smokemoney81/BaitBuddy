@@ -13,7 +13,7 @@
 // Buddy überall hörbar bleibt.
 
 import { functions } from "@/api/frontendClient";
-import { getPreferredTtsVoice, getActiveBuddyAudio, getVoiceTier, setVoiceTier } from "@/lib/ttsVoice";
+import { getActiveBuddyAudio, getVoiceTier, setVoiceTier } from "@/lib/ttsVoice";
 import { speakBrowser, cancelBrowserTTS, isBrowserTTSAvailable } from "@/lib/browserTTS";
 import { setVoiceSpeaking, isVoiceMuted, subscribeVoiceMuted } from "@/lib/voiceActivity";
 
@@ -25,9 +25,13 @@ function isPremiumVoiceDenied(err) {
 }
 
 // Premium-Audio holen; bei Plan-Ablehnung dauerhaft auf die Gerätestimme gehen.
-async function fetchPremiumAudio(text) {
+// `preferredProvider` pinnt den Cloud-TTS-Provider (OpenAI/ElevenLabs/Google/
+// Gemini) innerhalb einer Antwort auf den, der den ersten Satz geliefert hat —
+// verhindert einen Stimmwechsel mitten in einer mehrsätzigen Antwort, wenn ein
+// späterer Satz sonst bei einem anderen Provider (= andere Stimme) landen würde.
+async function fetchPremiumAudio(text, preferredProvider) {
   try {
-    return await functions.invoke("textToSpeech", { text, voice: getPreferredTtsVoice() });
+    return await functions.invoke("textToSpeech", { text, preferred_provider: preferredProvider || undefined });
   } catch (err) {
     if (isPremiumVoiceDenied(err)) setVoiceTier('browser');
     throw err;
@@ -331,13 +335,23 @@ export function splitIntoSentences(text, opts = {}) {
 // Holt das Audio für einen einzelnen Satz und liefert einen Blob (oder null,
 // wenn die Queue zwischenzeitlich abgelöst/abgebrochen wurde bzw. kein Audio
 // kam). Wirft bei Netzwerkfehlern — die Queue überspringt den Satz dann still.
-async function fetchSentenceBlob(text, myGeneration) {
+//
+// @param {boolean} useBrowserVoice Einmal pro Antwort/Queue entschieden
+//   (siehe createSpeechQueue) statt hier live neu abgefragt — verhindert einen
+//   Stimmwechsel mitten in der Antwort, falls sich der Plan-Tier während der
+//   Wiedergabe ändert (z.B. Kauf-Webhook kommt mitten im Vorlesen an).
+// @param {string|null} preferredProvider Vom ersten erfolgreichen Satz dieser
+//   Antwort gepinnter Cloud-Provider (siehe fetchPremiumAudio).
+// @param {(provider: string) => void} [onProvider] Meldet den vom Server
+//   tatsächlich genutzten Provider zurück, damit die Queue ihn für die
+//   restlichen Sätze pinnen kann.
+async function fetchSentenceBlob(text, myGeneration, useBrowserVoice, preferredProvider, onProvider) {
   if (!getActiveBuddyAudio().voiceEnabled || isVoiceMuted()) return null;
   // Gerätestimme: nichts vorzuladen, der Satz wird direkt gesprochen.
-  if (prefersBrowserVoice()) return { browserText: text };
+  if (useBrowserVoice) return { browserText: text };
   let response;
   try {
-    response = await fetchPremiumAudio(text);
+    response = await fetchPremiumAudio(text, preferredProvider);
   } catch (err) {
     if (isBrowserTTSAvailable()) return { browserText: text };
     throw err;
@@ -346,6 +360,7 @@ async function fetchSentenceBlob(text, myGeneration) {
   const payload = response?.audioBase64 ? response : response?.data;
   const audioBase64 = payload?.audioBase64;
   if (!audioBase64) return null;
+  if (payload.provider) onProvider?.(payload.provider);
   return base64ToBlob(audioBase64, payload.contentType);
 }
 
@@ -404,6 +419,17 @@ export function createSpeechQueue(options = {}) {
   cancelElevenLabs();
   const myGeneration = generation;
 
+  // Einmal pro Antwort/Queue entschieden — nicht pro Satz neu abgefragt (siehe
+  // fetchSentenceBlob-Doku oben). Das ist der Kern-Fix gegen Stimmwechsel
+  // mitten in einer Antwort: vorher rief jeder Satz prefersBrowserVoice() frisch
+  // auf, wodurch ein Plan-/Tier-Wechsel während der Wiedergabe die Stimme
+  // zwischen Satz 1 und Satz 2 kippen konnte.
+  const useBrowserVoice = prefersBrowserVoice();
+  // Sobald der erste Premium-Satz einen Provider liefert, gilt dieser für den
+  // Rest der Antwort verbindlich (kein Provider-Wechsel pro Satz).
+  let pinnedProvider = null;
+  const pinProvider = (provider) => { if (!pinnedProvider) pinnedProvider = provider; };
+
   let textBuffer = "";
   const queue = [];          // fertige Sätze in Reihenfolge
   let headBlobPromise = null; // Prefetch für queue[0] (Tiefe 1 → keine Lücken)
@@ -417,7 +443,7 @@ export function createSpeechQueue(options = {}) {
     if (!headBlobPromise && queue.length > 0 && isActive()) {
       // Fehler abfangen, damit ein Reject nicht als Unhandled Rejection endet;
       // die Wiedergabeschleife wertet das Ergebnis (null) aus.
-      headBlobPromise = fetchSentenceBlob(queue[0], myGeneration).catch(() => null);
+      headBlobPromise = fetchSentenceBlob(queue[0], myGeneration, useBrowserVoice, pinnedProvider, pinProvider).catch(() => null);
     }
   }
 

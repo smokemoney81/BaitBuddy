@@ -1,9 +1,8 @@
-// Aktivierungswort "Hey Buddy" für den Hands-free Buddy.
+// Aktivierungswort-Erkennung für den globalen Voice-Buddy und Hands-free.
 //
-// Die Spracherkennung (Web Speech API) liefert Freitext. Sie hört "Buddy"
-// je nach Aussprache als "Baddy", "Body" oder "Bady" und "Hey" als "Hei",
-// "He" oder "Hallo". Diese Varianten werden hier toleriert; alles, was nach dem
-// Aktivierungswort im selben Satz folgt, ist bereits die Frage.
+// Die Spracherkennung (Web Speech API) liefert Freitext. Für das Standardwort
+// "Hey Buddy" tolerieren wir typische Erkennungsvarianten; benutzerdefinierte
+// Aktivierungswörter werden normalisiert und als zusammenhängende Phrase gesucht.
 
 const GREETINGS = ['hey', 'hei', 'hej', 'he', 'hi', 'hallo', 'ey', 'okay', 'ok'];
 const NAMES = ['buddy', 'baddy', 'bady', 'budy', 'body', 'buddie', 'buddi', 'bodie', 'bitte buddy'];
@@ -16,25 +15,43 @@ export function normalizeTranscript(text) {
     .trim();
 }
 
-const WAKE_PATTERN = new RegExp(
+const DEFAULT_WAKE_PATTERN = new RegExp(
   `(?:^|\\s)(?:${GREETINGS.join('|')})\\s+(?:${NAMES.join('|')})(?=\\s|$)`,
 );
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
- * Sucht das Aktivierungswort im erkannten Text.
+ * Sucht das konfigurierte Aktivierungswort im erkannten Text.
  * @returns {{ detected: boolean, command: string }}
- *   command = Text nach dem Aktivierungswort (leer, wenn nur "Hey Buddy" fiel).
+ * command = Text nach dem Aktivierungswort (leer, wenn nur das Wake-Word fiel).
  */
-export function detectWakeWord(text) {
+export function detectConfiguredWakeWord(text, phrase = 'Hey Buddy') {
   const normalized = normalizeTranscript(text);
-  const match = WAKE_PATTERN.exec(normalized);
+  const normalizedPhrase = normalizeTranscript(phrase) || 'hey buddy';
+
+  let match;
+  if (normalizedPhrase === 'hey buddy') {
+    match = DEFAULT_WAKE_PATTERN.exec(normalized);
+  } else {
+    const customPattern = new RegExp(`(?:^|\\s)${escapeRegExp(normalizedPhrase)}(?=\\s|$)`);
+    match = customPattern.exec(normalized);
+  }
+
   if (!match) return { detected: false, command: '' };
   const command = normalized.slice(match.index + match[0].length).trim();
   return { detected: true, command };
 }
 
-// Beispiele, die der Buddy im Hands-free-Modus wirklich umsetzen kann
-// (Aktionen aus buddyActionCatalog bzw. Wissensfragen mit Standort-Kontext).
+// Rückwärtskompatibel; optional kann jetzt dieselbe konfigurierte Phrase wie im
+// globalen Listener übergeben werden. So unterscheiden sich Global/Hands-free
+// nicht mehr bei einem benutzerdefinierten Aktivierungswort.
+export function detectWakeWord(text, phrase = 'Hey Buddy') {
+  return detectConfiguredWakeWord(text, phrase);
+}
+
 export const HANDS_FREE_EXAMPLES = [
   'Wie ist das Wetter?',
   'Welcher Köder passt jetzt?',
@@ -42,5 +59,4 @@ export const HANDS_FREE_EXAMPLES = [
   'Speichere diesen Spot',
 ];
 
-// Nach so vielen Sekunden ohne erkannte Sprache beendet sich der Modus.
 export const HANDS_FREE_IDLE_SECONDS = 60;

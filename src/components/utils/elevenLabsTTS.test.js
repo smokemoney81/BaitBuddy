@@ -303,6 +303,84 @@ describe('Stimmen-Stufe nach Plan', () => {
   });
 });
 
+// Regressionstests zum Mehrfach-Stimmen-Bug: Tier und Cloud-Provider wurden
+// früher PRO SATZ neu ermittelt statt einmal pro Antwort/Queue gepinnt — ein
+// Plan-Update oder ein transienter Provider-Fehler mitten in einer Antwort
+// konnte dadurch hörbar die Stimme wechseln.
+describe('Eine Stimme pro Antwort (Tier- und Provider-Pinning)', () => {
+  let spoken;
+  class FakeUtterance {
+    constructor(text) { this.text = text; }
+  }
+  beforeEach(() => {
+    spoken = [];
+    vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance);
+    vi.stubGlobal('speechSynthesis', {
+      speak: (u) => { spoken.push(u); },
+      cancel: vi.fn(),
+      getVoices: () => [{ lang: 'de-DE', localService: true, name: 'Deutsch' }],
+    });
+  });
+  afterEach(async () => {
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('browser');
+  });
+
+  it('bleibt bei der Gerätestimme für den Rest der Antwort, auch wenn der Tier mittendrin auf premium wechselt', async () => {
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('browser');
+
+    const q = createSpeechQueue();
+    q.push('Das ist der erste lange Satz hier. Und das ist der zweite lange Satz danach.');
+    q.flush();
+    await tick();
+    expect(spoken).toHaveLength(1);
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    // Plan-Update kommt mitten in der Antwort an (z.B. Kauf-Webhook) —
+    // darf den bereits laufenden Satz-Stream nicht auf Premium umschalten.
+    setVoiceTier('premium');
+    spoken[0].onend();
+    await tick(); await tick();
+
+    expect(spoken).toHaveLength(2);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('pinnt den Cloud-Provider des ersten Satzes ab dem dritten Satz dieser Antwort', async () => {
+    // Satz 2 wird bereits parallel zu Satz 1 vorab angefordert (Pipelining
+    // "spricht, bevor die ganze Antwort fertig ist" — CLAUDE.md), BEVOR
+    // bekannt ist, welcher Provider Satz 1 beantwortet hat. Das Pinning greift
+    // deshalb technisch bedingt erst ab Satz 3 — das genügt, um den
+    // gemeldeten Bug (wiederholte Stimmwechsel über eine ganze Antwort) zu
+    // beheben, ohne die Latenz-kritische Pipelining-Optimierung zu opfern.
+    const { setVoiceTier } = await import('@/lib/ttsVoice');
+    setVoiceTier('premium');
+
+    invokeMock.mockResolvedValueOnce({ audioBase64: btoa('satz-1'), contentType: 'audio/mpeg', provider: 'openai' });
+    invokeMock.mockResolvedValueOnce({ audioBase64: btoa('satz-2'), contentType: 'audio/mpeg', provider: 'openai' });
+    invokeMock.mockResolvedValueOnce({ audioBase64: btoa('satz-3'), contentType: 'audio/mpeg', provider: 'openai' });
+
+    const q = createSpeechQueue();
+    q.push('Das ist der erste lange Satz hier. Und das ist der zweite lange Satz danach. Und hier kommt noch ein dritter langer Satz.');
+    q.flush();
+    await tick();
+    expect(audioInstances).toHaveLength(1);
+    // Erster Satz: noch kein gepinnter Provider.
+    expect(invokeMock.mock.calls[0][1]).toMatchObject({ preferred_provider: undefined });
+
+    lastAudio.onended();
+    await tick(); await tick();
+    expect(audioInstances).toHaveLength(2);
+
+    lastAudio.onended();
+    await tick(); await tick();
+    expect(audioInstances).toHaveLength(3);
+    // Dritter Satz: der vom ersten Satz gemeldete Provider wird mitgeschickt.
+    expect(invokeMock.mock.calls[2][1]).toMatchObject({ preferred_provider: 'openai' });
+  });
+});
+
 describe('Lautlos und Sprech-Status', () => {
   afterEach(async () => {
     const { setVoiceMuted } = await import('@/lib/voiceActivity');

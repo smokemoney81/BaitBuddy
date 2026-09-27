@@ -151,7 +151,9 @@ export default function PremiumPlans() {
     }
   };
 
-  // Ohne bestätigte serverseitige Verifikation bleiben Käufe gesperrt.
+  // Käufe erst erlauben, wenn der Server die Verifikation des jeweiligen
+  // Zahlungswegs ausdrücklich bestätigt. Ein fehlgeschlagener Config-Request
+  // darf keinen Bezahlvorgang mit unklarer Freischaltung starten.
   const loadPaymentMethods = async () => {
     try {
       const config = await premium.config();
@@ -276,7 +278,7 @@ export default function PremiumPlans() {
         'Angelkarte mit Community-Spots (Basis)',
         'Schonzeiten & Mindestmasse nachschlagen',
         'Angelschein-Pruefungsvorbereitung (Quiz)',
-        'Tutorials & AR-Knotenassistent',
+        'AR-Knotenassistent',
         'Aktuelles Wetter (heute)',
         'Community-Feed lesen'
       ]
@@ -313,6 +315,8 @@ export default function PremiumPlans() {
       popular: true,
       features: [
         'Alles aus Basic',
+        'Natuerliche Premium-KI-Stimme (statt Geraetestimme)',
+        'KI Voice Live Chat',
         'KI-Fangprognosen & Hotspot-Erkennung',
         'Satelliten-Gewaesseranalyse (Echtdaten)',
         'AR-Gewaesser-Ansicht 3D & 3D-Koederanimation',
@@ -336,11 +340,9 @@ export default function PremiumPlans() {
       popular: false,
       features: [
         'Alles aus Pro - jede Funktion freigeschaltet',
-        'KI Voice Live Chat (nur Ultimate)',
         'Live-Bissanzeiger per Smartphone-Kamera',
         'KI-Kamera: Echtzeit-Fischerkennung',
         'CatchCam - KI-Analyse direkt vom Foto',
-        'Weibliche KI-Stimme "Matilda" (ElevenLabs)',
         'KI-Buddy Chat & Foto-Analyse mit groesstem KI-Volumen',
         'KI-Fangprognosen & Gewaesseranalyse (Open-Meteo)',
         '3D-Koederfuehrung, AR-Gewaesser & AR-Knotenassistent',
@@ -380,9 +382,9 @@ export default function PremiumPlans() {
   ];
 
   // Kann der Server den hier angebotenen Zahlungsweg überhaupt verifizieren?
-  // Ohne Bestätigung bleibt der Kauf gesperrt, auch wenn die Abfrage fehlschlägt.
-  const purchasesEnabled = Boolean(paymentMethods
-    && (billingAvailable ? paymentMethods.google_play : paymentMethods.stripe));
+  // Wenn nicht, würde der Nutzer erst bezahlen und danach eine Fehlermeldung
+  // bekommen. null = noch unbekannt oder Abfrage fehlgeschlagen.
+  const purchasesEnabled = Boolean(billingAvailable ? paymentMethods?.google_play : paymentMethods?.stripe);
 
   const tierPlans = PLAN_TIERS.map(({ planId }) => plans.find(plan => plan.id === planId));
   const friendsPlan = plans.find(plan => plan.id === 'friends');

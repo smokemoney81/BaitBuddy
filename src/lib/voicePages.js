@@ -11,7 +11,7 @@ export const ALLOWED_PAGES = [
   "Profile", "Settings", "Rank", "WaterAnalysis",
   "AngelscheinPruefungSchonzeiten", "Quiz", "Licenses", "Events",
   "BaitMixer", "Koeder3D", "CatchStats", "ARKnotenAssistent", "Shop", "Premium",
-  "PremiumPlans", "Help", "Tutorials", "Devices", "DeviceIntegration",
+  "PremiumPlans", "Help", "Devices", "DeviceIntegration",
   "StartFishing", "UsedGear", "BathymetricCrowdsourcing",
   "VoiceLecture", "BuddyKnowsYou",
   "FishRecipes", "GearRecognition", "NotificationCenter",
@@ -117,9 +117,6 @@ const PAGE_ALIASES = {
   upgrade: "PremiumPlans", pro: "PremiumPlans",
 
   hilfe: "Help", help: "Help", support: "Help",
-
-  tutorial: "Tutorials", tutorials: "Tutorials", anleitung: "Tutorials",
-  anleitungen: "Tutorials",
 
   geräte: "Devices", geraete: "Devices", devices: "Devices", gerät: "Devices",
   geraet: "Devices",

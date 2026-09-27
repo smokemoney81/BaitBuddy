@@ -88,7 +88,7 @@ describe('OnboardingFlow', () => {
 
   it('übernimmt eine Mehrfachauswahl in den Entwurf', async () => {
     const { saveFishing } = setup({
-      onboarding: { ...DEFAULT_ONBOARDING, stepIndex: 5 }, // Methoden
+      onboarding: { ...DEFAULT_ONBOARDING, stepIndex: 4 }, // Methoden
     });
     render(<OnboardingFlow />);
 
@@ -102,7 +102,7 @@ describe('OnboardingFlow', () => {
 
   it('begrenzt die Navigations-Schwerpunkte auf vier', async () => {
     setup({
-      onboarding: { ...DEFAULT_ONBOARDING, stepIndex: 12 }, // Schwerpunkte
+      onboarding: { ...DEFAULT_ONBOARDING, stepIndex: 11 }, // Schwerpunkte
       navigation: ['Dashboard', 'Map', 'Community', 'Profile'],
     });
     render(<OnboardingFlow />);

@@ -15,15 +15,23 @@ import { buildGreeting } from "@/lib/buddyGreetings";
 import { executeBuddyAction } from "@/utils/buddyActions";
 import { useLocalBuddy } from "@/hooks/useLocalBuddy";
 import { isQuotaExceeded } from "@/lib/aiQuota";
+import { getBuddyDataSource, setBuddyDataSource } from "@/lib/buddyDataSource";
+import BuddyDataSourceSwitch from "@/components/ai/BuddyDataSourceSwitch";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
+import BuddyLiveModeSwitcher from "@/components/ai/BuddyLiveModeSwitcher";
+import BuddyLiveHandsFreeView from "@/components/ai/BuddyLiveHandsFreeView";
+import BuddyLiveCallView from "@/components/ai/BuddyLiveCallView";
 
 const SOURCE_LABELS = {
   offline: "Offline-Antwort aus dem Buddy-Wissen",
   instant: "Sofort-Antwort aus dem Buddy-Wissen",
   device: "Auf deinem Gerät beantwortet",
+  knowledge: "Aus dem Buddy-Wissen",
 };
+
+const VALID_MODES = ["text", "live", "handsfree"];
 
 export default function KiBuddyBeta() {
   return (
@@ -35,9 +43,12 @@ export default function KiBuddyBeta() {
   );
 }
 
-function KiBuddyBetaInner() {
+// Exportiert, damit HandsFreeBuddy.jsx/VoiceChat.jsx (alte Routen) denselben
+// Screen mit vorausgewähltem Modus rendern, statt eine eigene Sitzung mit
+// eigenem Verlauf zu führen ("Buddy Live" — Punkt 5: ein gemeinsamer Screen).
+export function KiBuddyBetaInner({ initialMode } = {}) {
   const { buddy, activeBuddy } = useBuddyPreferences();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   useFeatureTracking("ai_buddy");
   const { trackAIChat } = useEventActivityTracking();
@@ -85,6 +96,48 @@ function KiBuddyBetaInner() {
   const isSpeaking = status === "speaking";
   // Aktive Streaming-Queue des laufenden Turns (für Abbruch bei neuem Turn/Unmount).
   const speechQueueRef = useRef(null);
+
+  // "Buddy Live": Textchat/Voice (Standard), echtes Live-Gespräch (WebRTC) und
+  // Hands-free teilen sich diesen einen Screen und denselben Gesprächsverlauf
+  // (messages/appendMessages/ask) — hier wird nur die Ansicht umgeschaltet.
+  const modeParam = searchParams.get("mode");
+  const [mode, setModeState] = useState(() => (
+    VALID_MODES.includes(initialMode) ? initialMode : (VALID_MODES.includes(modeParam) ? modeParam : "text")
+  ));
+  // Wessen "Sprechen zu Ende"-Callback die Sprech-Queue gerade auslösen soll —
+  // im Chat-Modus die eigene Freisprechen-Schleife (maybeContinueConversation),
+  // im Hands-free-Modus dessen Wake-Word-Schleife. Vermeidet zwei Modi, die
+  // gleichzeitig ums Mikrofon konkurrieren.
+  const activeOnDrainRef = useRef(null);
+  const registerSpeakingDoneHandler = (fn) => { activeOnDrainRef.current = fn; };
+
+  // Datenquelle (Punkt 8): Wissensbasis vs. echtes KI-Modell — der Nutzer
+  // entscheidet, ob eine Frage möglichst ohne Guthabenverbrauch (Datenbank)
+  // oder immer per Modellanfrage beantwortet wird.
+  const [dataSource, setDataSourceState] = useState(() => getBuddyDataSource());
+  function setDataSource(next) {
+    setBuddyDataSource(next);
+    setDataSourceState(next);
+  }
+
+  function setMode(next) {
+    if (next === mode) return;
+    // Sauberer Übergang: laufende Sprachausgabe/-erkennung dieses Screens
+    // stoppen, bevor der neue Modus sein eigenes Mikrofon/seine eigene
+    // Verbindung öffnet — sonst könnten zwei Stimmen/Mikrofone gleichzeitig
+    // aktiv sein.
+    abortRef.current?.abort();
+    retryRef.current = 0;
+    stopSpeaking();
+    stopMic();
+    if (conversationActiveRef.current) endConversation();
+    setModeState(next);
+    setSearchParams((prev) => {
+      const next2 = new URLSearchParams(prev);
+      next2.set("mode", next);
+      return next2;
+    }, { replace: true });
+  }
 
   // Einzige Schreibstelle für Nachrichten: hält Ref und State synchron und
   // unterbindet Updates nach dem Unmount.
@@ -162,7 +215,7 @@ function KiBuddyBetaInner() {
     if (!tonAn || !text) {
       setStatus("");
       stopWave();
-      maybeContinueConversation();
+      continueAfterSpeaking();
       return;
     }
     setStatus("speaking");
@@ -173,7 +226,7 @@ function KiBuddyBetaInner() {
         if (!isMountedRef.current) return;
         setStatus("");
         stopWave();
-        maybeContinueConversation();
+        continueAfterSpeaking();
       },
     });
     speechQueueRef.current = queue;
@@ -197,6 +250,15 @@ function KiBuddyBetaInner() {
     }
   }
 
+  // Nach jeder Sprachausgabe entscheidet der aktive Modus, was als Nächstes
+  // passiert: im Hands-free-Modus dessen Wake-Word-Schleife (registriert über
+  // registerSpeakingDoneHandler), sonst die Freisprechen-Schleife des
+  // Chat-Modus (maybeContinueConversation).
+  function continueAfterSpeaking() {
+    if (activeOnDrainRef.current) activeOnDrainRef.current();
+    else maybeContinueConversation();
+  }
+
   function startConversation() {
     setConversationActive(true);
     conversationActiveRef.current = true;
@@ -213,21 +275,27 @@ function KiBuddyBetaInner() {
   }
 
   // Antwort aus der lokalen FAQ-Datenbank (ohne API). `local` = null heißt:
-  // offline und nichts Passendes gefunden → ehrliche Fallback-Nachricht.
-  function answerLocally(local) {
+  // nichts Passendes gefunden → ehrliche, Buddy-artige Fallback-Nachricht
+  // statt einer rohen technischen Meldung. `retryQuestion` (falls die Ursache
+  // ein Verbindungsfehler war, nicht simple Offline-Abwesenheit) lässt die
+  // Chat-Bubble einen "Nochmal versuchen"-Button zeigen — die Frage selbst
+  // bleibt dabei immer im Verlauf erhalten, geht also nie verloren.
+  function answerLocally(local, { retryQuestion } = {}) {
     retryRef.current = 0;
     if (!local) {
       setStatus("");
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       appendMessages(
         {
           role: "system",
-          text: typeof navigator !== "undefined" && navigator.onLine === false
-            ? "Offline-Modus: Keine Internetverbindung."
-            : "KI-Dienst gerade nicht erreichbar.",
+          text: offline
+            ? "Du bist gerade offline. Ich helfe dir trotzdem mit dem, was ich weiß."
+            : "Ich erreiche meinen Dienst gerade nicht. Deine Frage bleibt hier stehen — gleich klappt's bestimmt.",
+          retryQuestion: !offline ? retryQuestion : undefined,
         },
         { role: "assistant", text: getOfflineFallback(), source: "offline" }
       );
-      maybeContinueConversation();
+      continueAfterSpeaking();
       return;
     }
     appendMessages({ role: "assistant", text: local.answer, source: local.mode, page: local.page });
@@ -271,7 +339,7 @@ function KiBuddyBetaInner() {
         if (!isMountedRef.current) return;
         setStatus("");
         stopWave();
-        maybeContinueConversation();
+        continueAfterSpeaking();
       },
     }) : null;
     if (queue) speechQueueRef.current = queue;
@@ -293,7 +361,7 @@ function KiBuddyBetaInner() {
         signal,
         context: { navigate },
         onDelta: (delta) => {
-          if (!isMountedRef.current) return;
+          if (!isMountedRef.current || signal.aborted) return;
           shown += delta;
           upsertAssistantStreaming(shown.trimStart());
           if (queue) {
@@ -302,7 +370,7 @@ function KiBuddyBetaInner() {
           }
         },
       });
-      if (!isMountedRef.current) { queue?.cancel(); return; }
+      if (!isMountedRef.current || signal.aborted) { queue?.cancel(); return; }
       retryRef.current = 0;
       const ans = result.reply || shown.trim() || "Keine Antwort erhalten.";
       finalizeAssistant(ans, { source: "device" });
@@ -316,7 +384,7 @@ function KiBuddyBetaInner() {
       if (queue && spoken) queue.flush();
       else { queue?.cancel(); speakAnswer(ans); }
     } catch (error) {
-      if (!isMountedRef.current || error?.name === "AbortError") return;
+      if (!isMountedRef.current || signal.aborted || error?.name === "AbortError") return;
       queue?.cancel();
       dropStreamingBubble();
       appendMessages({ role: "system", text: LOCAL_ERROR_LABELS[error?.code] || "Die KI auf dem Gerät hat gerade nicht geantwortet." });
@@ -331,29 +399,59 @@ function KiBuddyBetaInner() {
       // Offline-Pfad, statt erst Timeouts und Retries abzuwarten.
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
       const inConversation = messagesRef.current.some(m => m.role === "assistant");
-      const engine = localBuddy.engineFor(online);
-      if (engine === "local" || engine === "none") {
-        // Eindeutige Standardfragen bleiben Sofort-Antworten — schneller als jedes Modell.
-        const instant = resolveLocalAnswer(q, { online: true, inConversation });
+
+      // Datenquelle "Datenbank" (Punkt 8: Umschalter Wissen/Modell): nie eine
+      // Modellanfrage — weder Gerät noch Cloud —, sondern ausschließlich die
+      // vorhandene Wissensbasis. Geringstmöglicher Guthabenverbrauch.
+      if (dataSource === "database") {
         abortRef.current?.abort();
         speechQueueRef.current?.cancel();
         speechQueueRef.current = null;
-        if (instant) { answerLocally(instant); return; }
-        if (engine === "local") { askOnDevice(q); return; }
-        // Modus "Nur auf dem Gerät", aber kein Modell bereit: keine Cloud.
-        appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
-        answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+        const knowledge = resolveLocalAnswer(q, { online: false, inConversation });
+        answerLocally(knowledge || {
+          answer: "Dazu habe ich in meinem gespeicherten Wissen noch keine passende Antwort. Wähle Auto oder KI-Modell für eine ausführlichere Antwort.",
+          mode: "knowledge",
+        });
         return;
       }
-      const local = resolveLocalAnswer(q, { online, inConversation });
-      if (local || !online) {
-        // Ein noch laufender Request/eine Sprachausgabe des vorherigen Turns
-        // darf die lokale Antwort nicht überholen.
-        abortRef.current?.abort();
-        speechQueueRef.current?.cancel();
-        speechQueueRef.current = null;
-        answerLocally(local);
-        return;
+
+      if (dataSource !== "model") {
+        const engine = localBuddy.engineFor(online);
+        if (engine === "local" || engine === "none") {
+          // Eindeutige Standardfragen bleiben Sofort-Antworten — schneller als jedes Modell.
+          const instant = resolveLocalAnswer(q, { online: true, inConversation });
+          abortRef.current?.abort();
+          speechQueueRef.current?.cancel();
+          speechQueueRef.current = null;
+          if (instant) { answerLocally(instant); return; }
+          if (engine === "local") { askOnDevice(q); return; }
+          // Modus "Nur auf dem Gerät", aber kein Modell bereit: keine Cloud.
+          appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
+          answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+          return;
+        }
+        const local = resolveLocalAnswer(q, { online, inConversation });
+        if (local || !online) {
+          // Ein noch laufender Request/eine Sprachausgabe des vorherigen Turns
+          // darf die lokale Antwort nicht überholen.
+          abortRef.current?.abort();
+          speechQueueRef.current?.cancel();
+          speechQueueRef.current = null;
+          answerLocally(local);
+          return;
+        }
+      } else {
+        // Datenquelle "KI-Modell": die kostenlose Sofort-/Offline-Abkürzung
+        // überspringen, aber die in den Einstellungen gewählte Engine
+        // (Gerät/Cloud) weiterhin respektieren — Gerät bleibt Gerät, nur ohne
+        // FAQ-Shortcut. Cloud fällt unten in den bestehenden Modell-Aufruf.
+        const engine = localBuddy.engineFor(online);
+        if (engine === "local") { askOnDevice(q); return; }
+        if (engine === "none") {
+          appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
+          answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+          return;
+        }
       }
     }
     setStatus("thinking");
@@ -375,7 +473,7 @@ function KiBuddyBetaInner() {
         if (!isMountedRef.current) return;
         setStatus("");
         stopWave();
-        maybeContinueConversation();
+        continueAfterSpeaking();
       },
     }) : null;
     if (queue) speechQueueRef.current = queue;
@@ -397,7 +495,7 @@ function KiBuddyBetaInner() {
         result = await ai.chatStream(chatMessages, null, {
           signal,
           onDelta: (delta) => {
-            if (!isMountedRef.current) return;
+            if (!isMountedRef.current || signal?.aborted) return;
             raw += delta;
             const visible = stripActionMarker(raw);
             upsertAssistantStreaming(visible);
@@ -424,7 +522,7 @@ function KiBuddyBetaInner() {
         result = { reply: res?.reply || res?.message, action: res?.action || null };
       }
 
-      if (!isMountedRef.current) { queue?.cancel(); return; }
+      if (!isMountedRef.current || signal?.aborted) { queue?.cancel(); return; }
 
       const ans = result?.reply || result?.message || stripActionMarker(raw) || "Keine Antwort erhalten.";
       retryRef.current = 0;
@@ -448,7 +546,7 @@ function KiBuddyBetaInner() {
         speakAnswer(ans);
       }
     } catch (error) {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || signal?.aborted) return;
 
       // Abgebrochener Request (neuer Turn oder Unmount): keine Fehler-/Offline-
       // Behandlung, der neue Aufruf übernimmt bzw. die Seite ist verlassen.
@@ -490,12 +588,14 @@ function KiBuddyBetaInner() {
         retryRef.current += 1;
         setStatus("thinking");
         await new Promise(r => setTimeout(r, 800));
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || signal?.aborted) return;
         return ask(q, true);
       }
 
-      // Keine passende lokale Antwort und Retries erschöpft: Fallback-Nachricht
-      answerLocally(null);
+      // Keine passende lokale Antwort und Retries erschöpft: technischen Fehler
+      // fürs Debugging loggen (nie dem Nutzer zeigen), Buddy-Fallback + Retry.
+      console.error("[KiBuddyBeta] Chat-Anfrage fehlgeschlagen:", error);
+      answerLocally(null, { retryQuestion: q });
     }
   }
 
@@ -596,6 +696,32 @@ function KiBuddyBetaInner() {
     if (status === "listening") setStatus("");
   }
 
+  // Der globale Wake-Word-Listener übergibt eine Frage oder fordert direktes
+  // Zuhören an. Query-Parameter nur einmal verarbeiten, damit ein erneutes
+  // Rendern keine zweite Anfrage oder zweite Mikrofon-Sitzung startet.
+  useEffect(() => {
+    if (searchParams.get("wake") !== "1") return;
+    const question = searchParams.get("question")?.trim();
+    const shouldListen = searchParams.get("listen") === "1";
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.delete("wake");
+      next.delete("question");
+      next.delete("listen");
+      return next;
+    }, { replace: true });
+    if (question) {
+      setInput("");
+      appendMessages({ role: "user", text: question });
+      ask(question);
+    } else if (shouldListen) {
+      startConversation();
+    }
+    // Parameter werden einmalig konsumiert; die aktiven Helfer gehören zum
+    // selben Mount und dürfen durch deren Zustand nicht erneut auslösen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("wake")]);
+
   useEffect(() => {
     // Beim (Re-)Mount wieder als aktiv markieren — sonst bliebe die Ref nach dem
     // StrictMode-Doppelmount auf false stehen.
@@ -615,9 +741,37 @@ function KiBuddyBetaInner() {
 
   const phase = status === "listening" ? "listening" : status === "thinking" ? "thinking" : isSpeaking ? "speaking" : "idle";
   const quickQuestions = ['Was ist die beste Tiefe jetzt?', 'Zeig mir gute Spots', 'Wetter heute?', 'Welche Köder passen?'];
+  const lastAnswerText = [...messages].reverse().find(m => m.role === "assistant" && !m.streaming)?.text || null;
 
   return (
     <div ref={pageRef} className="bb-page bb-voice">
+      <BuddyLiveModeSwitcher mode={mode} onChange={setMode} />
+      {mode !== "live" && (
+        <BuddyDataSourceSwitch value={dataSource} onChange={setDataSource} />
+      )}
+
+      {mode === "live" && (
+        <BuddyLiveCallView
+          appendMessages={appendMessages}
+          onFallback={(reason) => {
+            setMode("text");
+            appendMessages({ role: "system", text: reason });
+            startConversation();
+          }}
+        />
+      )}
+
+      {mode === "handsfree" && (
+        <BuddyLiveHandsFreeView
+          onAsk={(q) => { appendMessages({ role: "user", text: q }); ask(q); }}
+          registerSpeakingDoneHandler={registerSpeakingDoneHandler}
+          speakingStatus={status}
+          lastAnswerText={lastAnswerText}
+        />
+      )}
+
+      {mode === "text" && (
+      <>
       <div className={`bb-voice-orb is-${phase}`}>
         <div className="bb-voice-waves" aria-hidden="true">
           {waveBars.map((h, i) => <i key={i} style={{ height: Math.max(6, h * 2) }} />)}
@@ -636,7 +790,14 @@ function KiBuddyBetaInner() {
       <div ref={chatRef} className="bb-voice-chat">
         {messages.map((m, i) => (
           m.role === "system" ? (
-            <p key={i} className="bb-voice-system">{m.text}</p>
+            <p key={i} className="bb-voice-system">
+              {m.text}
+              {m.retryQuestion && (
+                <button type="button" className="bb-voice-retry" onClick={() => ask(m.retryQuestion)}>
+                  Nochmal versuchen
+                </button>
+              )}
+            </p>
           ) : m.role === "user" ? (
             <div key={i} className="bb-voice-row is-user">
               <span className="bb-voice-bubble is-user">{m.text}</span>
@@ -719,6 +880,8 @@ function KiBuddyBetaInner() {
       <p className={`bb-voice-mode${conversationActive ? ' is-active' : ''}`}>
         <i aria-hidden="true" />{conversationActive ? 'Freisprechen aktiv' : 'Tippe aufs Mikrofon für Freisprechen'}
       </p>
+      </>
+      )}
     </div>
   );
 }

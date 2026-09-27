@@ -88,3 +88,43 @@ describe('getTTSAudio – Multi-Provider-Fallback-Kette', () => {
     expect(wav.readUInt32LE(24)).toBe(24000);
   });
 });
+
+// Regressionstests zum Mehrfach-Stimmen-Bug: Ein gepinnter Provider (siehe
+// elevenLabsTTS.js createSpeechQueue) darf bei einem Fehlschlag NICHT
+// automatisch auf einen anderen Cloud-Provider (= andere Stimme) ausweichen —
+// das wäre genau der gemeldete Stimmwechsel mitten in einer Antwort. Der
+// kontrollierte Fallback auf die Gerätestimme passiert dann im Client.
+describe('getTTSAudio – gepinnter Provider (preferredProvider)', () => {
+  it('nutzt ausschließlich den gepinnten Provider, auch wenn ein früherer in der Kette verfügbar wäre', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    process.env.ELEVENLABS_API_KEY = 'el-test';
+    const fetchMock = vi.fn(async () => mp3Response());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await getTTSAudio('Hallo Welt', null, 'elevenlabs');
+
+    expect(res.provider).toBe('elevenlabs');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('api.elevenlabs.io');
+  });
+
+  it('wirft (statt auf einen anderen Provider auszuweichen), wenn der gepinnte Provider fehlschlägt', async () => {
+    process.env.OPENAI_API_KEY = 'sk-test';
+    process.env.ELEVENLABS_API_KEY = 'el-test';
+    const fetchMock = vi.fn(async () => ({ ok: false, status: 500, text: async () => 'boom' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getTTSAudio('Hallo Welt', null, 'openai')).rejects.toThrow();
+    // Kein zweiter Call gegen ElevenLabs — kein Provider-Wechsel.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('wirft, wenn der gepinnte Provider gar nicht (mehr) konfiguriert ist', async () => {
+    process.env.ELEVENLABS_API_KEY = 'el-test';
+    const fetchMock = vi.fn(async () => mp3Response());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getTTSAudio('Hallo Welt', null, 'openai')).rejects.toThrow(/nicht verfügbar/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
