@@ -28,6 +28,7 @@ const SOURCE_LABELS = {
   offline: "Offline-Antwort aus dem Buddy-Wissen",
   instant: "Sofort-Antwort aus dem Buddy-Wissen",
   device: "Auf deinem Gerät beantwortet",
+  knowledge: "Aus dem Buddy-Wissen",
 };
 
 const VALID_MODES = ["text", "live", "handsfree"];
@@ -406,7 +407,11 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         abortRef.current?.abort();
         speechQueueRef.current?.cancel();
         speechQueueRef.current = null;
-        answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+        const knowledge = resolveLocalAnswer(q, { online: false, inConversation });
+        answerLocally(knowledge || {
+          answer: "Dazu habe ich in meinem gespeicherten Wissen noch keine passende Antwort. Wähle Auto oder KI-Modell für eine ausführlichere Antwort.",
+          mode: "knowledge",
+        });
         return;
       }
 
