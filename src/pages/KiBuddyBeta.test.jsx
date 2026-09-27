@@ -311,6 +311,17 @@ describe('KiBuddyBeta – Datenquelle (Punkt 8: Wissen vs. KI-Modell)', () => {
     expect(catchgbtChat).not.toHaveBeenCalled();
   });
 
+  it('meldet eine Wissenslücke ohne falschen Verbindungsfehler', async () => {
+    localStorage.setItem('bb_buddy_data_source', 'database');
+    renderBuddy();
+    await ask('asdkjhwqe unsinnige anfrage 12345 xyz');
+
+    expect(await screen.findByText(/noch keine passende Antwort/)).toBeInTheDocument();
+    expect(screen.getByText('Aus dem Buddy-Wissen')).toBeInTheDocument();
+    expect(screen.queryByText(/Ich erreiche meinen Dienst/)).not.toBeInTheDocument();
+    expect(ai.chatStream).not.toHaveBeenCalled();
+  });
+
   it('Modus "KI-Modell": ruft auch bei einer sonst sofort lokal beantworteten Standardfrage das Modell auf', async () => {
     catchgbtChat.mockResolvedValueOnce({ reply: 'Antwort vom Modell.' });
     localStorage.setItem('bb_buddy_data_source', 'model');
