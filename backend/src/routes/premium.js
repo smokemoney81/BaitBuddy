@@ -5,6 +5,21 @@ import { verifyGooglePlayPurchase, verifyStripePayment, createStripeCheckoutSess
 import { sendDbError } from '../lib/errorResponse.js';
 import { resolvePlan, PLAN_RANK } from '../lib/planResolver.js';
 import { isAllToolsFree } from '../lib/appSettings.js';
+import { isCreditSystemEnabled, areCreditTopupsEnabled, TOPUP_PACKAGES } from '../lib/creditConfig.js';
+import { grantForPlanChange, ensureCurrentWallet } from '../lib/walletProvisioning.js';
+import { addTopupCredits } from '../lib/creditEngine.js';
+
+// Nach jeder erfolgreichen Plan-Aktivierung (Webhook + /activate) das
+// Credit-Kontingent für den NEUEN Plan nachziehen. Nur mit Feature-Flag; sonst
+// bleibt alles beim alten Volumen-System. Best-effort, nie den Kauf blockieren.
+async function syncCreditWalletAfterActivation(user) {
+  if (!isCreditSystemEnabled()) return;
+  try {
+    await grantForPlanChange(user);
+  } catch (e) {
+    console.error('[premium] Credit-Wallet-Sync nach Aktivierung fehlgeschlagen:', e?.message || e);
+  }
+}
 
 const router = Router();
 
@@ -28,6 +43,11 @@ const STRIPE_CHECKOUT_CONFIGURED = STRIPE_PAYMENT_VERIFICATION_CONFIGURED && !!p
 const ULTIMATE_DISCOUNT_PER_REFERRAL_CENTS = 1000;
 const ULTIMATE_DISCOUNT_MAX_CENTS = 3000;
 const ULTIMATE_MIN_CHECKOUT_CENTS = 999;
+const CREDIT_PLAN_PRICES = Object.freeze({ basic: 499, pro: 999, elite: 1799 });
+const LEGACY_PLAN_PRICES = Object.freeze({ basic: 899, pro: 1800, elite: 3600 });
+function planPriceCents(planId) {
+  return (isCreditSystemEnabled() ? CREDIT_PLAN_PRICES : LEGACY_PLAN_PRICES)[planId] || null;
+}
 
 // Laufzeit je Plan in Tagen, wenn der Zahlungsanbieter kein eigenes Ablaufdatum
 // liefert (Stripe-Einmalzahlung, Play-Einmalprodukt). Google-Play-ABOS bringen
@@ -233,15 +253,18 @@ router.post('/plan/status', requireAuth, async (req, res) => {
 });
 
 const PRODUCTS = [
-  { id: 'basic', name: 'Basic', price: 8.99, features: ['Werbefrei', 'KI-Buddy unbegrenzt', 'Fangbuch', 'Spots', 'Wetter'] },
-  { id: 'pro', name: 'Pro', price: 18, features: ['Alles in Basic', 'KI-Fangprognosen', 'AR & 3D', 'Community'] },
-  { id: 'elite', name: 'Ultimate', price: 36, features: ['Alles in Pro', 'Live-Bissanzeiger', 'CatchCam', 'Priorisierte KI'] },
+  { id: 'basic', name: 'Basic', price: 8.99, features: ['Fangbuch', 'Spots', 'Wetter'] },
+  { id: 'pro', name: 'Pro', price: 18, features: ['KI-Fangprognosen', 'AR & 3D', 'Community'] },
+  { id: 'elite', name: 'Ultimate', price: 36, features: ['Live-Bissanzeiger', 'CatchCam', 'Priorisierte KI'] },
   { id: 'premium_24h', name: '24 Stunden Premium', price: 4.99, duration_hours: 24, features: ['24 Stunden Ultimate-Zugriff', 'Premium-KI', 'Premium Voice', 'Werbefrei'] },
   { id: 'friends', name: 'Freundschaft', price: 150, yearly: true, features: ['Alles in Ultimate (12 Monate)', 'Freundes-Einladungen', 'Geteilte Spot-Gruppen', 'Gruppen-Ranking'] },
 ];
 
 router.get('/premium/products', async (req, res) => {
-  return res.json(PRODUCTS);
+  return res.json(PRODUCTS.map((product) => {
+    const priceCents = planPriceCents(product.id);
+    return priceCents == null ? product : { ...product, price: priceCents / 100 };
+  }));
 });
 
 // Öffentlich (kein Auth): Das Frontend muss VOR dem Kauf wissen, ob der Server
@@ -312,6 +335,25 @@ const PLAY_PRODUCTS = {
   baitbuddy_trial_10_10: 'trial_10_10',
 };
 
+// Fulfillment für Credit-Topup-Käufe (Stripe). Idempotent über die
+// Session-ID als request_id: addTopupCredits/add_topup_credits lehnt einen
+// bereits verbuchten request_id-Wert ab (Teilauftrag 1), ein doppelt
+// zugestelltes Webhook-Event bucht also kein zweites Mal.
+async function fulfillTopupSession(session, res) {
+  const userId = session.client_reference_id || session.metadata?.user_id;
+  const credits = Number(String(session.metadata?.plan_id || '').replace('credit_topup_', ''));
+  const validPackage = TOPUP_PACKAGES.some((p) => p.credits === credits);
+  if (!userId || !validPackage) {
+    console.error('[stripe] Topup-Session mit ungültigen Metadaten', { sessionId: session.id });
+    return res.status(200).json({ received: true });
+  }
+  const result = await addTopupCredits({ userId, credits, requestId: `stripe_topup_${session.id}` });
+  if (result?.ok === false && result.reason !== 'duplicate_request') {
+    console.error('[stripe] Topup-Gutschrift fehlgeschlagen:', result.reason, { sessionId: session.id });
+  }
+  return res.status(200).json({ received: true, fulfilled: result?.ok !== false });
+}
+
 // Stripe's signed webhook is the authoritative fulfillment path. The browser
 // success URL is only a confirmation screen and cannot grant access itself.
 export async function stripeWebhookHandler(req, res) {
@@ -328,6 +370,18 @@ export async function stripeWebhookHandler(req, res) {
 
   const session = event.data.object;
   if (session.payment_status !== 'paid') return res.status(200).json({ received: true });
+
+  // Credit-Topup-Käufe laufen über dieselbe Checkout-Session-Infrastruktur wie
+  // Plan-Käufe, aber ohne Laufzeit/app_metadata-Update. createStripeCheckoutSession
+  // trägt nur plan_id/user_id in die Metadaten ein (keine eigenen Zusatzfelder
+  // pro Aufrufer) — der Topup-Checkout kodiert die Credits deshalb direkt in
+  // plan_id (`credit_topup_<credits>`), statt purchaseVerification.js für
+  // diesen einen Fall zu erweitern. addTopupCredits ist idempotent über die
+  // Session-ID als request_id (Stripe kann Events mehrfach zustellen).
+  if (typeof session.metadata?.plan_id === 'string' && session.metadata.plan_id.startsWith('credit_topup_')) {
+    return fulfillTopupSession(session, res);
+  }
+
   const userId = session.client_reference_id || session.metadata?.user_id;
   const planId = session.metadata?.plan_id;
   const checkoutPlan = planId ? CHECKOUT_PLANS[planId] : null;
@@ -374,6 +428,7 @@ export async function stripeWebhookHandler(req, res) {
   if (planId === 'basic') {
     await grantReferralBasicReward({ ...fulfilledUser, app_metadata: merged });
   }
+  await syncCreditWalletAfterActivation({ ...fulfilledUser, app_metadata: merged });
   return res.status(200).json({ received: true, fulfilled: true });
 }
 
@@ -383,7 +438,10 @@ router.post('/premium/checkout', requireAuth, async (req, res) => {
   }
 
   const { plan_id } = req.body || {};
-  const plan = plan_id ? CHECKOUT_PLANS[plan_id] : null;
+  const configuredPlan = plan_id ? CHECKOUT_PLANS[plan_id] : null;
+  const plan = configuredPlan && planPriceCents(plan_id) != null
+    ? { ...configuredPlan, amountCents: planPriceCents(plan_id) }
+    : configuredPlan;
   if (!plan) {
     return res.status(400).json({ error: 'Unbekannte oder fehlende plan_id' });
   }
@@ -403,7 +461,7 @@ router.post('/premium/checkout', requireAuth, async (req, res) => {
   const isUltimate = plan_id === 'elite' || plan_id === 'ultimate';
   const discountCents = isUltimate ? readDiscountCents(await getFreshUser(req.user)) : 0;
   const amountCents = discountCents > 0
-    ? Math.max(plan.amountCents - discountCents, Math.min(ULTIMATE_MIN_CHECKOUT_CENTS, plan.amountCents))
+    ? Math.max(plan.amountCents - discountCents, Math.min(isCreditSystemEnabled() ? 499 : ULTIMATE_MIN_CHECKOUT_CENTS, plan.amountCents))
     : plan.amountCents;
   const appliedDiscountCents = plan.amountCents - amountCents;
 
@@ -420,6 +478,51 @@ router.post('/premium/checkout', requireAuth, async (req, res) => {
     return res.status(502).json({ error: `Checkout-Session konnte nicht erstellt werden: ${session.reason}` });
   }
 
+  return res.json({ ok: true, checkout_url: session.url, session_id: session.id });
+});
+
+// Credit-Topup-Checkout (Stripe). Nur mit aktivem Credit-System — ohne das
+// Flag gibt es kein Credit-Guthaben, das ein Topup sinnvoll aufstocken würde.
+// Google Play: (noch) keine Einmalprodukte für Credit-Topups vorgesehen —
+// purchaseVerification.js kennt bislang nur Abo-Restore/-Verifikation, kein
+// Konsumgut-Flow. Play-Topups sind damit für dieses Zeitbudget NICHT
+// implementiert; ein späterer Ausbau bräuchte ein eigenes Play-Konsumgut
+// (consumeAsync) plus Server-Verifikation.
+router.post('/premium/credits/checkout', requireAuth, async (req, res) => {
+  if (!isCreditSystemEnabled()) {
+    return res.status(404).json({ error: 'Credit-System nicht aktiv' });
+  }
+  if (!areCreditTopupsEnabled()) {
+    return res.status(503).json({ error: 'Credit-Aufladungen sind derzeit nicht verfügbar' });
+  }
+  if (!STRIPE_PAYMENT_VERIFICATION_CONFIGURED) {
+    return res.status(501).json({ error: 'Stripe checkout nicht konfiguriert' });
+  }
+
+  const { credits } = req.body || {};
+  const pkg = TOPUP_PACKAGES.find((p) => p.credits === Number(credits));
+  if (!pkg) {
+    return res.status(400).json({ error: 'Unbekanntes Topup-Paket' });
+  }
+
+  const origin = process.env.APP_BASE_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`;
+  const successUrl = `${origin}/PremiumPlans?topup=success&credits=${pkg.credits}&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/PremiumPlans?topup=cancelled`;
+
+  const session = await createStripeCheckoutSession({
+    planId: `credit_topup_${pkg.credits}`,
+    planName: `${pkg.credits} KI-Credits`,
+    amountCents: pkg.priceCents,
+    userId: req.user.id,
+    userEmail: req.user.email,
+    successUrl,
+    cancelUrl,
+  });
+  if (!session.ok) {
+    return res.status(502).json({ error: `Checkout-Session konnte nicht erstellt werden: ${session.reason}` });
+  }
+  // planId (`credit_topup_<credits>`) steuert im Webhook den
+  // Topup-Fulfillment-Pfad statt des Plan-Aktivierungspfads.
   return res.json({ ok: true, checkout_url: session.url, session_id: session.id });
 });
 
@@ -453,7 +556,11 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
       error: 'Kaufverifikation ist serverseitig noch nicht konfiguriert — Premium kann derzeit nicht aktiviert werden'
     });
   }
-  if (purchase_token && PLAY_PRODUCTS[product_id] !== plan_id) {
+  // Günstiger lokaler Vorab-Check: ist ein product_id angegeben, muss es zum
+  // angeforderten Plan passen, bevor wir dafür die Play-API bemühen. Fehlt
+  // product_id ganz (z. B. bei Stripe oder einem unvollständigen Request),
+  // entscheidet stattdessen die echte Verifikation unten (402 statt 400).
+  if (purchase_token && product_id && PLAY_PRODUCTS[product_id] !== plan_id) {
     return res.status(400).json({ error: 'Google-Play-Produkt gehört nicht zum angeforderten Plan' });
   }
 
@@ -559,6 +666,7 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
   if (plan_id === 'basic') {
     await grantReferralBasicReward({ id: req.user.id, user_metadata: freshUser.user_metadata || {}, app_metadata: merged });
   }
+  await syncCreditWalletAfterActivation({ id: req.user.id, user_metadata: freshUser.user_metadata || {}, app_metadata: merged, created_at: freshUser.created_at });
 
   return res.json({
     ok: true,
@@ -569,6 +677,61 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
     updated: true,
     note: 'Plan aktiviert mit Transaktionsdaten gespeichert für Audit'
   });
+});
+
+// Cron-Sicherheitsnetz für Wallet-Perioden (analog zu
+// GET /admin/events/auto-archive in events.js). Lazy-Provisioning in
+// creditGuard deckt den Normalfall (nächster AI-Aufruf) bereits ab; dieser
+// Cron holt Perioden für User nach, die eine Zeit lang keinen AI-Aufruf
+// machen, damit ihre Wallet-Zeile nicht unbegrenzt veraltet im Dashboard/DB
+// steht. Batch mit LIMIT statt Voll-Scan aller User — bewusst pragmatisch,
+// da Lazy-Provisioning die eigentliche Absicherung ist.
+router.get('/admin/credits/billing-cycle', async (req, res) => {
+  try {
+    const secret = process.env.CRON_SECRET || process.env.ADMIN_API_KEY;
+    if (!secret) return res.status(500).json({ error: 'Cron-Secret nicht konfiguriert' });
+    const authHeader = req.headers.authorization || '';
+    const headerSecret = authHeader.replace(/^Bearer\s+/, '').trim();
+    const xApiKey = req.headers['x-api-key'] || '';
+    if (headerSecret !== secret && xApiKey !== secret) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!isCreditSystemEnabled()) {
+      return res.json({ ok: true, skipped: 'credit_system_disabled' });
+    }
+
+    const now = new Date();
+    const batchSize = Number(process.env.CREDIT_BILLING_CYCLE_BATCH) || 200;
+    // Alle User, deren aktuellste Wallet-Periode bereits abgelaufen ist.
+    const { data: expired, error: fetchError } = await supabase
+      .from('credit_wallets')
+      .select('user_id, billing_period_end')
+      .lt('billing_period_end', now.toISOString())
+      .order('billing_period_end', { ascending: true })
+      .limit(batchSize);
+    if (fetchError) return sendDbError(res, fetchError);
+
+    const userIds = [...new Set((expired || []).map((r) => r.user_id))];
+    let renewed = 0;
+    let failed = 0;
+    for (const userId of userIds) {
+      try {
+        const { data: userResult, error: userError } = await supabase.auth.admin.getUserById(userId);
+        if (userError || !userResult?.user) { failed++; continue; }
+        const result = await grantForPlanChange(userResult.user, now).catch(() =>
+          ensureCurrentWallet(userResult.user, now)
+        );
+        if (result?.ok) renewed++; else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    return res.json({ ok: true, checked: userIds.length, renewed, failed });
+  } catch (e) {
+    console.error('[premium] billing-cycle Cron fehlgeschlagen:', e?.message || e);
+    return res.status(500).json({ error: 'Interner Fehler im Billing-Cycle-Cron' });
+  }
 });
 
 export default router;

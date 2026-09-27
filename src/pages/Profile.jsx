@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { functions } from "@/api/frontendClient";
 import { entities } from "@/api/frontendClient";
+import { credits } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
+import CreditWalletCard from "@/components/credits/CreditWalletCard";
 import { UploadFile } from '@/integrations/Core';
 import { Camera, Copy, Check, Edit3, Calendar, Clock, MessageSquare, Crown, Link as LinkIcon, Mail, AlertTriangle } from 'lucide-react';
 import { toast } from "sonner";
@@ -30,6 +32,9 @@ export default function ProfilePage() {
    const [_loadingHistory, _setLoadingHistory] = useState(false);
    const [expandedConversation, setExpandedConversation] = useState(null);
    const [navigationAnnouncement, setNavigationAnnouncement] = useState('');
+  const [creditWallet, setCreditWallet] = useState(null);
+  const [showTopupOptions, setShowTopupOptions] = useState(false);
+  const [topupLoadingIndex, setTopupLoadingIndex] = useState(null);
 
   const loadUserProfile = useCallback(async () => {
     setIsLoading(true);
@@ -37,7 +42,7 @@ export default function ProfilePage() {
       const currentUser = await auth.me();
       setUser(currentUser);
       setNickname(currentUser.nickname || '');
-      
+
       // Referral-Code vergibt ausschließlich der Server (eindeutig, im
       // Reverse-Lookup registriert). Ein clientseitig gewürfelter Code konnte
       // mit fremden Codes kollidieren und diese überschreiben.
@@ -114,6 +119,39 @@ export default function ProfilePage() {
     loadUserProfile();
   }, [loadUserProfile]);
 
+  // Neues Credit-System: nur sichtbar, wenn das Backend AI_CREDIT_SYSTEM_ENABLED
+  // gesetzt hat (die Route liefert dann enabled:true, sonst 404).
+  const loadCreditWallet = useCallback(async () => {
+    try {
+      const data = await credits.getWallet();
+      if (data?.enabled) setCreditWallet(data);
+    } catch {
+      // 404 (Feature aus) oder Netzwerkfehler: still nichts anzeigen.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCreditWallet();
+  }, [loadCreditWallet]);
+
+  const handleBuyTopup = async (packageIndex) => {
+    const pkg = creditWallet?.topup_packages?.[packageIndex];
+    if (!pkg) return;
+    setTopupLoadingIndex(packageIndex);
+    try {
+      const res = await credits.checkoutTopup(pkg.credits);
+      if (res?.checkout_url) {
+        window.location.href = res.checkout_url;
+      } else {
+        toast.error('Checkout fehlgeschlagen', { description: res?.error || 'Unbekannter Fehler' });
+      }
+    } catch (error) {
+      toast.error('Checkout fehlgeschlagen', { description: error?.message || 'Unbekannter Fehler' });
+    } finally {
+      setTopupLoadingIndex(null);
+    }
+  };
+
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -132,7 +170,7 @@ export default function ProfilePage() {
     try {
       const response = await UploadFile({ file });
       const imageUrl = response.file_url;
-      
+
       await auth.updateMe({ profile_picture_url: imageUrl });
       setUser(prev => ({ ...prev, profile_picture_url: imageUrl }));
       toast.success('Profilbild erfolgreich aktualisiert!');
@@ -173,9 +211,9 @@ export default function ProfilePage() {
 
   const copyReferralLink = async () => {
     if (!user?.referral_code) return;
-    
+
     const referralLink = `${window.location.origin}?ref=${user.referral_code}`;
-    
+
     try {
       await navigator.clipboard.writeText(referralLink);
       setCopiedReferral(true);
@@ -371,6 +409,39 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {creditWallet && (
+        <div className="bb-card mt-4">
+          <div className="bb-form-title mb-4">Abo &amp; Guthaben</div>
+          <div className="grid gap-4">
+            <CreditWalletCard wallet={creditWallet} onBuyCredits={() => setShowTopupOptions((v) => !v)} />
+            {creditWallet.topup_packages?.length > 0 && <div className="flex flex-wrap gap-2">
+              <button type="button" className="bb-secondary text-sm" onClick={() => setShowTopupOptions((v) => !v)}>
+                {showTopupOptions ? 'Pakete ausblenden' : 'Credits kaufen'}
+              </button>
+            </div>}
+            {showTopupOptions && (
+              <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                {(creditWallet.topup_packages || []).map((pkg) => (
+                  <button
+                    key={pkg.index}
+                    type="button"
+                    disabled={topupLoadingIndex === pkg.index}
+                    onClick={() => handleBuyTopup(pkg.index)}
+                    className="p-3 rounded-xl text-left"
+                    style={{ background: 'rgba(0,0,0,.25)', border: '1px solid var(--bb-border)' }}
+                  >
+                    <div className="text-white font-semibold text-sm">{pkg.credits.toLocaleString('de-DE')} Credits</div>
+                    <div className="text-sm" style={{ color: 'var(--bb-muted)' }}>
+                      {topupLoadingIndex === pkg.index ? 'Weiterleitung…' : `${pkg.price_eur.toFixed(2)} €`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="bb-card">
         <div className="flex items-center gap-2 mb-4">

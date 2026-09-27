@@ -18,6 +18,19 @@ vi.mock('../lib/supabase.js', () => ({
 }));
 vi.mock('../lib/purchaseVerification.js', () => purchaseVerificationMock);
 
+const creditMocks = vi.hoisted(() => ({
+  isCreditSystemEnabled: vi.fn(() => false),
+  addTopupCredits: vi.fn(async () => ({ ok: true })),
+}));
+vi.mock('../lib/creditConfig.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, isCreditSystemEnabled: creditMocks.isCreditSystemEnabled };
+});
+vi.mock('../lib/creditEngine.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, addTopupCredits: creditMocks.addTopupCredits };
+});
+
 let app;
 
 beforeEach(async () => {
@@ -28,6 +41,9 @@ beforeEach(async () => {
   purchaseVerificationMock.verifyGooglePlayPurchase.mockReset();
   purchaseVerificationMock.verifyStripePayment.mockReset();
   purchaseVerificationMock.createStripeCheckoutSession.mockReset();
+  creditMocks.isCreditSystemEnabled.mockReturnValue(false);
+  creditMocks.addTopupCredits.mockReset();
+  creditMocks.addTopupCredits.mockResolvedValue({ ok: true });
   supabaseMock.current = createSupabaseMock({ authUser: TEST_USER });
   ({ default: app } = await import('../server.js'));
 });
@@ -846,5 +862,98 @@ describe('POST /api/premium/stripe/webhook', () => {
     const stored = supabaseMock.current.__adminUsers[0].app_metadata;
     expect(new Date(stored.premium_pass_expires_at).getTime())
       .toBe(new Date(passEnd).getTime() + 24 * 60 * 60 * 1000);
+  });
+});
+
+describe('POST /api/premium/credits/checkout', () => {
+  it('lehnt ab, wenn das Credit-System nicht aktiv ist (404)', async () => {
+    creditMocks.isCreditSystemEnabled.mockReturnValue(false);
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    const res = await request(configuredApp).post('/api/premium/credits/checkout')
+      .set('Authorization', 'Bearer test-token')
+      .send({ credits: 2500 });
+    expect(res.status).toBe(404);
+  });
+
+  it('verkauft keine Topups ohne gedeckelten Kostenpuffer', async () => {
+    creditMocks.isCreditSystemEnabled.mockReturnValue(true);
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    const res = await request(configuredApp).post('/api/premium/credits/checkout')
+      .set('Authorization', 'Bearer test-token')
+      .send({ credits: 123 });
+    expect(res.status).toBe(503);
+  });
+
+  it('startet keinen Topup-Checkout, solange der Kostenpuffer fehlt', async () => {
+    creditMocks.isCreditSystemEnabled.mockReturnValue(true);
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    purchaseVerificationMock.createStripeCheckoutSession.mockResolvedValue({ ok: true, id: 'cs_topup', url: 'https://stripe.test/cs_topup' });
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+
+    const res = await request(configuredApp).post('/api/premium/credits/checkout')
+      .set('Authorization', 'Bearer test-token')
+      .send({ credits: 2500 });
+
+    expect(res.status).toBe(503);
+    expect(purchaseVerificationMock.createStripeCheckoutSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('Credit-Tarifpreise', () => {
+  it('zeigt und berechnet die neuen Webpreise erst bei aktivem Credit-System', async () => {
+    const legacy = await request(app).get('/api/premium/products');
+    expect(legacy.body.find((p) => p.id === 'pro').price).toBe(18);
+    creditMocks.isCreditSystemEnabled.mockReturnValue(true);
+    const active = await request(app).get('/api/premium/products');
+    expect(active.body.find((p) => p.id === 'basic').price).toBe(4.99);
+    expect(active.body.find((p) => p.id === 'pro').price).toBe(9.99);
+    expect(active.body.find((p) => p.id === 'elite').price).toBe(17.99);
+  });
+});
+
+describe('POST /api/premium/stripe/webhook (Credit-Topup)', () => {
+  const topupSession = (credits) => ({
+    type: 'checkout.session.completed',
+    data: {
+      object: {
+        id: `cs_topup_${credits}`,
+        payment_status: 'paid',
+        client_reference_id: 'user-1',
+        metadata: { plan_id: `credit_topup_${credits}` },
+      },
+    },
+  });
+
+  it('bucht die Credits idempotent über die Session-ID als request_id', async () => {
+    purchaseVerificationMock.constructStripeWebhookEvent.mockReturnValue(topupSession(2500));
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+
+    const res = await request(configuredApp)
+      .post('/api/premium/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .send('{}');
+
+    expect(res.status).toBe(200);
+    expect(res.body.fulfilled).toBe(true);
+    expect(creditMocks.addTopupCredits).toHaveBeenCalledWith({
+      userId: 'user-1', credits: 2500, requestId: 'stripe_topup_cs_topup_2500',
+    });
+  });
+
+  it('lässt app_metadata unverändert (kein Plan-/Laufzeit-Update bei einem Topup)', async () => {
+    purchaseVerificationMock.constructStripeWebhookEvent.mockReturnValue(topupSession(7500));
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    await request(configuredApp)
+      .post('/api/premium/stripe/webhook')
+      .set('Content-Type', 'application/json')
+      .send('{}');
+    expect(supabaseMock.current.__adminUsers[0]?.app_metadata?.premium_plan_id).toBeUndefined();
   });
 });

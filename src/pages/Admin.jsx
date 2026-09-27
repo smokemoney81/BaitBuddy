@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   BarChart3, MessageSquare, Trophy, LifeBuoy, Mail, Trash2, RotateCcw, Loader2, ShieldAlert, Send, Users, Crown, Fish, Search,
-  SlidersHorizontal,
+  SlidersHorizontal, Coins,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -771,6 +771,154 @@ function AppSettingsAdmin() {
 }
 
 // ── Rundmail ───────────────────────────────────────────────────────────────
+// ── Credits (neues Abo/Guthaben-System) ──────────────────────────────────────
+// Nur echte Aggregationen aus ai_usage/credit_transactions/provider_cost_periods
+// (siehe backend/src/routes/superAdmin.js). Ohne AI_CREDIT_SYSTEM_ENABLED
+// liefern beide Endpunkte 404 — die Oberfläche zeigt dann einen Hinweis statt
+// leerer Tabellen.
+function euro(value) {
+  return typeof value === "number" ? `${value.toFixed(2).replace(".", ",")} €` : "–";
+}
+
+function CreditsAdmin() {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState(null);
+  const [error, setError] = useState("");
+  const [disabled, setDisabled] = useState(false);
+
+  useEffect(() => {
+    Promise.all([superAdmin.creditsStats(), superAdmin.creditsUsers(1, 100)])
+      .then(([s, u]) => {
+        setStats(s);
+        setUsers(Array.isArray(u?.users) ? u.users : []);
+      })
+      .catch(e => {
+        if (e?.status === 404) setDisabled(true);
+        else setError(errorText(e, "Credit-Daten konnten nicht geladen werden"));
+      });
+  }, []);
+
+  if (disabled) {
+    return (
+      <section className="bb-card">
+        <div className="bb-section-head">
+          <h2 className="bb-section-title"><Coins size={20} aria-hidden="true" />Credits</h2>
+        </div>
+        <Empty>Das Credit-System ist nicht aktiv (AI_CREDIT_SYSTEM_ENABLED fehlt).</Empty>
+      </section>
+    );
+  }
+  if (error) {
+    return (
+      <section className="bb-card">
+        <div className="bb-section-head">
+          <h2 className="bb-section-title"><Coins size={20} aria-hidden="true" />Credits</h2>
+        </div>
+        <Empty>{error}</Empty>
+      </section>
+    );
+  }
+  if (!stats || !users) return <section className="bb-card"><Busy /></section>;
+
+  return (
+    <div className="grid gap-4">
+      <section className="bb-card">
+        <div className="bb-section-head">
+          <h2 className="bb-section-title"><Coins size={20} aria-hidden="true" />Credit-Statistik (letzte 30 Tage)</h2>
+        </div>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+          <div className="p-3 rounded-xl" style={{ background: "rgba(0,0,0,.25)" }}>
+            <div className="text-xs bb-muted">Credits verkauft</div>
+            <div className="text-lg font-semibold text-white">{fmt(stats.credits_sold)}</div>
+          </div>
+          <div className="p-3 rounded-xl" style={{ background: "rgba(0,0,0,.25)" }}>
+            <div className="text-xs bb-muted">Credits verbraucht</div>
+            <div className="text-lg font-semibold text-white">{fmt(stats.credits_used)}</div>
+          </div>
+          <div className="p-3 rounded-xl" style={{ background: "rgba(0,0,0,.25)" }}>
+            <div className="text-xs bb-muted">Umsatz aus Topups</div>
+            <div className="text-lg font-semibold text-white">{euro(stats.topup_revenue_eur)}</div>
+          </div>
+          <div className="p-3 rounded-xl" style={{ background: "rgba(239,68,68,.12)" }}>
+            <div className="text-xs bb-muted">Über 90 % Kostenlimit</div>
+            <div className="text-lg font-semibold" style={{ color: "#f87171" }}>{fmt(stats.warnings?.over_90_percent ?? 0)}</div>
+          </div>
+          <div className="p-3 rounded-xl" style={{ background: "rgba(251,191,36,.12)" }}>
+            <div className="text-xs bb-muted">Über 80 % Kostenlimit</div>
+            <div className="text-lg font-semibold" style={{ color: "#fbbf24" }}>{fmt(stats.warnings?.over_80_percent ?? 0)}</div>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-sm font-medium text-white mb-2">Kosten pro Feature (30 Tage)</div>
+          {(stats.cost_by_feature_eur || []).length === 0 ? (
+            <p className="text-sm bb-muted">Noch keine Nutzung erfasst.</p>
+          ) : (
+            <ul className="grid gap-1">
+              {stats.cost_by_feature_eur.map(row => (
+                <li key={row.feature} className="flex justify-between text-sm">
+                  <span className="bb-muted">{row.feature}</span>
+                  <span className="text-white">{euro(row.cost_eur)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs bb-muted mt-2">{stats.cost_by_plan_note}</p>
+          <p className="text-xs bb-muted">{stats.abuse_detection_note}</p>
+        </div>
+      </section>
+
+      <section className="bb-card">
+        <div className="bb-section-head">
+          <h2 className="bb-section-title"><Users size={20} aria-hidden="true" />Nutzer nach Guthaben</h2>
+          <span className="text-xs bb-muted">{fmt(users.length)} Nutzer</span>
+        </div>
+        {users.length === 0 ? <Empty>Keine Daten.</Empty> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left bb-muted">
+                  <th className="py-2 pr-3">Nutzer</th>
+                  <th className="py-2 pr-3">Plan</th>
+                  <th className="py-2 pr-3">Credits</th>
+                  <th className="py-2 pr-3">Anbieterkosten</th>
+                  <th className="py-2 pr-3">Anfragen</th>
+                  <th className="py-2 pr-3">Voice (min)</th>
+                  <th className="py-2 pr-3">Vision</th>
+                  <th className="py-2 pr-3">Satellit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => {
+                  const ratio = u.cost_limit_ratio;
+                  const warn = ratio != null && ratio > 0.9 ? "over90" : ratio != null && ratio > 0.8 ? "over80" : null;
+                  return (
+                    <tr
+                      key={u.id}
+                      style={warn === "over90" ? { background: "rgba(239,68,68,.12)" } : warn === "over80" ? { background: "rgba(251,191,36,.08)" } : undefined}
+                    >
+                      <td className="py-2 pr-3 text-white">{u.email}</td>
+                      <td className="py-2 pr-3">{u.plan_name}</td>
+                      <td className="py-2 pr-3">{u.credits_remaining != null ? `${fmt(u.credits_remaining)} / ${fmt(u.credits_total)}` : "–"}</td>
+                      <td className="py-2 pr-3">
+                        {u.provider_cost_eur != null ? `${euro(u.provider_cost_eur)} / ${euro(u.cost_limit_eur)}` : "–"}
+                      </td>
+                      <td className="py-2 pr-3">{fmt(u.ai_requests)}</td>
+                      <td className="py-2 pr-3">{fmt(u.voice_minutes)}</td>
+                      <td className="py-2 pr-3">{fmt(u.vision_requests)}</td>
+                      <td className="py-2 pr-3">{fmt(u.satellite_analyses)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function BroadcastMail() {
   const [status, setStatus] = useState(null);
   const [subject, setSubject] = useState("");
@@ -883,6 +1031,7 @@ export default function Admin() {
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="tickets">Tickets</TabsTrigger>
           <TabsTrigger value="mail">Rundmail</TabsTrigger>
+          <TabsTrigger value="credits">Credits</TabsTrigger>
         </TabsList>
         <TabsContent value="stats" className="mt-4"><Statistics /></TabsContent>
         <TabsContent value="users" className="mt-4"><UsersAdmin /></TabsContent>
@@ -891,6 +1040,7 @@ export default function Admin() {
         <TabsContent value="events" className="mt-4"><EventsAdmin /></TabsContent>
         <TabsContent value="tickets" className="mt-4"><TicketsAdmin /></TabsContent>
         <TabsContent value="mail" className="mt-4"><BroadcastMail /></TabsContent>
+        <TabsContent value="credits" className="mt-4"><CreditsAdmin /></TabsContent>
       </Tabs>
     </div>
   );

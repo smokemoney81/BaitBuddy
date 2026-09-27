@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, act, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import AiCreditBadge from './AiCreditBadge';
-import { ai } from '@/api/frontendClient';
+import { ai, credits } from '@/api/frontendClient';
 import { notifyAiUsageChanged } from '@/lib/aiUsageBus';
 
 vi.mock('@/api/frontendClient', () => ({
   ai: { usage: vi.fn() },
+  credits: { getWallet: vi.fn() },
 }));
 
 const USAGE = {
@@ -34,6 +35,7 @@ function renderBadge(user = { id: 'u1' }) {
 describe('AiCreditBadge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    credits.getWallet.mockRejectedValue({ status: 404 });
   });
 
   afterEach(() => {
@@ -46,17 +48,29 @@ describe('AiCreditBadge', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('rendert nichts, solange kein Guthaben geladen ist', async () => {
+  it('meldet, wenn der Guthabenstand nicht geladen werden kann', async () => {
     ai.usage.mockRejectedValue(new Error('offline'));
     const { container } = renderBadge();
     await waitFor(() => expect(ai.usage).toHaveBeenCalled());
-    expect(container).toBeEmptyDOMElement();
+    expect(container).toHaveTextContent('KI: ?');
   });
 
   it('zeigt das verbleibende Guthaben nach dem Laden', async () => {
     ai.usage.mockResolvedValue(USAGE);
     renderBadge();
     expect(await screen.findByText('400')).toBeInTheDocument();
+  });
+
+  it('zeigt bei aktivem Credit-System nur die neue Wallet', async () => {
+    credits.getWallet.mockResolvedValue({
+      enabled: true, remaining: 2200, total_credits: 2500, percent_remaining: 88,
+      topup_packages: [], recent: [{ feature: 'chat', credits_charged: 10, created_at: '2026-09-27T10:00:00.000Z' }],
+    });
+    renderBadge();
+    expect(await screen.findByText('2.200')).toBeInTheDocument();
+    expect(ai.usage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /KI-Guthaben/ }));
+    expect(await screen.findByText('10 Credits')).toBeInTheDocument();
   });
 
   it('öffnet die Verbrauchsübersicht mit letzten Nutzungen beim Tippen', async () => {

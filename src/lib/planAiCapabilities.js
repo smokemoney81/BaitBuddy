@@ -37,14 +37,16 @@ export function formatTokens(value) {
   return Number(value || 0).toLocaleString('de-DE');
 }
 
-export function capabilityRows({ voiceRequiredPlanRank, tokenQuotas = null }) {
+export function capabilityRows({ voiceRequiredPlanRank, tokenQuotas = null, creditMode = false }) {
   const planRank = { guest: 0, basic: 1, pro: 2, ultimate: 3 };
   // Das Monatsvolumen kommt vom Server (Quelle: aiTokenQuota.js); ohne Antwort
   // bleibt die Zeile weg statt geschätzte Zahlen zu zeigen.
   const volumeRow = tokenQuotas ? [{
     id: 'volume',
-    label: 'KI-Volumen',
-    hint: 'Buddy-Tokens pro Monat für Chat, Voice-Chat, Vorlesen, Foto-Analyse und KI-Werkzeuge.',
+    label: creditMode ? 'KI-Credits' : 'KI-Volumen',
+    hint: creditMode
+      ? 'Monatliches Guthaben für Cloud-KI und Analysen; lokale Antworten kosten keine Credits.'
+      : 'Buddy-Tokens pro Monat für Chat, Voice-Chat, Vorlesen, Foto-Analyse und KI-Werkzeuge.',
     cells: PLAN_TIERS.map(({ tier }) => ({
       level: LEVEL[tier],
       text: `${formatTokens(tokenQuotas[QUOTA_KEY[tier]])} / Monat`,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Check, Crown, Zap, Star, Sparkles, Mail, Loader2, ShoppingBag, Smartphone, RefreshCw, AlertTriangle, ChevronRight, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { functions, premium, ai } from "@/api/frontendClient";
+import { functions, premium, ai, credits } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 import {
   startGooglePlayPurchase,
@@ -11,6 +11,7 @@ import {
 } from "@/components/premium/googlePlayBilling";
 import WebCheckoutButton from "@/components/premium/WebCheckoutButton";
 import AiVolumeCard from "@/components/premium/AiVolumeCard";
+import CreditWalletCard from "@/components/credits/CreditWalletCard";
 import PageTitle from "@/components/layout/PageTitle";
 import { useBuddyPreferences } from "@/lib/BuddyPreferencesContext";
 import { DETAIL_OPTIONS } from "@/lib/buddyPreferences";
@@ -75,12 +76,20 @@ export default function PremiumPlans() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPlanId, setSelectedPlanId] = useState('pro');
   const [aiUsage, setAiUsage] = useState(null);
+  const [creditWallet, setCreditWallet] = useState(null);
+  const [featureCosts, setFeatureCosts] = useState(null);
+  const [productPrices, setProductPrices] = useState({});
   const { buddy, saveBuddy } = useBuddyPreferences();
   const { getTool } = useTool();
 
   useEffect(() => {
     loadData();
     loadPaymentMethods();
+    premium.products().then((products) => {
+      if (Array.isArray(products)) {
+        setProductPrices(Object.fromEntries(products.map(({ id, price }) => [id, price])));
+      }
+    }).catch(() => {});
     setBillingAvailable(isGooglePlayBillingAvailable());
   }, []);
 
@@ -167,6 +176,16 @@ export default function PremiumPlans() {
   // Volumen-Anzeige aus, die Seite bleibt voll nutzbar.
   const loadAiUsage = async () => {
     try {
+      const wallet = await credits.getWallet().catch(() => null);
+      if (wallet?.enabled) {
+        setCreditWallet(wallet);
+        setAiUsage(null);
+        const prices = await credits.featureCosts();
+        setFeatureCosts(prices?.costs || null);
+        return;
+      }
+      setCreditWallet(null);
+      setFeatureCosts(null);
       const usage = await ai.usage();
       if (usage?.ok) setAiUsage(usage);
     } catch (error) {
@@ -287,14 +306,14 @@ export default function PremiumPlans() {
       id: 'basic',
       tagline: 'Solide Basis',
       name: 'Basic',
-      price: 8.99,
+      price: productPrices.basic ?? 8.99,
       icon: Zap,
       color: 'from-blue-600 to-cyan-600',
-      description: 'Werbefrei mit vollem KI-Buddy',
+      description: '2.500 KI-Credits für Buddy und Analysen',
       popular: false,
       features: [
-        'Alles aus Free - komplett werbefrei',
-        'KI-Buddy Chat ohne Tageslimit (im KI-Volumen)',
+        'Alles aus Free',
+        'KI-Buddy Chat im Monatsguthaben',
         'KI-Foto-Analyse von Faengen',
         'Wetter 5 Tage + Wetter-Alarme',
         'Eigene Spots speichern & verwalten',
@@ -308,7 +327,7 @@ export default function PremiumPlans() {
       id: 'pro',
       tagline: 'Für ambitionierte Angler',
       name: 'Pro',
-      price: 18,
+      price: productPrices.pro ?? 18,
       icon: Star,
       color: 'from-purple-600 to-violet-600',
       description: 'Vollstaendige KI- & AR-Power',
@@ -333,7 +352,7 @@ export default function PremiumPlans() {
       id: 'elite',
       tagline: 'Maximale Power',
       name: 'Ultimate',
-      price: 36,
+      price: productPrices.elite ?? 36,
       icon: Crown,
       color: 'from-amber-500 to-orange-600',
       description: 'Alles inklusive - jede Funktion, groesstes KI-Volumen',
@@ -393,10 +412,11 @@ export default function PremiumPlans() {
   const voiceTool = getTool('voice-buddy');
   const rows = capabilityRows({
     voiceRequiredPlanRank: getPlanLevel(voiceTool?.requires || 'basic'),
-    tokenQuotas: aiUsage?.plan_quotas || null,
+    tokenQuotas: creditWallet?.plan_quotas || aiUsage?.plan_quotas || null,
+    creditMode: !!creditWallet,
   });
   // Volumen des gewählten Plans (Server-Wert, Schlüssel = Plan-ID).
-  const selectedQuota = aiUsage?.plan_quotas?.[selected.id];
+  const selectedQuota = (creditWallet?.plan_quotas || aiUsage?.plan_quotas)?.[selected.id];
   const isUltimateActive = getPlanLevel(currentId) >= getPlanLevel('elite');
 
   const selectPlan = (planId) => {
@@ -408,6 +428,7 @@ export default function PremiumPlans() {
 
   const formatPrice = (price) => price === 0
     ? '0 €'
+    : billingAvailable ? 'Preis im Play Store'
     : `${Number(price).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
   // Referral-Rabatt (10 € je eingeladenem Freund, der Basic kauft) gilt nur für
@@ -415,7 +436,7 @@ export default function PremiumPlans() {
   // Plan-Status (ultimate_discount_cents).
   const discountEuro = Math.min((currentPlan?.ultimate_discount_cents || 0) / 100, 30);
   const showUltimateDiscount = selected.id === 'elite' && !billingAvailable && discountEuro > 0;
-  const selectedPrice = showUltimateDiscount ? Math.max(selected.price - discountEuro, 9.99) : selected.price;
+  const selectedPrice = showUltimateDiscount ? Math.max(selected.price - discountEuro, creditWallet ? 4.99 : 9.99) : selected.price;
   const isProcessing = processingPlan === selected.id;
   const isSelectedCurrent = currentId === selected.id;
 
@@ -542,7 +563,25 @@ export default function PremiumPlans() {
         )}
 
         {/* Monatsstand des KI-Volumens */}
-        {user && <AiVolumeCard usage={aiUsage} />}
+        {user && (creditWallet ? (
+          <>
+            <CreditWalletCard wallet={creditWallet} />
+            {featureCosts && (
+              <details className="bb-card text-sm">
+                <summary className="cursor-pointer font-semibold text-white">Credit-Kosten je KI-Funktion</summary>
+                <ul className="mt-3 grid gap-2">
+                  {Object.entries(featureCosts).map(([feature, cost]) => (
+                    <li key={feature} className="flex justify-between gap-4">
+                      <span>{feature.replaceAll("_", " ")}</span>
+                      <strong>{formatTokens(cost)} Credits</strong>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs" style={{ color: "var(--bb-muted)" }}>Lokale Wissensantworten, Wetterdaten und Fangbuch kosten keine KI-Credits.</p>
+              </details>
+            )}
+          </>
+        ) : <AiVolumeCard usage={aiUsage} />)}
 
         {/* Ultimate-Hinweis */}
         {isUltimateActive ? (
