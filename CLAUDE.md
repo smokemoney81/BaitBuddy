@@ -683,8 +683,9 @@ Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
   (`backend/src/routes/superAdmin.js`); `/api/auth/me` liefert `is_superuser`.
   Der Superuser ist zusätzlich immer Admin (`isAdminEmail`); `ADMIN_EMAILS`
   gilt weiter für die älteren Admin-Werkzeuge, **nicht** für `/Admin`.
-- **Seite `/Admin`** (`src/pages/Admin.jsx`, Einstieg im Command Center nur bei
-  `is_superuser`): Nutzerliste mit Plan-Zuweisung, Top-10-Tools, Community-Beiträge löschen, Events löschen
+- **Seite `/Admin`** (`src/pages/Admin.jsx`, einziger Einstieg: Karte
+  „Admin-Bereich“ oben auf dem **Dashboard**, nur bei `is_superuser` — bewusst
+  nicht im Command Center): Nutzerliste mit Plan-Zuweisung, Top-10-Tools, Community-Beiträge löschen, Events löschen
   (weich, `status='deleted'`) und neu starten (neue Runde ab jetzt, gleiche
   Laufzeit/Regeln, altes Event bleibt im Archiv), Support-Tickets beantworten
   (Antwort geht per Mail an den Nutzer und erscheint in „Meine Tickets“),

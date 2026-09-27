@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   X, ChevronRight, ChevronDown, Crown, Bot, Target, Clock, CalendarDays, Backpack,
   LayoutGrid, History, Download, CheckCircle2, LogOut, LogIn, Zap, Wrench, Map as MapIcon,
-  Users, Trophy, CloudSun, Fish, GraduationCap, Settings, LifeBuoy, ShieldCheck,
+  Users, Trophy, CloudSun, Fish, GraduationCap, Settings, LifeBuoy,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { entities, events } from '@/api/frontendClient';
@@ -245,18 +245,6 @@ export default function CommandCenter({ isOpen, setIsOpen, currentPageName, user
               })}
             </div>
           </section>
-
-          {/* Admin-Bereich: nur für den Superuser (Server prüft zusätzlich) */}
-          {user?.is_superuser === true && (
-            <RelevantCard
-              to="/Admin"
-              icon={ShieldCheck}
-              title="Admin-Bereich"
-              detail="Statistik, Community, Events, Tickets, Rundmail"
-              accent
-              onNavigate={close}
-            />
-          )}
 
           {/* Zuletzt verwendet */}
           {recent.length > 0 && (
