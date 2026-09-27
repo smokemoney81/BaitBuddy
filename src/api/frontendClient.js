@@ -11,6 +11,15 @@ import {
   guestUpdate,
   guestDelete,
 } from '@/lib/guestStore';
+import { notifyAiUsageChanged } from '@/lib/aiUsageBus';
+
+// Kostenpflichtige KI-Routen (siehe backend/src/lib/aiTokenQuota.js) — nach
+// einem erfolgreichen Aufruf hiervon meldet sich die Live-Guthabenanzeige neu
+// an (Punkt 10). GET /api/ai/usage selbst ausgenommen (sonst ein sinnloser
+// Kreislauf: die Anzeige lädt sich beim Nachladen wieder selbst an).
+function isMeteredAiPath(path) {
+  return (path.startsWith('/api/ai/') && path !== '/api/ai/usage') || path === '/api/analyze-photo';
+}
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'bb_token';
@@ -213,6 +222,7 @@ class ApiClient {
       err.data = data;
       throw err;
     }
+    if (isMeteredAiPath(path)) notifyAiUsageChanged();
     return data;
   }
 
@@ -849,6 +859,7 @@ export const ai = {
     });
     if (streamError) throw streamError;
     if (!result) throw new Error('Stream endete ohne Ergebnis');
+    notifyAiUsageChanged();
     return result;
   },
   vision:            (image_base64) => api.post('/api/ai/vision', { image_base64 }),

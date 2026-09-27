@@ -5,6 +5,7 @@ import { useHaptic } from '@/components/utils/HapticFeedback';
 import { useSound } from '@/components/utils/SoundManager';
 import EventTimer from '@/components/header/EventTimer';
 import BrandLogo from '@/components/layout/BrandLogo';
+import AiCreditBadge from '@/components/premium/AiCreditBadge';
 
 function initialsOf(user) {
   const name = user?.nickname || user?.full_name;
@@ -77,6 +78,7 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, t
   const right = (
     <div className="bb-topbar-right">
       {isDemo && <span className="bb-header-badge" style={{ '--badge-bg': 'rgba(245,158,11,.20)', '--badge-color': '#fbbf24' }}>DEMO</span>}
+      {user && <AiCreditBadge user={user} />}
       {isRoot && (
         <Link to="/NotificationCenter" className="bb-topbar-icon" aria-label="Benachrichtigungen">
           <Bell size={24} aria-hidden="true" />
