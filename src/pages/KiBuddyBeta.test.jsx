@@ -29,6 +29,11 @@ vi.mock('@/api/frontendClient', () => ({
   },
   events: { getActiveEvent: vi.fn(async () => ({})) },
   ai: { chatStream: vi.fn() },
+  // Buddy Live: HandsFree-/Live-Ansicht werden immer mitimportiert (auch wenn
+  // im Standardmodus "text" nicht gerendert) — entities/functions brauchen
+  // daher einen Mock, auch wenn diese Tests nur den Chat-Modus prüfen.
+  entities: { FishingPlan: { list: vi.fn(async () => []) } },
+  functions: { invoke: vi.fn() },
 }));
 // Sprech-Queue wegmocken: die Chat-/History-Logik ist hier der Prüfgegenstand,
 // nicht die (bereits separat getestete) TTS-Wiedergabe.

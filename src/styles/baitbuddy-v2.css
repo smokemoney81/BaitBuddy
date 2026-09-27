@@ -2169,6 +2169,38 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   --bb-voice-orb: clamp(64px, 11vh, 160px);
 }
 .bb-voice > * { flex-shrink: 0; }
+
+/* Buddy Live: Umschalter zwischen Chat/Voice, Live-Gespräch und Hands-free
+   (KiBuddyBeta.jsx, BuddyLiveModeSwitcher.jsx) — ein gemeinsamer Screen statt
+   dreier getrennter Seiten. */
+.bb-buddy-mode-switch {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(11, 19, 36, .6);
+  border: 1px solid var(--bb-border-hover);
+  flex-shrink: 0;
+}
+.bb-buddy-mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #9fb3c8;
+  background: transparent;
+  border: none;
+  transition: background var(--bb-motion), color var(--bb-motion);
+}
+.bb-buddy-mode-tab.is-active {
+  background: var(--bb-cyan);
+  color: #05131f;
+}
 .bb-voice-orb { position: relative; display: grid; place-items: center; height: calc(var(--bb-voice-orb) + 14px); }
 .bb-voice-orb img {
   position: relative;
@@ -2364,7 +2396,10 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
    Nutzt die Höhenlogik von .bb-voice (useFitToViewport, kein Seiten-Scroll).
    Kopf, Buddy-Bühne und Bedienleiste sind fix, nur .bb-live-chat scrollt.
    Die Bedienleiste liegt IN der Seite über der Bottom-Nav statt fixed darunter. */
-.bb-live { gap: 10px; }
+/* Eigenständiger Container: seit "Buddy Live" (KiBuddyBeta.jsx) liegt dieser
+   Block innerhalb von .bb-page.bb-voice statt selbst darauf, braucht also sein
+   eigenes Flex-Layout statt es von der Kombination .bb-page.bb-voice zu erben. */
+.bb-live { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 10px; }
 .bb-live-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 4px; }
 .bb-live-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .bb-live-title h1 { margin: 0; font-size: 20px; font-weight: 800; color: #f4f8fb; white-space: nowrap; }
@@ -2662,7 +2697,9 @@ button.bb-switch[data-state='unchecked'] { background: rgba(138, 162, 184, .35);
 }
 
 /* ── Hands-free Buddy ── */
-.bb-hf { gap: 14px; }
+/* Eigenständiger Container: seit "Buddy Live" (KiBuddyBeta.jsx) liegt dieser
+   Block innerhalb von .bb-page.bb-voice statt selbst darauf. */
+.bb-hf { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; overflow-y: auto; flex: 1; min-height: 0; }
 .bb-hf-head { display: flex; align-items: flex-start; gap: 12px; }
 .bb-hf-head > div { flex: 1; }
 .bb-hf-title { font-size: 30px; font-weight: 800; line-height: 1.1; color: #f7fbfe; }

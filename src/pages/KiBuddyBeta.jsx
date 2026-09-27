@@ -18,12 +18,17 @@ import { isQuotaExceeded } from "@/lib/aiQuota";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
+import BuddyLiveModeSwitcher from "@/components/ai/BuddyLiveModeSwitcher";
+import BuddyLiveHandsFreeView from "@/components/ai/BuddyLiveHandsFreeView";
+import BuddyLiveCallView from "@/components/ai/BuddyLiveCallView";
 
 const SOURCE_LABELS = {
   offline: "Offline-Antwort aus dem Buddy-Wissen",
   instant: "Sofort-Antwort aus dem Buddy-Wissen",
   device: "Auf deinem Gerät beantwortet",
 };
+
+const VALID_MODES = ["text", "live", "handsfree"];
 
 export default function KiBuddyBeta() {
   return (
@@ -35,9 +40,12 @@ export default function KiBuddyBeta() {
   );
 }
 
-function KiBuddyBetaInner() {
+// Exportiert, damit HandsFreeBuddy.jsx/VoiceChat.jsx (alte Routen) denselben
+// Screen mit vorausgewähltem Modus rendern, statt eine eigene Sitzung mit
+// eigenem Verlauf zu führen ("Buddy Live" — Punkt 5: ein gemeinsamer Screen).
+export function KiBuddyBetaInner({ initialMode } = {}) {
   const { buddy, activeBuddy } = useBuddyPreferences();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   useFeatureTracking("ai_buddy");
   const { trackAIChat } = useEventActivityTracking();
@@ -85,6 +93,37 @@ function KiBuddyBetaInner() {
   const isSpeaking = status === "speaking";
   // Aktive Streaming-Queue des laufenden Turns (für Abbruch bei neuem Turn/Unmount).
   const speechQueueRef = useRef(null);
+
+  // "Buddy Live": Textchat/Voice (Standard), echtes Live-Gespräch (WebRTC) und
+  // Hands-free teilen sich diesen einen Screen und denselben Gesprächsverlauf
+  // (messages/appendMessages/ask) — hier wird nur die Ansicht umgeschaltet.
+  const modeParam = searchParams.get("mode");
+  const [mode, setModeState] = useState(() => (
+    VALID_MODES.includes(initialMode) ? initialMode : (VALID_MODES.includes(modeParam) ? modeParam : "text")
+  ));
+  // Wessen "Sprechen zu Ende"-Callback die Sprech-Queue gerade auslösen soll —
+  // im Chat-Modus die eigene Freisprechen-Schleife (maybeContinueConversation),
+  // im Hands-free-Modus dessen Wake-Word-Schleife. Vermeidet zwei Modi, die
+  // gleichzeitig ums Mikrofon konkurrieren.
+  const activeOnDrainRef = useRef(null);
+  const registerSpeakingDoneHandler = (fn) => { activeOnDrainRef.current = fn; };
+
+  function setMode(next) {
+    if (next === mode) return;
+    // Sauberer Übergang: laufende Sprachausgabe/-erkennung dieses Screens
+    // stoppen, bevor der neue Modus sein eigenes Mikrofon/seine eigene
+    // Verbindung öffnet — sonst könnten zwei Stimmen/Mikrofone gleichzeitig
+    // aktiv sein.
+    stopSpeaking();
+    stopMic();
+    if (conversationActiveRef.current) endConversation();
+    setModeState(next);
+    setSearchParams((prev) => {
+      const next2 = new URLSearchParams(prev);
+      next2.set("mode", next);
+      return next2;
+    }, { replace: true });
+  }
 
   // Einzige Schreibstelle für Nachrichten: hält Ref und State synchron und
   // unterbindet Updates nach dem Unmount.
@@ -162,7 +201,7 @@ function KiBuddyBetaInner() {
     if (!tonAn || !text) {
       setStatus("");
       stopWave();
-      maybeContinueConversation();
+      continueAfterSpeaking();
       return;
     }
     setStatus("speaking");
@@ -173,7 +212,7 @@ function KiBuddyBetaInner() {
         if (!isMountedRef.current) return;
         setStatus("");
         stopWave();
-        maybeContinueConversation();
+        continueAfterSpeaking();
       },
     });
     speechQueueRef.current = queue;
@@ -195,6 +234,15 @@ function KiBuddyBetaInner() {
     if (isMountedRef.current && conversationActiveRef.current && !recRef.current) {
       startListening();
     }
+  }
+
+  // Nach jeder Sprachausgabe entscheidet der aktive Modus, was als Nächstes
+  // passiert: im Hands-free-Modus dessen Wake-Word-Schleife (registriert über
+  // registerSpeakingDoneHandler), sonst die Freisprechen-Schleife des
+  // Chat-Modus (maybeContinueConversation).
+  function continueAfterSpeaking() {
+    if (activeOnDrainRef.current) activeOnDrainRef.current();
+    else maybeContinueConversation();
   }
 
   function startConversation() {
@@ -227,7 +275,7 @@ function KiBuddyBetaInner() {
         },
         { role: "assistant", text: getOfflineFallback(), source: "offline" }
       );
-      maybeContinueConversation();
+      continueAfterSpeaking();
       return;
     }
     appendMessages({ role: "assistant", text: local.answer, source: local.mode, page: local.page });
@@ -271,7 +319,7 @@ function KiBuddyBetaInner() {
         if (!isMountedRef.current) return;
         setStatus("");
         stopWave();
-        maybeContinueConversation();
+        continueAfterSpeaking();
       },
     }) : null;
     if (queue) speechQueueRef.current = queue;
@@ -375,7 +423,7 @@ function KiBuddyBetaInner() {
         if (!isMountedRef.current) return;
         setStatus("");
         stopWave();
-        maybeContinueConversation();
+        continueAfterSpeaking();
       },
     }) : null;
     if (queue) speechQueueRef.current = queue;
@@ -615,9 +663,34 @@ function KiBuddyBetaInner() {
 
   const phase = status === "listening" ? "listening" : status === "thinking" ? "thinking" : isSpeaking ? "speaking" : "idle";
   const quickQuestions = ['Was ist die beste Tiefe jetzt?', 'Zeig mir gute Spots', 'Wetter heute?', 'Welche Köder passen?'];
+  const lastAnswerText = [...messages].reverse().find(m => m.role !== "user")?.text || null;
 
   return (
     <div ref={pageRef} className="bb-page bb-voice">
+      <BuddyLiveModeSwitcher mode={mode} onChange={setMode} />
+
+      {mode === "live" && (
+        <BuddyLiveCallView
+          appendMessages={appendMessages}
+          onFallback={(reason) => {
+            setMode("text");
+            appendMessages({ role: "system", text: reason });
+            startConversation();
+          }}
+        />
+      )}
+
+      {mode === "handsfree" && (
+        <BuddyLiveHandsFreeView
+          onAsk={(q) => { appendMessages({ role: "user", text: q }); ask(q); }}
+          registerSpeakingDoneHandler={registerSpeakingDoneHandler}
+          speakingStatus={status}
+          lastAnswerText={lastAnswerText}
+        />
+      )}
+
+      {mode === "text" && (
+      <>
       <div className={`bb-voice-orb is-${phase}`}>
         <div className="bb-voice-waves" aria-hidden="true">
           {waveBars.map((h, i) => <i key={i} style={{ height: Math.max(6, h * 2) }} />)}
@@ -719,6 +792,8 @@ function KiBuddyBetaInner() {
       <p className={`bb-voice-mode${conversationActive ? ' is-active' : ''}`}>
         <i aria-hidden="true" />{conversationActive ? 'Freisprechen aktiv' : 'Tippe aufs Mikrofon für Freisprechen'}
       </p>
+      </>
+      )}
     </div>
   );
 }
