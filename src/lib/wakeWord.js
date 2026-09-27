@@ -45,13 +45,13 @@ export function detectConfiguredWakeWord(text, phrase = 'Hey Buddy') {
   return { detected: true, command };
 }
 
-// Rückwärtskompatibel für den vorhandenen Hands-free-Modus.
-export function detectWakeWord(text) {
-  return detectConfiguredWakeWord(text, 'Hey Buddy');
+// Rückwärtskompatibel; optional kann jetzt dieselbe konfigurierte Phrase wie im
+// globalen Listener übergeben werden. So unterscheiden sich Global/Hands-free
+// nicht mehr bei einem benutzerdefinierten Aktivierungswort.
+export function detectWakeWord(text, phrase = 'Hey Buddy') {
+  return detectConfiguredWakeWord(text, phrase);
 }
 
-// Beispiele, die der Buddy im Hands-free-Modus wirklich umsetzen kann
-// (Aktionen aus buddyActionCatalog bzw. Wissensfragen mit Standort-Kontext).
 export const HANDS_FREE_EXAMPLES = [
   'Wie ist das Wetter?',
   'Welcher Köder passt jetzt?',
@@ -59,5 +59,4 @@ export const HANDS_FREE_EXAMPLES = [
   'Speichere diesen Spot',
 ];
 
-// Nach so vielen Sekunden ohne erkannte Sprache beendet sich der Hands-free-Modus.
 export const HANDS_FREE_IDLE_SECONDS = 60;
