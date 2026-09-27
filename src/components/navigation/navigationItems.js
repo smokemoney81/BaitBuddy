@@ -14,7 +14,7 @@ export const navigationGroups = [
   { name: 'Planung', items: [['Ausflüge & gespeicherte Touren', 'TripPlanner'], ['Neuer Ausflug', 'TripPlanner?new=1'], ['Live-Trip', 'LiveTrip']] },
   { name: 'Ausrüstung', items: [['Equipment, Sets & Köder', 'Gear'], ['Meine Geräte', 'MyDevices'], ['Shop', 'Shop']] },
   { name: 'Community', items: [['Feed, Gruppen & Freunde', 'Community'], ['Events', 'Events'], ['Ranglisten', 'Rank']] },
-  { name: 'Wissen & Angelschein', items: [['Prüfung & Schonzeiten', 'AngelscheinPruefungSchonzeiten'], ['Quiz', 'Quiz'], ['Lizenzen', 'Licenses'], ['Anleitungen', 'Tutorials']] },
+  { name: 'Wissen & Angelschein', items: [['Prüfung & Schonzeiten', 'AngelscheinPruefungSchonzeiten'], ['Quiz', 'Quiz'], ['Lizenzen', 'Licenses']] },
   { name: 'Einstellungen', items: [['Profil', 'Profile'], ['KI-Buddy', 'Settings?tab=buddy'], ['Navigation', 'Settings?tab=navigation'], ['Benachrichtigungen', 'Settings?tab=notifications'], ['Darstellung', 'Settings?tab=appearance'], ['Audio & Stimme', 'Settings?tab=voice'], ['Akku, Datenschutz & Konto', 'Settings'], ['Premium', 'PremiumPlans']] },
   { name: 'Rechtliches & Support', items: [['Hilfe, FAQ & Support', 'Help'], ['Datenschutz', 'Datenschutz'], ['Impressum', 'Impressum'], ['AGB', 'AGB']] },
 ];

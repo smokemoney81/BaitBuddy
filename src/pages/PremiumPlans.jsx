@@ -278,7 +278,7 @@ export default function PremiumPlans() {
         'Angelkarte mit Community-Spots (Basis)',
         'Schonzeiten & Mindestmasse nachschlagen',
         'Angelschein-Pruefungsvorbereitung (Quiz)',
-        'Tutorials & AR-Knotenassistent',
+        'AR-Knotenassistent',
         'Aktuelles Wetter (heute)',
         'Community-Feed lesen'
       ]

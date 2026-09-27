@@ -15,15 +15,16 @@ const LONG_PRESS_MS = 500;
 // Fingerbewegung (px), ab der das Halten als Scrollen/Wischen gilt.
 const LONG_PRESS_MOVE_TOLERANCE = 12;
 
-// Schnellaktionen im Logo-Menue. Bilder liegen als kleine WebP-Ausschnitte
-// (je ~10 KB) unter public/assets/quick/. `page` = Route fuer die Plan-Pruefung.
+// Schnellaktionen im Logo-Menue, als kompakte Zeilen ohne Bild — passt so ohne
+// internen Scroll auf den Bildschirm (siehe .bb-quick-row in baitbuddy-v2.css).
+// `page` = Route fuer die Plan-Pruefung.
 const QUICK_ACTIONS = [
-  { Icon: Camera, label: 'Fang erfassen', hint: 'Foto, Daten, Köder', image: '/assets/quick/catch.webp', tone: 'cyan', event: 'openCatchDialog' },
-  { Icon: Calendar, label: 'Ausflug planen', hint: 'Spots, Wetter, Zeitfenster', image: '/assets/quick/trip.webp', tone: 'green', page: 'TripPlanner', to: '/TripPlanner?new=1' },
-  { Icon: Brain, label: 'KI-Buddy', hint: 'Fragen, Analysen, Tipps', image: '/assets/quick/buddy.webp', tone: 'cyan', page: 'KiBuddyBeta', to: '/KiBuddyBeta' },
-  { Icon: MapPin, label: 'Spot speichern', hint: 'Position, Notizen, Bilder', image: '/assets/quick/spot.webp', tone: 'orange', page: 'Map', to: '/Map?addSpot=1' },
-  { Icon: Mic, label: 'Voice Buddy', hint: 'Sprechen statt tippen', image: '/assets/quick/voice.webp', tone: 'cyan', page: 'KiBuddyBeta', to: '/KiBuddyBeta?voice=1' },
-  { Icon: Fish, label: 'Fangbuch', hint: 'Alle Fänge, Statistiken, Erfolge', image: '/assets/quick/logbook.webp', tone: 'green', page: 'Logbook', to: '/Logbook' },
+  { Icon: Camera, label: 'Fang erfassen', hint: 'Foto, Daten, Köder', tone: 'cyan', event: 'openCatchDialog' },
+  { Icon: Calendar, label: 'Ausflug planen', hint: 'Spots, Wetter, Zeitfenster', tone: 'green', page: 'TripPlanner', to: '/TripPlanner?new=1' },
+  { Icon: Brain, label: 'KI-Buddy', hint: 'Fragen, Analysen, Tipps', tone: 'cyan', page: 'KiBuddyBeta', to: '/KiBuddyBeta' },
+  { Icon: MapPin, label: 'Spot speichern', hint: 'Position, Notizen, Bilder', tone: 'orange', page: 'Map', to: '/Map?addSpot=1' },
+  { Icon: Mic, label: 'Voice Buddy', hint: 'Sprechen statt tippen', tone: 'cyan', page: 'KiBuddyBeta', to: '/KiBuddyBeta?voice=1' },
+  { Icon: Fish, label: 'Fangbuch', hint: 'Alle Fänge, Statistiken, Erfolge', tone: 'green', page: 'Logbook', to: '/Logbook' },
 ];
 
 const ARIA_LABELS = {
@@ -208,27 +209,24 @@ export default function BottomTabs() {
             </SheetDescription>
           </SheetHeader>
           <div className="bb-quick-sheet-divider" aria-hidden="true" />
-          <div className="bb-quick-sheet-grid">
+          <div className="bb-quick-sheet-list">
             {QUICK_ACTIONS.map(action => {
-              const { Icon, label, hint, image, tone } = action;
+              const { Icon, label, hint, tone } = action;
               const tool = action.page ? getToolByRoute(`/${action.page}`) : null;
               const accessible = tool ? isToolAccessible(tool.id) : true;
               const body = (
                 <>
-                  <span className="bb-quick-tile-media" aria-hidden="true">
-                    <img src={image} alt="" loading="lazy" decoding="async" draggable="false" />
+                  <span className={`bb-quick-row-icon bb-tone-${accessible ? tone : 'muted'}`} aria-hidden="true">
+                    {accessible ? <Icon size={20} /> : <Lock size={20} />}
                   </span>
-                  <span className={`bb-quick-tile-icon bb-tone-${accessible ? tone : 'muted'}`} aria-hidden="true">
-                    {accessible ? <Icon size={22} /> : <Lock size={22} />}
-                  </span>
-                  <span className="bb-quick-tile-text">
-                    <span className="bb-quick-tile-label">{label}</span>
-                    <span className="bb-quick-tile-hint">
+                  <span className="bb-quick-row-text">
+                    <span className="bb-quick-row-label">{label}</span>
+                    <span className="bb-quick-row-hint">
                       {accessible ? hint : `Freischalten über ${tool?.requires || 'Premium'}`}
                     </span>
                   </span>
                   {accessible && (
-                    <span className="bb-quick-tile-go" aria-hidden="true">
+                    <span className="bb-quick-row-go" aria-hidden="true">
                       <ChevronRight size={18} />
                     </span>
                   )}
@@ -237,7 +235,7 @@ export default function BottomTabs() {
 
               if (!accessible) {
                 return (
-                  <div key={label} className="bb-quick-tile is-locked" aria-disabled="true">
+                  <div key={label} className="bb-quick-row is-locked" aria-disabled="true">
                     {body}
                   </div>
                 );
@@ -247,7 +245,7 @@ export default function BottomTabs() {
                   <button
                     key={label}
                     type="button"
-                    className="bb-quick-tile"
+                    className="bb-quick-row"
                     onClick={() => {
                       setOpen(false);
                       window.dispatchEvent(new CustomEvent(action.event));
@@ -258,7 +256,7 @@ export default function BottomTabs() {
                 );
               }
               return (
-                <Link key={label} className="bb-quick-tile" to={action.to} onClick={() => setOpen(false)}>
+                <Link key={label} className="bb-quick-row" to={action.to} onClick={() => setOpen(false)}>
                   {body}
                 </Link>
               );

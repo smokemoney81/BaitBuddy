@@ -139,12 +139,6 @@ export const BUDDY_TIPS = {
     question: 'Sollen wir loslegen? Tippe auf Anrufen und leg einfach los.',
     suggestions: ['Gespräch starten', 'Köder-Tipp erfragen', 'Zurück zum Chat'],
   },
-  Tutorials: {
-    title: 'Tutorials',
-    message: 'Lerne Schritt für Schritt von Anfänger bis Profi-Techniken!',
-    question: 'Womit möchtest du starten – Anfänger oder Fortgeschrittene?',
-    suggestions: ['Anfänger-Guide', 'Fortgeschrittene Techniken', 'Video-Tutorials'],
-  },
   Fishing: {
     title: 'Angeln',
     message: 'Alle deine Angeltechniken, Fangmethoden und Tipps auf einen Blick!',

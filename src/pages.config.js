@@ -94,7 +94,6 @@ const Settings = lazyPage(() => import('./pages/Settings'));
 const Shop = lazyPage(() => import('./pages/Shop'));
 const StartFishing = lazyPage(() => import('./pages/StartFishing'));
 const TripPlanner = lazyPage(() => import('./pages/TripPlanner'));
-const Tutorials = lazyPage(() => import('./pages/Tutorials'));
 const UsedGear = lazyPage(() => import('./pages/UsedGear'));
 // VoiceChat und VoiceLecture waren fertig implementiert, aber ohne Route und
 // ohne Importeur — beide Seiten waren damit gar nicht erreichbar, obwohl die
@@ -163,7 +162,6 @@ export const PAGES = {
     "Shop": Shop,
     "StartFishing": StartFishing,
     "TripPlanner": TripPlanner,
-    "Tutorials": Tutorials,
     "UsedGear": UsedGear,
     "VoiceChat": VoiceChat,
     "VoiceLecture": VoiceLecture,
