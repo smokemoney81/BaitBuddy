@@ -16,6 +16,7 @@ const router = Router();
 // die Stripe-Aktivierung mit 501 gesperrt.
 const GOOGLE_PLAY_VERIFICATION_CONFIGURED = !!process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
 const STRIPE_PAYMENT_VERIFICATION_CONFIGURED = !!process.env.STRIPE_SECRET_KEY;
+const STRIPE_CHECKOUT_CONFIGURED = STRIPE_PAYMENT_VERIFICATION_CONFIGURED && !!process.env.STRIPE_WEBHOOK_SECRET;
 
 // resolvePlan/PLAN_RANK kommen zentral aus lib/planResolver.js — auch der
 // TTS-Endpunkt (Ultimate-Stimme) nutzt dieselbe Auflösung.
@@ -57,6 +58,55 @@ function verifiedExpiryFrom(verification) {
   const ms = Number(verification?.raw?.expiryTimeMillis);
   if (!Number.isFinite(ms) || ms <= Date.now()) return null;
   return new Date(ms).toISOString();
+}
+
+// Ein Play-Abo kann sich verlängern, während die Android-App geschlossen ist.
+// Beim Laden des Planstatus wird ein bald ablaufendes Abo deshalb direkt bei
+// Play geprüft. Das ermöglicht die Freischaltung auch nach Login auf einem
+// anderen Gerät, das den ursprünglichen Kauf nicht lokal wiederherstellen kann.
+async function reconcilePlaySubscription(user) {
+  const meta = user?.app_metadata || {};
+  const expiresMs = Date.parse(meta.premium_expires_at || '');
+  if (meta.premium_payment_method !== 'google_play'
+    || !meta.premium_purchase_token
+    || !meta.premium_product_id
+    || meta.premium_product_id === 'baitbuddy_trial_10_10'
+    || (Number.isFinite(expiresMs) && expiresMs > Date.now() + 24 * 60 * 60 * 1000)) {
+    return user;
+  }
+
+  // Den aktuellen Metadatenstand vor einem Schreibzugriff laden; der Request
+  // kann aus dem Auth-Cache stammen und parallel kann ein neuer Kauf eintreffen.
+  const { data, error } = await supabase.auth.admin.getUserById(user.id);
+  if (error || !data?.user) return user;
+  const freshUser = data.user;
+  const current = freshUser.app_metadata || {};
+  if (current.premium_payment_method !== 'google_play'
+    || current.premium_purchase_token !== meta.premium_purchase_token
+    || current.premium_product_id !== meta.premium_product_id) return freshUser;
+
+  const currentExpiryMs = Date.parse(current.premium_expires_at || '');
+  if (Number.isFinite(currentExpiryMs) && currentExpiryMs > Date.now() + 24 * 60 * 60 * 1000) return freshUser;
+  const lastCheckedMs = Date.parse(current.premium_play_checked_at || '');
+  if (Number.isFinite(lastCheckedMs) && lastCheckedMs > Date.now() - 60 * 60 * 1000) return freshUser;
+
+  const verification = await verifyGooglePlayPurchase({
+    productId: current.premium_product_id,
+    purchaseToken: current.premium_purchase_token,
+  });
+  const verifiedExpiry = verification.valid ? verifiedExpiryFrom(verification) : null;
+  if (!verifiedExpiry) return freshUser;
+
+  const renewed = !Number.isFinite(currentExpiryMs) || Date.parse(verifiedExpiry) > currentExpiryMs;
+  const merged = {
+    ...current,
+    premium_play_checked_at: new Date().toISOString(),
+    ...(renewed ? { premium_expires_at: verifiedExpiry } : {}),
+  };
+  const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, { app_metadata: merged });
+  if (updateError) return freshUser;
+  invalidateCachedUser(user.id);
+  return { ...freshUser, app_metadata: merged };
 }
 
 // Ein Ultimate-Pass (24h-Kauf, Referral-Bonus) verlängert eine noch laufende
@@ -130,6 +180,12 @@ async function grantReferralBasicReward(referredUser) {
 }
 
 router.get('/premium/status', requireAuth, async (req, res) => {
+  let statusUser = req.user;
+  try {
+    statusUser = await reconcilePlaySubscription(req.user);
+  } catch (error) {
+    console.warn('[premium] Play-Abgleich fehlgeschlagen:', error?.message || error);
+  }
   const {
     effectiveId,
     isActive,
@@ -143,7 +199,7 @@ router.get('/premium/status', requireAuth, async (req, res) => {
     trialExpiresAt,
     premiumPassStartedAt,
     premiumPassExpiresAt,
-  } = resolvePlan(req.user);
+  } = resolvePlan(statusUser);
 
   return res.json({
     ok: true,
@@ -163,7 +219,7 @@ router.get('/premium/status', requireAuth, async (req, res) => {
       premium_pass_started_at: premiumPassStartedAt,
       premium_pass_expires_at: premiumPassExpiresAt,
       // Angesammelter Referral-Rabatt (Cent) auf den nächsten Ultimate-Kauf.
-      ultimate_discount_cents: readDiscountCents(req.user)
+      ultimate_discount_cents: readDiscountCents(statusUser)
     }
   });
 });
@@ -199,7 +255,7 @@ router.get('/premium/config', (req, res) => {
     ok: true,
     payment_methods: {
       google_play: GOOGLE_PLAY_VERIFICATION_CONFIGURED,
-      stripe: STRIPE_PAYMENT_VERIFICATION_CONFIGURED,
+      stripe: STRIPE_CHECKOUT_CONFIGURED,
     },
   });
 });
@@ -322,7 +378,7 @@ export async function stripeWebhookHandler(req, res) {
 }
 
 router.post('/premium/checkout', requireAuth, async (req, res) => {
-  if (!STRIPE_PAYMENT_VERIFICATION_CONFIGURED) {
+  if (!STRIPE_CHECKOUT_CONFIGURED) {
     return res.status(501).json({ error: 'Stripe checkout nicht konfiguriert' });
   }
 
@@ -376,7 +432,7 @@ router.post('/premium/activate-demo', requireAuth, async (req, res) => {
 // Speichert Transaktionsdaten für Audit/Verifizierung.
 // Schützt vor Race Conditions durch Versionierung.
 router.post('/premium/activate', requireAuth, async (req, res) => {
-  const { plan_id, purchase_token, product_id, transaction_id, payment_method } = req.body || {};
+  const { plan_id, purchase_token, product_id, transaction_id } = req.body || {};
 
   if (!plan_id) {
     return res.status(400).json({ error: 'plan_id erforderlich' });
@@ -480,7 +536,8 @@ router.post('/premium/activate', requireAuth, async (req, res) => {
       premium_pass_expires_at: expiresAt,
     } : {}),
     premium_trial: false,
-    premium_payment_method: payment_method || 'unknown',
+    premium_payment_method: purchase_token ? 'google_play' : 'stripe',
+    premium_play_checked_at: purchase_token ? null : current.premium_play_checked_at,
     premium_product_id: product_id,
     premium_purchase_token: purchase_token,
     premium_transaction_id: transaction_id,

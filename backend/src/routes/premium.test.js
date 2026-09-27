@@ -24,6 +24,7 @@ beforeEach(async () => {
   vi.resetModules();
   delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
   delete process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
   purchaseVerificationMock.verifyGooglePlayPurchase.mockReset();
   purchaseVerificationMock.verifyStripePayment.mockReset();
   purchaseVerificationMock.createStripeCheckoutSession.mockReset();
@@ -76,7 +77,9 @@ describe('POST /api/premium/activate', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.plan_id).toBe('elite');
-    expect(supabaseMock.current.auth.admin.updateUserById).toHaveBeenCalled();
+    expect(supabaseMock.current.auth.admin.updateUserById).toHaveBeenCalledWith('user-1', {
+      app_metadata: expect.objectContaining({ premium_payment_method: 'google_play' }),
+    });
   });
 
   it('lehnt Aktivierung ab, wenn die Play-Verifikation den Kauf als ungueltig meldet', async () => {
@@ -244,6 +247,14 @@ describe('POST /api/premium/activate (Google-Play-Laufzeit)', () => {
 });
 
 describe('GET /api/premium/config', () => {
+  it('sperrt Stripe-Checkout ohne signierten Webhook', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    const res = await request(configuredApp).get('/api/premium/config');
+    expect(res.body.payment_methods.stripe).toBe(false);
+  });
   it('meldet nicht konfigurierte Zahlungswege, damit die UI vorher sperren kann', async () => {
     const res = await request(app).get('/api/premium/config');
 
@@ -277,6 +288,19 @@ describe('POST /api/premium/checkout', () => {
       .send({ plan_id: 'pro' });
 
     expect(res.status).toBe(501);
+  });
+
+  it('startet keinen Checkout ohne Stripe-Webhook-Secret', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+    const res = await request(configuredApp)
+      .post('/api/premium/checkout')
+      .set('Authorization', 'Bearer test-token')
+      .send({ plan_id: 'pro' });
+    expect(res.status).toBe(501);
+    expect(purchaseVerificationMock.createStripeCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('lehnt eine unbekannte plan_id ab (400)', async () => {
@@ -676,6 +700,68 @@ describe('GET /api/premium/status', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.plan.id).toBe('free');
+  });
+
+  it('gleicht ein abgelaufenes Play-Abo beim Statusabruf serverseitig ab', async () => {
+    const oldExpiry = new Date(Date.now() - 60_000).toISOString();
+    const newExpiry = new Date(Date.now() + 30 * 86400000).toISOString();
+    const user = {
+      ...TEST_USER,
+      app_metadata: {
+        premium_plan_id: 'basic',
+        premium_expires_at: oldExpiry,
+        premium_payment_method: 'google_play',
+        premium_product_id: 'baitbuddy_basic_monthly',
+        premium_purchase_token: 'play-token',
+      },
+    };
+    supabaseMock.current = createSupabaseMock({
+      authUser: user,
+      adminUsers: [{ ...user, app_metadata: { ...user.app_metadata } }],
+    });
+    purchaseVerificationMock.verifyGooglePlayPurchase.mockResolvedValue({
+      valid: true,
+      raw: { expiryTimeMillis: String(Date.parse(newExpiry)) },
+    });
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+
+    const res = await request(configuredApp)
+      .get('/api/premium/status')
+      .set('Authorization', 'Bearer test-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.plan.id).toBe('basic');
+    expect(res.body.plan.expires_at).toBe(newExpiry);
+    expect(supabaseMock.current.__adminUsers[0].app_metadata.premium_expires_at).toBe(newExpiry);
+  });
+
+  it('erfindet bei einer fehlgeschlagenen Play-Prüfung keine Verlängerung', async () => {
+    const user = {
+      ...TEST_USER,
+      app_metadata: {
+        premium_plan_id: 'basic',
+        premium_expires_at: new Date(Date.now() - 60_000).toISOString(),
+        premium_payment_method: 'google_play',
+        premium_product_id: 'baitbuddy_basic_monthly',
+        premium_purchase_token: 'play-token',
+      },
+    };
+    supabaseMock.current = createSupabaseMock({
+      authUser: user,
+      adminUsers: [{ ...user, app_metadata: { ...user.app_metadata } }],
+    });
+    purchaseVerificationMock.verifyGooglePlayPurchase.mockResolvedValue({ valid: false, reason: 'abgelaufen' });
+    vi.resetModules();
+    const configuredApp = (await import('../server.js')).default;
+
+    const res = await request(configuredApp)
+      .get('/api/premium/status')
+      .set('Authorization', 'Bearer test-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.plan.id).toBe('free');
+    expect(supabaseMock.current.auth.admin.updateUserById).not.toHaveBeenCalled();
   });
 });
 

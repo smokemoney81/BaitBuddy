@@ -364,7 +364,9 @@ export default function PremiumPlans() {
       priceLabel: '150 / Jahr',
       icon: Sparkles,
       color: 'from-emerald-600 to-teal-600',
-      description: 'Ultimate als Jahresabo mit Einladungen',
+      description: billingAvailable
+        ? 'Ultimate als Jahresabo mit Einladungen'
+        : 'Ultimate für 365 Tage ohne automatische Verlängerung',
       popular: false,
       yearly: true,
       features: [
@@ -456,7 +458,11 @@ export default function PremiumPlans() {
                 <strong className="bb-plan-tile-name">{tierLabel}</strong>
                 <span className="bb-plan-tile-desc">{plan.tagline}</span>
                 <span className="bb-plan-tile-price">{formatPrice(plan.price)}</span>
-                <span className="bb-plan-tile-period">{plan.price === 0 ? 'Für Einsteiger' : '/ Monat'}</span>
+                <span className="bb-plan-tile-period">{plan.price === 0
+                  ? 'Für Einsteiger'
+                  : billingAvailable
+                    ? '/ Monat'
+                    : 'für 30 Tage, einmalig'}</span>
                 {isCurrent ? (
                   <span className="bb-plan-tile-btn is-current">Aktuell</span>
                 ) : plan.price === 0 ? (
@@ -593,7 +599,11 @@ export default function PremiumPlans() {
                 <span className="block text-sm line-through" style={{ color: 'var(--bb-muted)' }}>{formatPrice(selected.price)}</span>
               )}
               <strong className="bb-plan-detail-price">{formatPrice(selectedPrice)}</strong>
-              {selected.price > 0 && <span className="block text-xs" style={{ color: 'var(--bb-muted)' }}>{selected.yearly ? 'pro Jahr' : 'pro Monat'}</span>}
+              {selected.price > 0 && <span className="block text-xs" style={{ color: 'var(--bb-muted)' }}>
+                {billingAvailable
+                  ? (selected.yearly ? 'pro Jahr' : 'pro Monat')
+                  : (selected.yearly ? 'für 365 Tage, einmalig' : 'für 30 Tage, einmalig')}
+              </span>}
             </div>
           </div>
           {showUltimateDiscount && (
@@ -622,7 +632,12 @@ export default function PremiumPlans() {
                   {isProcessing ? 'Kauf wird gestartet …' : 'Im Play Store kaufen'}
                 </button>
               ) : (
-                <WebCheckoutButton planId={selected.id} disabled={isProcessing || !purchasesEnabled} />
+                <>
+                  <WebCheckoutButton planId={selected.id} disabled={isProcessing || !purchasesEnabled} />
+                  <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
+                    Einmalzahlung ohne automatische Verlängerung.
+                  </p>
+                </>
               )}
             </div>
           )}
@@ -637,9 +652,9 @@ export default function PremiumPlans() {
           >
             <span className="bb-dash-row-media"><Sparkles size={28} aria-hidden="true" /></span>
             <span className="flex-1 min-w-0">
-              <span className="bb-dash-row-label">Jahresabo mit Einladungen</span>
+              <span className="bb-dash-row-label">{billingAvailable ? 'Jahresabo mit Einladungen' : 'Jahreszugang mit Einladungen'}</span>
               <strong className="bb-dash-row-title">{friendsPlan.name}</strong>
-              <span className="bb-dash-row-meta">{formatPrice(friendsPlan.price)} pro Jahr · {friendsPlan.description}</span>
+              <span className="bb-dash-row-meta">{formatPrice(friendsPlan.price)} {billingAvailable ? 'pro Jahr' : 'einmalig für 365 Tage'} · {friendsPlan.description}</span>
             </span>
             <ChevronRight size={22} aria-hidden="true" />
           </button>
