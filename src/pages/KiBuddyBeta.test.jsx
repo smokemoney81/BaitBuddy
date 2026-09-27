@@ -134,6 +134,37 @@ describe('KiBuddyBeta – Abbruch bei Unmount', () => {
   });
 });
 
+describe('KiBuddyBeta – Moduswechsel mit laufender Antwort', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => cleanup());
+
+  it('verwirft eine verspätete Chat-Antwort nach dem Wechsel zu Live', async () => {
+    let resolveChat;
+    ai.chatStream.mockImplementation(() => new Promise(resolve => {
+      resolveChat = resolve;
+    }));
+
+    renderBuddy();
+    await ask('Wie ist das Wetter morgen?');
+    const signal = ai.chatStream.mock.calls[0][2].signal;
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Live' }));
+    expect(signal.aborted).toBe(true);
+
+    await act(async () => {
+      resolveChat({ reply: 'Verspätete Antwort' });
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+    expect(screen.queryByText('Verspätete Antwort')).not.toBeInTheDocument();
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+});
+
 describe('KiBuddyBeta – Live-Streaming', () => {
   beforeEach(() => {
     vi.clearAllMocks();
