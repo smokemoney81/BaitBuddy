@@ -28,6 +28,8 @@ Nutzungsverlauf und Werkzeugkosten kommen vom Server. Lokale Wissensantworten
 und reine Datenbankfunktionen verbrauchen keine Credits. Alle kostenpflichtigen
 Cloud-Aufrufe reservieren vor dem Anbieteraufruf und geben bei Fehlern frei.
 Auch Superuser unterliegen dem Kostenlimit.
+Die Cloudflare-Container-Umgebung reicht den Credit-Schalter und die
+Kostenkonfiguration explizit weiter (`cloudflare/backend/containerEnv.js`).
 
 **Schutzschalter:** Credit-Topups sind deaktiviert, weil die gekauften Credits
 noch keinen periodenübergreifenden Anbieter-Kostenpuffer haben. Die
@@ -42,6 +44,12 @@ ein einzelner Aufruf kann bei höherem tatsächlichem Verbrauch das Limit
 überschreiten. Ein absolut harter EUR-Kostendeckel erfordert ein vom Server
 kontrolliertes Anbieterbudget oder strengere Anbieterlimits. Das Flag bleibt
 bis zu dieser Prüfung aus.
+
+Der Supabase-Migrations-Trockenlauf im PR wird derzeit durch ältere, nur in
+der Remote-Migrationshistorie vorhandene Versionen blockiert. Diese
+Historie muss mit den echten Quellen rekonstruiert und abgeglichen werden;
+ein `migration repair --status reverted` würde produktiv angewandte
+Migrationen falsch als zurückgenommen markieren.
 
 Dieses Dokument fasst alle drei Teilaufträge zusammen, die das Buddy-Token-
 System (`backend/src/lib/aiTokenQuota.js`) durch ein Abo/Credit-System mit

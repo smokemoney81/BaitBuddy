@@ -18,6 +18,18 @@ describe('containerEnv', () => {
     });
   });
 
+  it('reicht den Credit-Schalter und Kostenlimits an den Container durch', () => {
+    expect(containerEnv({
+      AI_CREDIT_SYSTEM_ENABLED: 'true',
+      CREDIT_PLANS_JSON: '{"pro":{"costLimitEur":2}}',
+      ANTHROPIC_MAX_TOKENS: '2048',
+    })).toMatchObject({
+      AI_CREDIT_SYSTEM_ENABLED: 'true',
+      CREDIT_PLANS_JSON: '{"pro":{"costLimitEur":2}}',
+      ANTHROPIC_MAX_TOKENS: '2048',
+    });
+  });
+
   it('deckt jede Variable aus backend/.env.example ab', async () => {
     const { readFileSync } = await import('node:fs');
     const example = readFileSync(new URL('../../backend/.env.example', import.meta.url), 'utf8');
