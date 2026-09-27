@@ -272,17 +272,23 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   }
 
   // Antwort aus der lokalen FAQ-Datenbank (ohne API). `local` = null heißt:
-  // offline und nichts Passendes gefunden → ehrliche Fallback-Nachricht.
-  function answerLocally(local) {
+  // nichts Passendes gefunden → ehrliche, Buddy-artige Fallback-Nachricht
+  // statt einer rohen technischen Meldung. `retryQuestion` (falls die Ursache
+  // ein Verbindungsfehler war, nicht simple Offline-Abwesenheit) lässt die
+  // Chat-Bubble einen "Nochmal versuchen"-Button zeigen — die Frage selbst
+  // bleibt dabei immer im Verlauf erhalten, geht also nie verloren.
+  function answerLocally(local, { retryQuestion } = {}) {
     retryRef.current = 0;
     if (!local) {
       setStatus("");
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       appendMessages(
         {
           role: "system",
-          text: typeof navigator !== "undefined" && navigator.onLine === false
-            ? "Offline-Modus: Keine Internetverbindung."
-            : "KI-Dienst gerade nicht erreichbar.",
+          text: offline
+            ? "Du bist gerade offline. Ich helfe dir trotzdem mit dem, was ich weiß."
+            : "Ich erreiche meinen Dienst gerade nicht. Deine Frage bleibt hier stehen — gleich klappt's bestimmt.",
+          retryQuestion: !offline ? retryQuestion : undefined,
         },
         { role: "assistant", text: getOfflineFallback(), source: "offline" }
       );
@@ -579,8 +585,10 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         return ask(q, true);
       }
 
-      // Keine passende lokale Antwort und Retries erschöpft: Fallback-Nachricht
-      answerLocally(null);
+      // Keine passende lokale Antwort und Retries erschöpft: technischen Fehler
+      // fürs Debugging loggen (nie dem Nutzer zeigen), Buddy-Fallback + Retry.
+      console.error("[KiBuddyBeta] Chat-Anfrage fehlgeschlagen:", error);
+      answerLocally(null, { retryQuestion: q });
     }
   }
 
@@ -749,7 +757,14 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
       <div ref={chatRef} className="bb-voice-chat">
         {messages.map((m, i) => (
           m.role === "system" ? (
-            <p key={i} className="bb-voice-system">{m.text}</p>
+            <p key={i} className="bb-voice-system">
+              {m.text}
+              {m.retryQuestion && (
+                <button type="button" className="bb-voice-retry" onClick={() => ask(m.retryQuestion)}>
+                  Nochmal versuchen
+                </button>
+              )}
+            </p>
           ) : m.role === "user" ? (
             <div key={i} className="bb-voice-row is-user">
               <span className="bb-voice-bubble is-user">{m.text}</span>

@@ -221,7 +221,7 @@ describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
     renderBuddy();
     await ask('Wie geht die Bundesliga aus?');
 
-    expect(await screen.findByText('Offline-Modus: Keine Internetverbindung.')).toBeInTheDocument();
+    expect(await screen.findByText(/Du bist gerade offline/)).toBeInTheDocument();
     expect(ai.chatStream).not.toHaveBeenCalled();
   });
 
@@ -233,6 +233,29 @@ describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
     expect(await screen.findByText(/Meine Online-KI ist gerade nicht erreichbar/)).toBeInTheDocument();
     expect(ai.chatStream).toHaveBeenCalledTimes(1);
   });
+
+  it('zeigt bei einem echten Verbindungsfehler ohne lokalen Treffer eine menschliche Meldung mit Retry statt eines rohen Fehlers', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    catchgbtChat.mockRejectedValue(new TypeError('Failed to fetch'));
+    renderBuddy();
+    await ask('asdkjhwqe unsinnige anfrage 12345 xyz');
+
+    // Keine rohe Fehlermeldung ("TypeError", "Failed to fetch") im UI —
+    // stattdessen eine Buddy-artige Meldung mit Retry-Button.
+    const retryButton = await screen.findByRole('button', { name: 'Nochmal versuchen' }, { timeout: 5000 });
+    expect(screen.getByText(/Ich erreiche meinen Dienst gerade nicht/)).toBeInTheDocument();
+    expect(screen.queryByText(/TypeError/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
+    // Der technische Fehler wird geloggt, aber nicht angezeigt.
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    // Retry stellt dieselbe Frage erneut.
+    catchgbtChat.mockResolvedValueOnce({ reply: 'Antwort nach Retry.' });
+    fireEvent.click(retryButton);
+    expect(await screen.findByText('Antwort nach Retry.')).toBeInTheDocument();
+
+    consoleErrorSpy.mockRestore();
+  }, 10000);
 });
 
 describe('KiBuddyBeta – Datenquelle (Punkt 8: Wissen vs. KI-Modell)', () => {
