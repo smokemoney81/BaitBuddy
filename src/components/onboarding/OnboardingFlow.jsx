@@ -49,14 +49,14 @@ const TONE_OPTIONS = [
 
 const STEP_HEADLINES = {
   welcome: 'Willkommen bei BaitBuddy',
-  buddy: 'Wähle deinen Buddy',
+  buddy: 'Dein Buddy Marina',
   voice: 'Stimme auswählen',
   tone: 'Wie soll dein Buddy antworten?',
   experience: 'Wie würdest du dich einschätzen?',
 };
 
 const STEP_SUBLINES = {
-  buddy: 'Jeder Buddy hat seine eigene Persönlichkeit und Stimme. Du kannst ihn später jederzeit wechseln.',
+  buddy: 'Marina begleitet dich beim Angeln. Stimme und Antwortstil kannst du später ändern.',
   voice: 'Die Stimme, mit der dein Buddy dir antwortet.',
   tone: 'Der Antwortstil lässt sich in den Einstellungen jederzeit ändern.',
   experience: 'Damit Tipps weder zu einfach noch zu speziell sind.',
