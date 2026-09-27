@@ -87,7 +87,7 @@ describe('buildAnglerProfile', () => {
       },
     }));
 
-    expect(profile.buddyName).toBe('Finn');
+    expect(profile.buddyName).toBe('Marina');
     expect(profile.tone).toBe('direct');
     expect(profile.experience).toBe('advanced');
     expect(profile.region).toBe('nw');
