@@ -8,6 +8,7 @@ import DashboardOverview from './DashboardOverview';
 
 const gear = vi.hoisted(() => ({ list: vi.fn() }));
 const spots = vi.hoisted(() => ({ list: vi.fn() }));
+const weatherState = vi.hoisted(() => ({ current: null }));
 
 vi.mock('@/api/frontendClient', () => ({
   entities: {
@@ -20,7 +21,7 @@ vi.mock('@/components/location/LocationManager', () => ({
   useLocation: () => ({ currentLocation: null, requestGpsLocation: vi.fn() }),
 }));
 vi.mock('@/hooks/useFishingConditions', () => ({
-  useFishingConditions: () => ({ hours: [], window: null, data: null, isLoading: false, hasLocation: false }),
+  useFishingConditions: () => weatherState.current || { hours: [], window: null, data: null, isLoading: false, hasLocation: false },
 }));
 vi.mock('@/components/buddy/BuddyCard', () => ({
   default: ({ message }) => <div data-testid="buddy-card">{message}</div>,
@@ -42,6 +43,33 @@ function setup(props = {}) {
 beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
+  weatherState.current = null;
+});
+
+describe('DashboardOverview — Wetter', () => {
+  it('zeigt sieben Tage aus der echten Forecast-Datenstruktur', async () => {
+    weatherState.current = {
+      hours: [], window: null, hasLocation: true, isLoading: false,
+      data: {
+        timezone: 'Europe/Berlin',
+        current: { temperature_2m: 17, weather_code: 1, wind_speed_10m: 6, pressure_msl: 1014, relative_humidity_2m: 60, precipitation: 0 },
+        daily: {
+          time: Array.from({ length: 7 }, (_, i) => 1790460000 + i * 86400),
+          weather_code: [1, 2, 3, 61, 1, 2, 3],
+          temperature_2m_min: [8, 9, 10, 11, 12, 13, 14],
+          temperature_2m_max: [17, 18, 19, 20, 21, 22, 23],
+          precipitation_probability_max: [10, 20, 30, 40, 50, 60, 70],
+        },
+      },
+    };
+    setup();
+    expect(await screen.findByText('7-Tage-Vorhersage')).toBeInTheDocument();
+    const forecast = screen.getByLabelText('Wettervorhersage für sieben Tage');
+    expect(forecast.children).toHaveLength(7);
+    expect(forecast).toHaveTextContent('Heute');
+    expect(forecast).toHaveTextContent('70%');
+    expect(forecast).toHaveTextContent('23°');
+  });
 });
 
 describe('DashboardOverview — nächste Tour', () => {
