@@ -134,6 +134,37 @@ describe('KiBuddyBeta – Abbruch bei Unmount', () => {
   });
 });
 
+describe('KiBuddyBeta – Moduswechsel mit laufender Antwort', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => cleanup());
+
+  it('verwirft eine verspätete Chat-Antwort nach dem Wechsel zu Live', async () => {
+    let resolveChat;
+    ai.chatStream.mockImplementation(() => new Promise(resolve => {
+      resolveChat = resolve;
+    }));
+
+    renderBuddy();
+    await ask('Wie ist das Wetter morgen?');
+    const signal = ai.chatStream.mock.calls[0][2].signal;
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Live' }));
+    expect(signal.aborted).toBe(true);
+
+    await act(async () => {
+      resolveChat({ reply: 'Verspätete Antwort' });
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+    expect(screen.queryByText('Verspätete Antwort')).not.toBeInTheDocument();
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+});
+
 describe('KiBuddyBeta – Live-Streaming', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -278,6 +309,17 @@ describe('KiBuddyBeta – Datenquelle (Punkt 8: Wissen vs. KI-Modell)', () => {
     await waitFor(() => expect(document.querySelectorAll('.bb-voice-bubble').length).toBeGreaterThan(1));
     expect(ai.chatStream).not.toHaveBeenCalled();
     expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('meldet eine Wissenslücke ohne falschen Verbindungsfehler', async () => {
+    localStorage.setItem('bb_buddy_data_source', 'database');
+    renderBuddy();
+    await ask('asdkjhwqe unsinnige anfrage 12345 xyz');
+
+    expect(await screen.findByText(/noch keine passende Antwort/)).toBeInTheDocument();
+    expect(screen.getByText('Aus dem Buddy-Wissen')).toBeInTheDocument();
+    expect(screen.queryByText(/Ich erreiche meinen Dienst/)).not.toBeInTheDocument();
+    expect(ai.chatStream).not.toHaveBeenCalled();
   });
 
   it('Modus "KI-Modell": ruft auch bei einer sonst sofort lokal beantworteten Standardfrage das Modell auf', async () => {
