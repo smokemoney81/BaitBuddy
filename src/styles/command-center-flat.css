@@ -1,0 +1,216 @@
+/* Flat Command Center overrides: keeps behavior/routes intact while removing the card-heavy look. */
+
+.bb-cc .bb-cc-inner {
+  gap: 14px;
+}
+
+/* Profile + plan: one flat information block instead of a glass card. */
+.bb-cc .bb-cc-profile {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 4px 0 0;
+  gap: 0;
+}
+
+.bb-cc .bb-cc-profile-row,
+.bb-cc .bb-cc-plan {
+  min-height: 68px;
+  padding: 10px 2px;
+}
+
+.bb-cc .bb-cc-plan {
+  border-top: 1px solid rgba(255,255,255,.09);
+}
+
+.bb-cc .bb-cc-plan-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(245,196,81,.07);
+  border-color: rgba(245,196,81,.18);
+}
+
+.bb-cc .bb-cc-plan-btn {
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 10px;
+  background: transparent;
+  border-color: rgba(0,229,255,.32);
+}
+
+/* Buddy remains visually important, but as a flat action row instead of a card. */
+.bb-cc .bb-cc-buddy {
+  min-height: 72px;
+  padding: 12px 2px;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  box-shadow: none;
+}
+
+.bb-cc .bb-cc-buddy-title {
+  font-size: 22px;
+}
+
+/* Relevant + recent: full-width rows with separators, not individual tiles. */
+.bb-cc .bb-cc-relevant-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.bb-cc .bb-cc-relevant,
+.bb-cc .bb-cc-recent {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon title chevron"
+    "icon detail chevron";
+  align-items: center;
+  column-gap: 11px;
+  row-gap: 2px;
+  min-height: 62px;
+  padding: 10px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--bb-motion), transform var(--bb-motion);
+}
+
+.bb-cc .bb-cc-relevant + .bb-cc-relevant,
+.bb-cc .bb-cc-recent + .bb-cc-recent {
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.bb-cc .bb-cc-relevant:hover,
+.bb-cc .bb-cc-recent:hover {
+  background: rgba(0,229,255,.045);
+}
+
+.bb-cc .bb-cc-relevant:active,
+.bb-cc .bb-cc-recent:active,
+.bb-cc .bb-cc-area:active,
+.bb-cc .bb-cc-area-items a:active {
+  transform: scale(.99);
+}
+
+.bb-cc .bb-cc-relevant-icon {
+  grid-area: icon;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 10px;
+  color: var(--bb-cyan);
+  background: rgba(0,229,255,.07);
+}
+
+.bb-cc .bb-cc-relevant-title {
+  grid-area: title;
+  align-self: end;
+}
+
+.bb-cc .bb-cc-relevant-detail {
+  grid-area: detail;
+  align-self: start;
+}
+
+.bb-cc .bb-cc-relevant-chevron {
+  grid-area: chevron;
+  color: var(--bb-muted);
+}
+
+/* Main areas: one clean vertical navigation list. */
+.bb-cc .bb-cc-areas {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.bb-cc .bb-cc-area {
+  min-height: 52px;
+  padding: 11px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color var(--bb-motion), transform var(--bb-motion);
+}
+
+.bb-cc .bb-cc-area + .bb-cc-area,
+.bb-cc .bb-cc-area-items + .bb-cc-area {
+  border-top: 1px solid rgba(255,255,255,.075);
+}
+
+.bb-cc .bb-cc-area:hover {
+  background: rgba(255,255,255,.025);
+}
+
+.bb-cc .bb-cc-area[data-current="true"],
+.bb-cc .bb-cc-area[aria-current="page"] {
+  background: rgba(0,229,255,.055);
+}
+
+.bb-cc .bb-cc-area-items {
+  display: grid;
+  gap: 0;
+  margin: 0 0 2px 32px;
+  padding: 0 0 4px 10px;
+  border-left: 1px solid rgba(0,229,255,.18);
+}
+
+.bb-cc .bb-cc-area-items a {
+  min-height: 44px;
+  padding: 9px 2px 9px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  transition: background-color var(--bb-motion), transform var(--bb-motion);
+}
+
+.bb-cc .bb-cc-area-items a + a {
+  border-top: 1px solid rgba(255,255,255,.055);
+}
+
+.bb-cc .bb-cc-area-items a:hover {
+  background: rgba(0,229,255,.035);
+}
+
+/* Offline status: compact status row instead of another card. */
+.bb-cc .bb-cc-offline {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid rgba(255,255,255,.09);
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 12px 2px;
+}
+
+.bb-cc .bb-cc-offline.bb-card-success {
+  background: transparent;
+  border-color: rgba(34,224,122,.22);
+}
+
+/* Strong, visible keyboard focus without bringing the card look back. */
+.bb-cc a:focus-visible,
+.bb-cc button:focus-visible {
+  outline: 2px solid var(--bb-cyan);
+  outline-offset: 3px;
+}
+
+@media (max-width: 420px) {
+  .bb-cc .bb-cc-inner {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

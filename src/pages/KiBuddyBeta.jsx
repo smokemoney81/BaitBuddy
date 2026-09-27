@@ -696,6 +696,32 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
     if (status === "listening") setStatus("");
   }
 
+  // Der globale Wake-Word-Listener übergibt eine Frage oder fordert direktes
+  // Zuhören an. Query-Parameter nur einmal verarbeiten, damit ein erneutes
+  // Rendern keine zweite Anfrage oder zweite Mikrofon-Sitzung startet.
+  useEffect(() => {
+    if (searchParams.get("wake") !== "1") return;
+    const question = searchParams.get("question")?.trim();
+    const shouldListen = searchParams.get("listen") === "1";
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.delete("wake");
+      next.delete("question");
+      next.delete("listen");
+      return next;
+    }, { replace: true });
+    if (question) {
+      setInput("");
+      appendMessages({ role: "user", text: question });
+      ask(question);
+    } else if (shouldListen) {
+      startConversation();
+    }
+    // Parameter werden einmalig konsumiert; die aktiven Helfer gehören zum
+    // selben Mount und dürfen durch deren Zustand nicht erneut auslösen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("wake")]);
+
   useEffect(() => {
     // Beim (Re-)Mount wieder als aktiv markieren — sonst bliebe die Ref nach dem
     // StrictMode-Doppelmount auf false stehen.

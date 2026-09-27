@@ -48,9 +48,9 @@ import { catchgbtChat } from '@/functions/catchgbtChat';
 import { ai } from '@/api/frontendClient';
 import { executeBuddyAction } from '@/utils/buddyActions';
 
-function renderBuddy() {
+function renderBuddy(initialPath = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialPath]}>
       <KiBuddyBeta />
     </MemoryRouter>
   );
@@ -338,5 +338,37 @@ describe('KiBuddyBeta – Datenquelle (Punkt 8: Wissen vs. KI-Modell)', () => {
 
     expect(await screen.findByText(/Für Hecht haben sich drei Köder bewährt/)).toBeInTheDocument();
     expect(ai.chatStream).not.toHaveBeenCalled();
+  });
+});
+
+describe('KiBuddyBeta – Start durch globales Aktivierungswort', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => cleanup());
+
+  it('stellt eine übergebene Frage genau einmal', async () => {
+    ai.chatStream.mockResolvedValue({ reply: 'Antwort auf Zuruf.' });
+    renderBuddy('/KiBuddyBeta?mode=text&wake=1&question=Was%20ist%20mein%20n%C3%A4chster%20Trip');
+    expect(await screen.findByText('Antwort auf Zuruf.')).toBeInTheDocument();
+    expect(ai.chatStream).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Was ist mein nächster Trip')).toBeInTheDocument();
+  });
+
+  it('beginnt ohne übergebene Frage ein Sprachgespräch', async () => {
+    const original = window.SpeechRecognition;
+    const start = vi.fn();
+    window.SpeechRecognition = class {
+      start = start;
+      stop() {}
+    };
+    try {
+      renderBuddy('/KiBuddyBeta?mode=text&wake=1&listen=1');
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+      expect(screen.getByText(/Gespräch gestartet/)).toBeInTheDocument();
+    } finally {
+      window.SpeechRecognition = original;
+    }
   });
 });
