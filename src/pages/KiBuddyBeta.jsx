@@ -125,6 +125,8 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
     // stoppen, bevor der neue Modus sein eigenes Mikrofon/seine eigene
     // Verbindung öffnet — sonst könnten zwei Stimmen/Mikrofone gleichzeitig
     // aktiv sein.
+    abortRef.current?.abort();
+    retryRef.current = 0;
     stopSpeaking();
     stopMic();
     if (conversationActiveRef.current) endConversation();
@@ -358,7 +360,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         signal,
         context: { navigate },
         onDelta: (delta) => {
-          if (!isMountedRef.current) return;
+          if (!isMountedRef.current || signal.aborted) return;
           shown += delta;
           upsertAssistantStreaming(shown.trimStart());
           if (queue) {
@@ -367,7 +369,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
           }
         },
       });
-      if (!isMountedRef.current) { queue?.cancel(); return; }
+      if (!isMountedRef.current || signal.aborted) { queue?.cancel(); return; }
       retryRef.current = 0;
       const ans = result.reply || shown.trim() || "Keine Antwort erhalten.";
       finalizeAssistant(ans, { source: "device" });
@@ -381,7 +383,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
       if (queue && spoken) queue.flush();
       else { queue?.cancel(); speakAnswer(ans); }
     } catch (error) {
-      if (!isMountedRef.current || error?.name === "AbortError") return;
+      if (!isMountedRef.current || signal.aborted || error?.name === "AbortError") return;
       queue?.cancel();
       dropStreamingBubble();
       appendMessages({ role: "system", text: LOCAL_ERROR_LABELS[error?.code] || "Die KI auf dem Gerät hat gerade nicht geantwortet." });
@@ -488,7 +490,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         result = await ai.chatStream(chatMessages, null, {
           signal,
           onDelta: (delta) => {
-            if (!isMountedRef.current) return;
+            if (!isMountedRef.current || signal?.aborted) return;
             raw += delta;
             const visible = stripActionMarker(raw);
             upsertAssistantStreaming(visible);
@@ -515,7 +517,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         result = { reply: res?.reply || res?.message, action: res?.action || null };
       }
 
-      if (!isMountedRef.current) { queue?.cancel(); return; }
+      if (!isMountedRef.current || signal?.aborted) { queue?.cancel(); return; }
 
       const ans = result?.reply || result?.message || stripActionMarker(raw) || "Keine Antwort erhalten.";
       retryRef.current = 0;
@@ -539,7 +541,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         speakAnswer(ans);
       }
     } catch (error) {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || signal?.aborted) return;
 
       // Abgebrochener Request (neuer Turn oder Unmount): keine Fehler-/Offline-
       // Behandlung, der neue Aufruf übernimmt bzw. die Seite ist verlassen.
@@ -581,7 +583,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         retryRef.current += 1;
         setStatus("thinking");
         await new Promise(r => setTimeout(r, 800));
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || signal?.aborted) return;
         return ask(q, true);
       }
 
@@ -708,7 +710,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
 
   const phase = status === "listening" ? "listening" : status === "thinking" ? "thinking" : isSpeaking ? "speaking" : "idle";
   const quickQuestions = ['Was ist die beste Tiefe jetzt?', 'Zeig mir gute Spots', 'Wetter heute?', 'Welche Köder passen?'];
-  const lastAnswerText = [...messages].reverse().find(m => m.role !== "user")?.text || null;
+  const lastAnswerText = [...messages].reverse().find(m => m.role === "assistant" && !m.streaming)?.text || null;
 
   return (
     <div ref={pageRef} className="bb-page bb-voice">
