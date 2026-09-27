@@ -8,16 +8,21 @@ import { createPageUrl } from '@/utils';
 const VOICE_ROUTES = new Set(['/KiBuddyBeta', '/VoiceChat', '/HandsFreeBuddy']);
 const NAVIGATION_PREFIX = /^(?:öffne|oeffne|zeige|geh(?:e)?(?: bitte)?(?: zu)?|wechsel(?:e)?(?: bitte)?(?: zu)?|navigiere(?: bitte)?(?: zu)?|bring mich(?: bitte)?(?: zu)?|starte)\s+/i;
 
-function extractWakeCommand(transcript, phrase) {
+export function extractWakeCommand(transcript, phrase) {
   const text = normalizeTranscript(transcript);
   const wake = normalizeTranscript(phrase);
   if (!text || !wake) return null;
-  const index = text.indexOf(wake);
+
+  // Nur ganze Wortfolge akzeptieren. Damit löst z. B. das Wake-Word "Buddy"
+  // nicht versehentlich bei "Buddys" aus.
+  const paddedText = ` ${text} `;
+  const token = ` ${wake} `;
+  const index = paddedText.indexOf(token);
   if (index < 0) return null;
-  return text.slice(index + wake.length).trim();
+  return paddedText.slice(index + token.length).trim();
 }
 
-function resolveNavigationCommand(command) {
+export function resolveNavigationCommand(command) {
   if (!command) return null;
   const stripped = command.replace(NAVIGATION_PREFIX, '').trim();
   return resolvePage(stripped) || resolvePage(command);
@@ -83,6 +88,8 @@ export default function GlobalWakeWordListener() {
             return;
           }
 
+          // Kein direkter Navigationsbefehl: an den Buddy übergeben. `question`
+          // befüllt die Eingabe; `wake=1` markiert die Herkunft für die Buddy-UI.
           const params = new URLSearchParams({ mode: 'text', wake: '1' });
           if (command) params.set('question', command);
           else params.set('listen', '1');
