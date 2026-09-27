@@ -11,7 +11,7 @@ export const navigationGroups = [
   { name: 'Karte & Spots', items: [['Karte, Gewässer & Favoriten', 'Map'], ['Offline-Karten', 'Settings?tab=general']] },
   { name: 'Wetter & Prognosen', items: [['Wetter, Bissprognose & Solunar', 'Weather']] },
   { name: 'Fangbuch', items: [['Meine Fänge', 'Logbook'], ['Statistiken & Rekorde', 'CatchStats']] },
-  { name: 'Planung', items: [['Ausflüge & gespeicherte Touren', 'TripPlanner'], ['Neuer Ausflug', 'TripPlanner?new=1'], ['Live-Trip', 'LiveTripPage']] },
+  { name: 'Planung', items: [['Ausflüge & gespeicherte Touren', 'TripPlanner'], ['Neuer Ausflug', 'TripPlanner?new=1'], ['Live-Trip', 'LiveTrip']] },
   { name: 'Ausrüstung', items: [['Equipment, Sets & Köder', 'Gear'], ['Meine Geräte', 'MyDevices'], ['Shop', 'Shop']] },
   { name: 'Community', items: [['Feed, Gruppen & Freunde', 'Community'], ['Events', 'Events'], ['Ranglisten', 'Rank']] },
   { name: 'Wissen & Angelschein', items: [['Prüfung & Schonzeiten', 'AngelscheinPruefungSchonzeiten'], ['Quiz', 'Quiz'], ['Lizenzen', 'Licenses'], ['Anleitungen', 'Tutorials']] },

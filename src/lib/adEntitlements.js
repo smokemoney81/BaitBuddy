@@ -33,6 +33,8 @@ export const AD_BLACKLIST_ROUTES = new Set([
   '/Onboarding',
   '/AnglerMode',
   '/KiBuddyBeta',
+  '/VoiceChat',
+  '/HandsFreeBuddy',
   '/CatchCam',
   '/ARView',
   '/ARKnotenAssistent',

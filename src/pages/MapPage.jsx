@@ -15,7 +15,6 @@ import Terrain3DLayer from "@/components/map/v2/Terrain3DLayer";
 import HydrographicAnalysis from "@/components/map/v2/HydrographicAnalysis";
 import SatelliteOverlayLayer from "@/components/map/v2/SatelliteOverlayLayer";
 import AdvancedCacheManager from "@/components/map/v2/AdvancedCacheManager";
-import MapNavigationHub from "@/components/map/MapNavigationHub";
 import MapModeManager from "@/components/map/MapModeManager";
 import { RadarLayer, useRainviewerRadar, RADAR_MODES } from "@/components/map/RadarOverlay";
 import { MapPin, MapPinOff, CloudRain, Crosshair, Play, Pause, ChevronDown, Sunrise, Ticket, Plus, LocateFixed } from "lucide-react";
@@ -412,25 +411,6 @@ export default function MapPage() {
     return { lat: mapCenter[0], lon: mapCenter[1], label: 'Kartenmittelpunkt' };
   }, [gpsLocation, mapCenter]);
 
-  const handleFeatureSelect = useCallback((featureId) => {
-    switch(featureId) {
-      case 'relief-shading':
-        setShowHillshade(v => !v);
-        break;
-      case '3d-terrain':
-        setShow3DTerrain(v => !v);
-        break;
-      case 'satellite':
-        setShowSatellite(v => !v);
-        break;
-      case 'hydrographic':
-        setShowHydrographic(v => !v);
-        break;
-      default:
-        toast.info(`Feature "${featureId}" wurde selektiert`);
-    }
-  }, []);
-
   if (loading) {
     return (
       <div className="bb-page flex items-center justify-center" style={{ minHeight: '100vh' }}>
@@ -453,8 +433,6 @@ export default function MapPage() {
       />
 
       <div className="max-w-7xl mx-auto p-4 space-y-4 min-h-screen">
-        {/* Removed: NewFeaturesNotification - Alle Infos sind jetzt im MapNavigationHub */}
-        {/* Removed: MapFeaturesInfo - Integriert in MapNavigationHub */}
 
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg sm:text-2xl font-bold" style={{ color: 'var(--bb-cyan)' }}>
@@ -920,12 +898,6 @@ export default function MapPage() {
         />
       )}
 
-      {/* Map Navigation Hub - Zentrale Steuerstelle */}
-      <MapNavigationHub
-        onFeatureSelect={handleFeatureSelect}
-        onModeChange={handleModeChange}
-        currentMode={mapMode}
-      />
     </div>
   );
 }
