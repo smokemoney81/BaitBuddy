@@ -3,7 +3,8 @@ import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import React, { useState, useEffect } from "react";
 import { functions } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
-import { Users, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Users, Loader2, ShieldCheck, ChevronRight } from "lucide-react";
 import SchonzeitWarner from "@/components/dashboard/SchonzeitWarner";
 import OfflineCacheIndicator from "@/components/dashboard/OfflineCacheIndicator";
 import FishingRecommendationCard from "@/components/dashboard/FishingRecommendationCard";
@@ -91,6 +92,18 @@ export default function Dashboard() {
       <div ref={statusAnnouncementRef} role="status" aria-live="polite" className="sr-only" />
       <div className="bb-dashboard">
         {error && user && <div className="bb-card" role="alert"><p>Dashboard-Daten konnten nicht geladen werden.</p><button type="button" className="bb-secondary mt-3" onClick={loadData}>Erneut versuchen</button></div>}
+        {/* Einziger Einstieg in den Admin-Bereich — nur für den Superuser (Server prüft zusätzlich). */}
+        {user?.is_superuser === true && (
+          <Link to="/Admin" className="bb-card bb-dash-row">
+            <span className="bb-dash-row-media"><ShieldCheck size={30} aria-hidden="true" /></span>
+            <span className="flex-1 min-w-0">
+              <span className="bb-dash-row-label">Superuser</span>
+              <strong className="bb-dash-row-title">Admin-Bereich</strong>
+              <span className="bb-dash-row-meta">Nutzer, Pläne, Werbung, Statistik, Tickets</span>
+            </span>
+            <ChevronRight size={22} aria-hidden="true" />
+          </Link>
+        )}
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
         <DashboardOverview
           user={user}
