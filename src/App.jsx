@@ -25,6 +25,7 @@ import { initAutoSync } from '@/components/utils/offlineSync';
 import { initNetworkStatus } from '@/utils/networkStatus';
 import { prefetchAllPages } from '@/lib/prefetchPages';
 import { lazyPage } from '@/lib/lazyPage';
+import GlobalWakeWordListener from '@/components/voice/GlobalWakeWordListener';
 const CatchStats = lazyPage(() => import('@/pages/CatchStats'));
 const Admin = lazyPage(() => import('@/pages/Admin'));
 const Help = lazyPage(() => import('@/pages/Help'));
@@ -172,6 +173,7 @@ function App() {
                   <NavigationProvider>
                     <NavigationTracker />
                     <PageViewTracker />
+                    <GlobalWakeWordListener />
                     <AuthenticatedApp />
                   </NavigationProvider>
                 </Router>
