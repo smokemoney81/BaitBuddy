@@ -2,7 +2,6 @@ import React, { Suspense, useEffect } from 'react'
 import './App.css'
 import './globals.css'
 import './styles/baitbuddy-v2.css'
-import './styles/command-center-flat.css'
 import { BuddyPreferencesProvider } from '@/lib/BuddyPreferencesContext';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
