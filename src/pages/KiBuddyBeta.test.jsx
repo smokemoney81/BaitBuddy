@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -232,5 +232,46 @@ describe('KiBuddyBeta – lokale FAQ-Datenbank', () => {
 
     expect(await screen.findByText(/Meine Online-KI ist gerade nicht erreichbar/)).toBeInTheDocument();
     expect(ai.chatStream).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('KiBuddyBeta – Datenquelle (Punkt 8: Wissen vs. KI-Modell)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ai.chatStream.mockRejectedValue(new Error('kein Stream'));
+    Element.prototype.scrollIntoView = vi.fn();
+    localStorage.clear();
+  });
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('Modus "Datenbank": ruft nie das Modell auf, auch bei personenbezogenen Fragen', async () => {
+    localStorage.setItem('bb_buddy_data_source', 'database');
+    renderBuddy();
+    await ask('Welche Köder passen zu meinen letzten Fängen?');
+
+    // Antwort kommt ausschließlich aus der Wissensbasis (Treffer oder ehrlicher
+    // Fallback) — nie aus einer Modellanfrage. Auf die Antwort-Bubble warten,
+    // bevor "wurde nicht aufgerufen" geprüft wird (sonst prüft man zu früh).
+    await waitFor(() => expect(document.querySelectorAll('.bb-voice-bubble').length).toBeGreaterThan(1));
+    expect(ai.chatStream).not.toHaveBeenCalled();
+    expect(catchgbtChat).not.toHaveBeenCalled();
+  });
+
+  it('Modus "KI-Modell": ruft auch bei einer sonst sofort lokal beantworteten Standardfrage das Modell auf', async () => {
+    catchgbtChat.mockResolvedValueOnce({ reply: 'Antwort vom Modell.' });
+    localStorage.setItem('bb_buddy_data_source', 'model');
+    renderBuddy();
+    await ask('Welcher Köder ist gut für Hecht?');
+
+    expect(await screen.findByText('Antwort vom Modell.')).toBeInTheDocument();
+    expect(ai.chatStream).toHaveBeenCalledTimes(1);
+  });
+
+  it('Modus "Auto" (Standard): beantwortet Standardfragen weiterhin sofort lokal', async () => {
+    renderBuddy();
+    await ask('Welcher Köder ist gut für Hecht?');
+
+    expect(await screen.findByText(/Für Hecht haben sich drei Köder bewährt/)).toBeInTheDocument();
+    expect(ai.chatStream).not.toHaveBeenCalled();
   });
 });

@@ -15,6 +15,8 @@ import { buildGreeting } from "@/lib/buddyGreetings";
 import { executeBuddyAction } from "@/utils/buddyActions";
 import { useLocalBuddy } from "@/hooks/useLocalBuddy";
 import { isQuotaExceeded } from "@/lib/aiQuota";
+import { getBuddyDataSource, setBuddyDataSource } from "@/lib/buddyDataSource";
+import BuddyDataSourceSwitch from "@/components/ai/BuddyDataSourceSwitch";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
@@ -107,6 +109,15 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   // gleichzeitig ums Mikrofon konkurrieren.
   const activeOnDrainRef = useRef(null);
   const registerSpeakingDoneHandler = (fn) => { activeOnDrainRef.current = fn; };
+
+  // Datenquelle (Punkt 8): Wissensbasis vs. echtes KI-Modell — der Nutzer
+  // entscheidet, ob eine Frage möglichst ohne Guthabenverbrauch (Datenbank)
+  // oder immer per Modellanfrage beantwortet wird.
+  const [dataSource, setDataSourceState] = useState(() => getBuddyDataSource());
+  function setDataSource(next) {
+    setBuddyDataSource(next);
+    setDataSourceState(next);
+  }
 
   function setMode(next) {
     if (next === mode) return;
@@ -379,29 +390,55 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
       // Offline-Pfad, statt erst Timeouts und Retries abzuwarten.
       const online = typeof navigator === "undefined" || navigator.onLine !== false;
       const inConversation = messagesRef.current.some(m => m.role === "assistant");
-      const engine = localBuddy.engineFor(online);
-      if (engine === "local" || engine === "none") {
-        // Eindeutige Standardfragen bleiben Sofort-Antworten — schneller als jedes Modell.
-        const instant = resolveLocalAnswer(q, { online: true, inConversation });
+
+      // Datenquelle "Datenbank" (Punkt 8: Umschalter Wissen/Modell): nie eine
+      // Modellanfrage — weder Gerät noch Cloud —, sondern ausschließlich die
+      // vorhandene Wissensbasis. Geringstmöglicher Guthabenverbrauch.
+      if (dataSource === "database") {
         abortRef.current?.abort();
         speechQueueRef.current?.cancel();
         speechQueueRef.current = null;
-        if (instant) { answerLocally(instant); return; }
-        if (engine === "local") { askOnDevice(q); return; }
-        // Modus "Nur auf dem Gerät", aber kein Modell bereit: keine Cloud.
-        appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
         answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
         return;
       }
-      const local = resolveLocalAnswer(q, { online, inConversation });
-      if (local || !online) {
-        // Ein noch laufender Request/eine Sprachausgabe des vorherigen Turns
-        // darf die lokale Antwort nicht überholen.
-        abortRef.current?.abort();
-        speechQueueRef.current?.cancel();
-        speechQueueRef.current = null;
-        answerLocally(local);
-        return;
+
+      if (dataSource !== "model") {
+        const engine = localBuddy.engineFor(online);
+        if (engine === "local" || engine === "none") {
+          // Eindeutige Standardfragen bleiben Sofort-Antworten — schneller als jedes Modell.
+          const instant = resolveLocalAnswer(q, { online: true, inConversation });
+          abortRef.current?.abort();
+          speechQueueRef.current?.cancel();
+          speechQueueRef.current = null;
+          if (instant) { answerLocally(instant); return; }
+          if (engine === "local") { askOnDevice(q); return; }
+          // Modus "Nur auf dem Gerät", aber kein Modell bereit: keine Cloud.
+          appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
+          answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+          return;
+        }
+        const local = resolveLocalAnswer(q, { online, inConversation });
+        if (local || !online) {
+          // Ein noch laufender Request/eine Sprachausgabe des vorherigen Turns
+          // darf die lokale Antwort nicht überholen.
+          abortRef.current?.abort();
+          speechQueueRef.current?.cancel();
+          speechQueueRef.current = null;
+          answerLocally(local);
+          return;
+        }
+      } else {
+        // Datenquelle "KI-Modell": die kostenlose Sofort-/Offline-Abkürzung
+        // überspringen, aber die in den Einstellungen gewählte Engine
+        // (Gerät/Cloud) weiterhin respektieren — Gerät bleibt Gerät, nur ohne
+        // FAQ-Shortcut. Cloud fällt unten in den bestehenden Modell-Aufruf.
+        const engine = localBuddy.engineFor(online);
+        if (engine === "local") { askOnDevice(q); return; }
+        if (engine === "none") {
+          appendMessages({ role: "system", text: "Die KI auf dem Gerät ist noch nicht eingerichtet. Lade ein Modell unter Einstellungen > KI-Buddy herunter." });
+          answerLocally(resolveLocalAnswer(q, { online: false, inConversation }));
+          return;
+        }
       }
     }
     setStatus("thinking");
@@ -668,6 +705,9 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   return (
     <div ref={pageRef} className="bb-page bb-voice">
       <BuddyLiveModeSwitcher mode={mode} onChange={setMode} />
+      {mode !== "live" && (
+        <BuddyDataSourceSwitch value={dataSource} onChange={setDataSource} />
+      )}
 
       {mode === "live" && (
         <BuddyLiveCallView

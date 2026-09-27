@@ -2201,6 +2201,33 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   background: var(--bb-cyan);
   color: #05131f;
 }
+
+/* Datenquelle des Buddys (Punkt 8): Wissensbasis vs. KI-Modell. */
+.bb-buddy-source-switch {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.bb-buddy-source-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  color: #7c93a8;
+  background: rgba(11, 19, 36, .4);
+  border: 1px solid transparent;
+}
+.bb-buddy-source-tab.is-active {
+  color: var(--bb-cyan);
+  border-color: rgba(0, 229, 255, .4);
+  background: rgba(0, 229, 255, .08);
+}
 .bb-voice-orb { position: relative; display: grid; place-items: center; height: calc(var(--bb-voice-orb) + 14px); }
 .bb-voice-orb img {
   position: relative;
