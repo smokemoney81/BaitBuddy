@@ -6,11 +6,16 @@ describe('GlobalWakeWordListener command parsing', () => {
     expect(extractWakeCommand('Hey Buddy öffne Karte', 'Hey Buddy')).toBe('öffne karte');
   });
 
+  it('tolerates common speech-recognition variants for Hey Buddy', () => {
+    expect(extractWakeCommand('Hallo Baddy zeige Wetter', 'Hey Buddy')).toBe('zeige wetter');
+    expect(extractWakeCommand('Okay Buddi öffne Karte', 'Hey Buddy')).toBe('öffne karte');
+  });
+
   it('supports a custom multi-word wake phrase', () => {
     expect(extractWakeCommand('Petri Heil zeige Wetter', 'Petri Heil')).toBe('zeige wetter');
   });
 
-  it('does not match the wake word inside a longer word', () => {
+  it('does not match a custom wake word inside a longer word', () => {
     expect(extractWakeCommand('Buddys Karte öffnen', 'Buddy')).toBeNull();
   });
 
