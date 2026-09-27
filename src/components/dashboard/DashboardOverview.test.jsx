@@ -44,6 +44,11 @@ beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
   weatherState.current = null;
+  vi.stubGlobal('ResizeObserver', class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  });
 });
 
 describe('DashboardOverview — Wetter', () => {
