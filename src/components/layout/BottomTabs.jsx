@@ -67,7 +67,6 @@ export default function BottomTabs() {
           title={`Freischalten über ${tool.requires || 'Premium'}`}
         >
           <Lock size={26} aria-hidden="true" />
-          <span>{name}</span>
         </div>
       );
     }
@@ -82,9 +81,9 @@ export default function BottomTabs() {
         aria-selected={isActive}
         className={`bb-nav-item ${isActive ? 'bb-nav-active' : ''}`}
         aria-current={isActive ? 'page' : undefined}
+        title={name}
       >
         {Icon && <Icon size={26} strokeWidth={1.8} aria-hidden="true" />}
-        <span>{name}</span>
       </Link>
     );
   };

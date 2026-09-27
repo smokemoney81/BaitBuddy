@@ -715,20 +715,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
   color: #a9bccd;
   border-radius: 14px;
   transition: color var(--bb-motion);
   text-decoration: none;
-}
-.bb-nav-item > span {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .bb-nav-item:hover { color: #e3f4fb; }
 .bb-nav-active {
