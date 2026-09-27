@@ -113,7 +113,7 @@ export function buildAnglerProfile(user) {
     : null;
 
   return {
-    buddyName: buddy.gender === 'male' ? 'Finn' : 'Marina',
+    buddyName: 'Marina',
     tone: TONE_INSTRUCTIONS[buddy.tone] ? buddy.tone : 'friendly',
     experience: EXPERIENCE_LABELS[angler.experience] ? angler.experience : null,
     region: typeof angler.region === 'string' && FEDERAL_STATE_NAMES[angler.region] ? angler.region : null,
