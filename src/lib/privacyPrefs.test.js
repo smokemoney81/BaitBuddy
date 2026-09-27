@@ -11,7 +11,17 @@ describe('privacyPrefs', () => {
 
   it('merkt einzelne Schalter und behält die übrigen', () => {
     writePrivacyPrefs({ wakeWord: false });
-    expect(readPrivacyPrefs()).toEqual({ handsFree: true, wakeWord: false });
+    expect(readPrivacyPrefs()).toEqual({ handsFree: true, wakeWord: false, wakeWordPhrase: 'Hey Buddy' });
+  });
+
+  it('behält ein eigenes Aktivierungswort beim Ändern anderer Schalter', () => {
+    writePrivacyPrefs({ wakeWordPhrase: 'Hallo Angelbuddy' });
+    writePrivacyPrefs({ wakeWord: false, handsFree: false });
+    expect(readPrivacyPrefs()).toEqual({
+      handsFree: false,
+      wakeWord: false,
+      wakeWordPhrase: 'Hallo Angelbuddy',
+    });
   });
 
   it('ignoriert beschädigte Werte', () => {
