@@ -315,6 +315,8 @@ export default function PremiumPlans() {
       popular: true,
       features: [
         'Alles aus Basic',
+        'Natuerliche Premium-KI-Stimme (statt Geraetestimme)',
+        'KI Voice Live Chat',
         'KI-Fangprognosen & Hotspot-Erkennung',
         'Satelliten-Gewaesseranalyse (Echtdaten)',
         'AR-Gewaesser-Ansicht 3D & 3D-Koederanimation',
@@ -338,11 +340,9 @@ export default function PremiumPlans() {
       popular: false,
       features: [
         'Alles aus Pro - jede Funktion freigeschaltet',
-        'KI Voice Live Chat (nur Ultimate)',
         'Live-Bissanzeiger per Smartphone-Kamera',
         'KI-Kamera: Echtzeit-Fischerkennung',
         'CatchCam - KI-Analyse direkt vom Foto',
-        'Weibliche KI-Stimme "Matilda" (ElevenLabs)',
         'KI-Buddy Chat & Foto-Analyse mit groesstem KI-Volumen',
         'KI-Fangprognosen & Gewaesseranalyse (Open-Meteo)',
         '3D-Koederfuehrung, AR-Gewaesser & AR-Knotenassistent',

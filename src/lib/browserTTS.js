@@ -8,32 +8,52 @@
 
 const PREFERRED_LANG = 'de-DE';
 
+// Namens-Hinweise auf eine weibliche Stimme — die Web-Speech-API hat kein
+// verlässliches `voice.gender`-Feld über alle Plattformen hinweg, deshalb
+// heuristisch über bekannte Stimmennamen (Android/Chrome, iOS/Safari,
+// Windows/Edge). "google deutsch" ist auf Android/Chrome die weibliche
+// Standardstimme.
+const FEMALE_NAME_HINTS = [
+  'female', 'weiblich', 'google deutsch',
+  'anna', 'petra', 'katja', 'helena', 'martha', 'monika', 'sandy', 'susanne', 'vicki', 'marlene',
+];
+
+function isLikelyFemaleVoice(voice) {
+  const name = (voice?.name || '').toLowerCase();
+  return FEMALE_NAME_HINTS.some((hint) => name.includes(hint));
+}
+
 export function isBrowserTTSAvailable() {
   return typeof window !== 'undefined'
     && 'speechSynthesis' in window
     && typeof window.SpeechSynthesisUtterance === 'function';
 }
 
+// Einmal pro Session aufgelöst und danach fest gepinnt (Punkt 3: "kein
+// Wechsel innerhalb einer Session"). Absichtlich KEIN `voiceschanged`-Reset
+// mehr, nachdem einmal echt aufgelöst wurde — vorher konnte ein späteres
+// voiceschanged-Event (oder dessen Ausbleiben in manchen WebViews) die
+// gepinnte Stimme wieder verwerfen bzw. dauerhaft auf einer zu früh (vor
+// vollständig geladener Stimmenliste) getroffenen Fehlwahl festnageln.
 let cachedVoice = null;
 
-// Deutsche Stimme wählen; lokale (offline nutzbare) Stimmen bevorzugt.
+// Deutsche, bevorzugt weibliche Stimme wählen; lokale (offline nutzbare)
+// Stimmen bevorzugt. Liefert die Stimmenliste noch nichts (asynchrones Laden
+// in Chrome/WebView), wird NICHTS gecacht — der nächste Aufruf versucht es
+// erneut, statt eine leere/zufällige Erst-Auswahl für die Session festzuschreiben.
 function pickGermanVoice() {
   if (cachedVoice) return cachedVoice;
   let voices = [];
   try { voices = window.speechSynthesis.getVoices() || []; } catch { voices = []; }
   const german = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('de'));
-  cachedVoice = german.find((v) => v.localService && v.lang === PREFERRED_LANG)
-    || german.find((v) => v.lang === PREFERRED_LANG)
-    || german[0]
-    || null;
-  return cachedVoice;
-}
+  if (german.length === 0) return null;
 
-if (isBrowserTTSAvailable()) {
-  try {
-    // Stimmen laden in Chrome/WebView asynchron nach.
-    window.speechSynthesis.addEventListener?.('voiceschanged', () => { cachedVoice = null; });
-  } catch { /* ignore */ }
+  cachedVoice = german.find((v) => v.localService && v.lang === PREFERRED_LANG && isLikelyFemaleVoice(v))
+    || german.find((v) => isLikelyFemaleVoice(v))
+    || german.find((v) => v.localService && v.lang === PREFERRED_LANG)
+    || german.find((v) => v.lang === PREFERRED_LANG)
+    || german[0];
+  return cachedVoice;
 }
 
 export function cancelBrowserTTS() {

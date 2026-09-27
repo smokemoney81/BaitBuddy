@@ -409,10 +409,10 @@ describe('POST /api/ai/tts', () => {
     expect(res.status).toBe(502);
   });
 
-  it('lehnt die Premium-Stimme ohne Ultimate ab (403, kein Provider-Aufruf)', async () => {
+  it('lehnt die Premium-Stimme ohne Pro-Plan ab (403, kein Provider-Aufruf)', async () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
     supabaseMock.current = createSupabaseMock({
-      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'basic' } },
       fromResults: { user_tool_unlocks: { data: null, error: null } },
     });
     const fetchMock = vi.fn();
@@ -421,14 +421,37 @@ describe('POST /api/ai/tts', () => {
     const res = await request(app)
       .post('/api/ai/tts')
       .set('Authorization', 'Bearer tok')
-      .send({ text: 'Hallo', voice: 'female' });
+      .send({ text: 'Hallo' });
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('premium_voice_required');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('nutzt fuer voice=female MIT Ultimate-Plan (elite) die weibliche Stimme', async () => {
+  it('erlaubt die Premium-Stimme bereits ab dem Pro-Plan', async () => {
+    process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
+      fromResults: { user_tool_unlocks: { data: null, error: null } },
+    });
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => new TextEncoder().encode('MP3DATA').buffer,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await request(app)
+      .post('/api/ai/tts')
+      .set('Authorization', 'Bearer tok')
+      .send({ text: 'Hallo' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.voice_used).toBe('female');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('XrExE9yKIg1WjnnlVkGX');
+  });
+
+  it('nutzt immer dieselbe weibliche Stimme, egal was der Client sendet', async () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
     supabaseMock.current = createSupabaseMock({
       authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'elite' } },
@@ -444,17 +467,17 @@ describe('POST /api/ai/tts', () => {
     const res = await request(app)
       .post('/api/ai/tts')
       .set('Authorization', 'Bearer tok')
-      .send({ text: 'Hallo', voice: 'female' });
+      .send({ text: 'Hallo', voice: 'male' });
 
     expect(res.status).toBe(200);
     expect(res.body.voice_used).toBe('female');
     expect(String(fetchMock.mock.calls[0][0])).toContain('XrExE9yKIg1WjnnlVkGX');
   });
 
-  it('faellt bei 402 (Library-Voice im Free-Plan) auf die Premade-Voice zurueck', async () => {
+  it('faellt bei 402 (Library-Voice) auf die Premade-Voice zurueck', async () => {
     process.env.ELEVENLABS_API_KEY = 'test-eleven-key';
-    const origVoice = process.env.ELEVENLABS_VOICE_ID;
-    process.env.ELEVENLABS_VOICE_ID = 'library-voice-xyz';
+    const origVoice = process.env.ELEVENLABS_VOICE_ID_FEMALE;
+    process.env.ELEVENLABS_VOICE_ID_FEMALE = 'library-voice-xyz';
     try {
       const fetchMock = vi.fn()
         .mockResolvedValueOnce({
@@ -480,8 +503,8 @@ describe('POST /api/ai/tts', () => {
       expect(String(fetchMock.mock.calls[0][0])).toContain('library-voice-xyz');
       expect(String(fetchMock.mock.calls[1][0])).toContain('onwK4e9ZLuTAKqWW03F9');
     } finally {
-      if (origVoice === undefined) delete process.env.ELEVENLABS_VOICE_ID;
-      else process.env.ELEVENLABS_VOICE_ID = origVoice;
+      if (origVoice === undefined) delete process.env.ELEVENLABS_VOICE_ID_FEMALE;
+      else process.env.ELEVENLABS_VOICE_ID_FEMALE = origVoice;
     }
   });
 });
@@ -497,10 +520,10 @@ describe('POST /api/ai/realtime-session', () => {
     });
   });
 
-  it('lehnt Live-Voice ohne Ultimate ab (403, kein OpenAI-Aufruf)', async () => {
+  it('lehnt Live-Voice ohne Pro-Plan ab (403, kein OpenAI-Aufruf)', async () => {
     process.env.OPENAI_API_KEY = 'sk-test';
     supabaseMock.current = createSupabaseMock({
-      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'pro' } },
+      authUser: { id: 'u1', email: 'a@b.de', app_metadata: { premium_plan_id: 'basic' } },
       fromResults: { user_tool_unlocks: { data: null, error: null } },
     });
     const fetchMock = vi.fn();
