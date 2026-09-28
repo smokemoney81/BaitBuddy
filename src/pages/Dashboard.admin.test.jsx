@@ -24,6 +24,8 @@ vi.mock('@/components/dashboard/AudioNotesWidget', () => ({ default: () => null 
 vi.mock('@/components/community/CommunityPostDialog', () => ({ default: () => null }));
 vi.mock('@/components/weather/WeatherWarningBanner', () => ({ default: () => null }));
 vi.mock('@/components/referral/ReferralInvitePopup', () => ({ default: () => null }));
+vi.mock('@/components/dashboard/BuddyInputField', () => ({ default: () => null }));
+vi.mock('@/components/dashboard/DashboardQuickActions', () => ({ default: () => null }));
 
 const { default: Dashboard } = await import('./Dashboard');
 

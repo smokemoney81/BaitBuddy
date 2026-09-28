@@ -17,6 +17,7 @@ import { useLocalBuddy } from "@/hooks/useLocalBuddy";
 import { isQuotaExceeded } from "@/lib/aiQuota";
 import { getBuddyDataSource, setBuddyDataSource } from "@/lib/buddyDataSource";
 import BuddyDataSourceSwitch from "@/components/ai/BuddyDataSourceSwitch";
+import { setBuddyActivity } from "@/lib/buddyActivity";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
 import BuddyAvatar from "@/components/ai/BuddyAvatar";
@@ -59,6 +60,11 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   const [messages, setMessages] = useState(() => [{ role: "system", text: buildGreeting({}) }]);
   const [input, setInput] = useState(() => searchParams.get("question") || "");
   const [status, setStatus] = useState("");
+  useEffect(() => {
+    const map = { listening: 'listening', thinking: 'processing', speaking: 'speaking' };
+    setBuddyActivity(map[status] || 'idle');
+  }, [status]);
+  useEffect(() => () => setBuddyActivity('idle'), []);
   const [tonAn, setTonAn] = useState(buddy.voiceEnabled);
   useEffect(() => setTonAn(buddy.voiceEnabled), [buddy.voiceEnabled]);
   const [recording, setRecording] = useState(false);

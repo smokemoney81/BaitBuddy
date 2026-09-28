@@ -16,6 +16,7 @@ import { functions } from "@/api/frontendClient";
 import { getActiveBuddyAudio, getVoiceTier, setVoiceTier } from "@/lib/ttsVoice";
 import { speakBrowser, cancelBrowserTTS, isBrowserTTSAvailable } from "@/lib/browserTTS";
 import { setVoiceSpeaking, isVoiceMuted, subscribeVoiceMuted } from "@/lib/voiceActivity";
+import { setBuddyActivity } from "@/lib/buddyActivity";
 
 // Lautlos mitten im Satz: laufende Ausgabe sofort beenden.
 subscribeVoiceMuted((muted) => { if (muted) cancelElevenLabs(); });
@@ -74,6 +75,7 @@ export function cancelElevenLabs() {
   }
   cancelBrowserTTS();
   setVoiceSpeaking(false);
+  setBuddyActivity('idle');
 }
 
 // Spricht über die Gerätestimme im Modul-Singleton (für cancelElevenLabs).
@@ -81,14 +83,17 @@ function speakBrowserTracked(text, callbacks, rate) {
   const handle = speakBrowser(text, { rate });
   currentAudio = handle;
   setVoiceSpeaking(true);
+  setBuddyActivity('speaking');
   handle.onended = () => {
     if (currentAudio === handle) currentAudio = null;
     setVoiceSpeaking(false);
+    setBuddyActivity('idle');
     callbacks.onEnd?.();
   };
   handle.onerror = (e) => {
     if (currentAudio === handle) currentAudio = null;
     setVoiceSpeaking(false);
+    setBuddyActivity('idle');
     callbacks.onError?.(e);
   };
   return handle;
@@ -171,6 +176,7 @@ export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
 
   audio.onended = () => {
     setVoiceSpeaking(false);
+    setBuddyActivity('idle');
     if (currentUrl === url) {
       URL.revokeObjectURL(url);
       currentUrl = null;
@@ -181,6 +187,7 @@ export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
 
   audio.onerror = (e) => {
     setVoiceSpeaking(false);
+    setBuddyActivity('idle');
     if (currentUrl === url) {
       URL.revokeObjectURL(url);
       currentUrl = null;
@@ -191,7 +198,7 @@ export async function speakWithElevenLabs(text, callbacks = {}, options = {}) {
 
   try {
     await audio.play();
-    if (currentAudio === audio) setVoiceSpeaking(true);
+    if (currentAudio === audio) { setVoiceSpeaking(true); setBuddyActivity('speaking'); }
   } catch (err) {
     // Wiedergabe blockiert (z. B. Autoplay-Policy): Blob-URL sofort freigeben,
     // damit kein Leak entsteht, und den Fehler an den Aufrufer durchreichen.
@@ -386,6 +393,7 @@ function playSentenceBlob(blob, myGeneration, rate) {
 
     const cleanup = () => {
       setVoiceSpeaking(false);
+      setBuddyActivity('idle');
       if (currentUrl === url) {
         URL.revokeObjectURL(url);
         currentUrl = null;
@@ -394,7 +402,7 @@ function playSentenceBlob(blob, myGeneration, rate) {
     };
     audio.onended = () => { cleanup(); resolve(); };
     audio.onerror = () => { cleanup(); resolve(); };
-    audio.play().then(() => { if (currentAudio === audio) setVoiceSpeaking(true); }, () => { cleanup(); resolve(); });
+    audio.play().then(() => { if (currentAudio === audio) { setVoiceSpeaking(true); setBuddyActivity('speaking'); } }, () => { cleanup(); resolve(); });
   });
 }
 
