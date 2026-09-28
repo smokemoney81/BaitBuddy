@@ -2738,12 +2738,39 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 5px 5px 5px 13px;
+  padding: 5px 5px 5px 6px;
   border-radius: 999px;
   background: rgba(5, 14, 28, .9);
   border: 1px solid rgba(0, 229, 255, .38);
   box-shadow: inset 0 0 12px rgba(0, 229, 255, .08);
 }
+/* Aufklappbarer Reiter mit der Sprachsteuerung: eingeklappt unsichtbar, beim
+   Öffnen (is-audio-open) schiebt er sich über der Eingabezeile auf. */
+.bb-voice-audio-tray {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding: 0 8px;
+  transform: translateY(6px);
+  transition: max-height .28s ease, opacity .22s ease, transform .28s ease, margin-bottom .28s ease;
+}
+.bb-voice-input.is-audio-open .bb-voice-audio-tray {
+  max-height: 56px;
+  opacity: 1;
+  transform: none;
+  margin-bottom: 5px;
+}
+.bb-voice-icon-btn.is-audio-toggle {
+  color: var(--bb-cyan);
+  border: 1.5px solid rgba(0, 229, 255, .5);
+  transition: transform var(--bb-motion), background var(--bb-motion), color var(--bb-motion);
+}
+.bb-voice-icon-btn.is-audio-toggle.is-open { background: rgba(0, 229, 255, .16); }
+.bb-voice-icon-btn.is-audio-toggle.is-active { color: #04111a; background: var(--bb-cyan); animation: bb-pulse-cyan 1.6s ease-in-out infinite; }
 .bb-voice-input input {
   flex: 1 1 auto;
   min-width: 0;
@@ -2756,7 +2783,8 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
 }
 .bb-voice-input input::placeholder { color: #a7bacb; }
 .bb-voice-input input:focus { outline: none; border: none; }
-.bb-voice-input .bb-voice-icon-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(5, 14, 28, .6); }
+.bb-voice-input .bb-voice-icon-btn { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(5, 14, 28, .6); }
+.bb-voice-input-inner .bb-voice-icon-btn.is-audio-toggle { margin-right: 2px; }
 .bb-voice-input .bb-voice-icon-btn.is-speaker { color: #e3edf5; border: 1.5px solid rgba(200, 222, 238, .5); }
 .bb-voice-input .bb-voice-icon-btn.is-mic { width: 42px; height: 42px; color: var(--bb-cyan); border: 2px solid var(--bb-cyan); box-shadow: 0 0 12px rgba(0, 229, 255, .6), inset 0 0 8px rgba(0, 229, 255, .2); }
 .bb-voice-input .bb-voice-icon-btn.is-mic.is-on { color: #04111a; background: var(--bb-cyan); animation: bb-pulse-cyan 1.6s ease-in-out infinite; }
@@ -2770,8 +2798,8 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
 .bb-voice-input-wave.is-live i:nth-child(odd) { animation-delay: .3s; }
 @keyframes bb-voice-bar { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.45); } }
 .bb-voice-input-divider { flex-shrink: 0; width: 1px; height: 28px; margin: 0 3px; background: rgba(200, 222, 238, .35); }
-@media (max-width: 380px) {
-  .bb-voice-input-wave, .bb-voice-input-divider { display: none; }
+@media (max-width: 360px) {
+  .bb-voice-input-wave { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bb-voice-orb .bb-voice-emblem,
