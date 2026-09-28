@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Mic, BrainCircuit, Volume2, VolumeX, UserRound, MapPin, Fish, PlusCircle, Navigation, Square, ChevronDown, CheckCheck } from 'lucide-react';
+import { Mic, BrainCircuit, Volume2, VolumeX, UserRound, MapPin, Fish, PlusCircle, Navigation, Square, ChevronDown, CheckCheck, AudioLines } from 'lucide-react';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { useState, useRef, useEffect } from "react";
 import { catchgbtChat } from "@/functions/catchgbtChat";
@@ -97,6 +97,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   const [activeEventId, setActiveEventId] = useState(null);
   const [conversationActive, setConversationActive] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
+  const [audioOpen, setAudioOpen] = useState(false);
   const chatRef = useRef();
   // Seite passt ohne Scrollen in den Bildschirm; nur der Chatverlauf scrollt.
   const pageRef = useRef(null);
@@ -904,21 +905,15 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
         ))}
       </div>
 
-      <div className="bb-voice-input">
-        <div className="bb-voice-input-inner">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && sendText()}
-            placeholder="Frage stellen..."
-            aria-label="Frage an den Buddy"
-          />
-          <button type="button" onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-icon-btn is-speaker" aria-pressed={tonAn} aria-label={`Lautsprecher ${tonAn ? "aus" : "an"}schalten`}>
+      <div className={`bb-voice-input${audioOpen ? " is-audio-open" : ""}`}>
+        <div className="bb-voice-audio-tray" role="group" aria-label="Sprachsteuerung" aria-hidden={!audioOpen}>
+          <button type="button" tabIndex={audioOpen ? 0 : -1} onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-icon-btn is-speaker" aria-pressed={tonAn} aria-label={`Lautsprecher ${tonAn ? "aus" : "an"}schalten`}>
             {tonAn ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
           </button>
           <InputWave live={micLive} />
           <button
             type="button"
+            tabIndex={audioOpen ? 0 : -1}
             onClick={conversationActive ? endConversation : (recording ? toggleMic : startConversation)}
             className={`bb-voice-icon-btn is-mic${micLive ? " is-on" : ""}`}
             aria-label={conversationActive ? "Freisprechen beenden" : "Freisprechen starten"}
@@ -926,9 +921,27 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
             <Mic size={20} aria-hidden="true" />
           </button>
           <InputWave live={micLive} />
-          <button type="button" onClick={stopSpeaking} className="bb-voice-icon-btn is-stop" aria-label="Buddy stoppen">
+          <button type="button" tabIndex={audioOpen ? 0 : -1} onClick={stopSpeaking} className="bb-voice-icon-btn is-stop" aria-label="Buddy stoppen">
             <Square size={13} strokeWidth={2.4} aria-hidden="true" />
           </button>
+        </div>
+        <div className="bb-voice-input-inner">
+          <button
+            type="button"
+            onClick={() => setAudioOpen(o => !o)}
+            className={`bb-voice-icon-btn is-audio-toggle${audioOpen ? " is-open" : ""}${micLive || isSpeaking ? " is-active" : ""}`}
+            aria-expanded={audioOpen}
+            aria-label={audioOpen ? "Sprachsteuerung schließen" : "Sprachsteuerung öffnen"}
+          >
+            <AudioLines size={20} aria-hidden="true" />
+          </button>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && sendText()}
+            placeholder="Frage stellen..."
+            aria-label="Frage an den Buddy"
+          />
           <span className="bb-voice-input-divider" aria-hidden="true" />
           <button type="button" onClick={sendText} disabled={!input.trim() || status === "thinking"} className="bb-voice-icon-btn is-send" aria-label="Senden">
             <Navigation size={20} fill="currentColor" aria-hidden="true" />
