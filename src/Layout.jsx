@@ -47,6 +47,9 @@ const LazyFallback = () => null;
 
 // Vollflächige Seiten ohne Seefoto-Hintergrund
 const NO_BACKDROP_PAGES = new Set(['Map', 'MapPage', 'ARView', 'ARKnotenAssistent', 'CatchCam']);
+// Voice Buddy (Vorlage): das Seefoto füllt den ganzen Bildschirm, der Buddy
+// schwebt über dem Wasser und der Verlauf liegt direkt auf dem See.
+const FULL_BACKDROP_PAGES = new Set(['KiBuddyBeta', 'VoiceChat', 'HandsFreeBuddy']);
 // Seiten mit eigener Kopfzeile (Zurück, Titel, Einstellungen) wie in der Vorlage.
 const OWN_HEADER_PAGES = new Set(['AnglerMode']);
 
@@ -426,7 +429,7 @@ function LayoutContent({ children, currentPageName }) {
 
               {/* Seefoto hinter Kopfzeile und Seitentitel (Hero der Vorlage) */}
               {!NO_BACKDROP_PAGES.has(currentPageName) && (
-                <div className="bb-backdrop" aria-hidden="true">
+                <div className={`bb-backdrop${FULL_BACKDROP_PAGES.has(currentPageName) ? ' bb-backdrop-full' : ''}`} aria-hidden="true">
                   <img src="/assets/buddy/lake-hero.png" alt="" fetchPriority="high" />
                 </div>
               )}
@@ -467,6 +470,7 @@ function LayoutContent({ children, currentPageName }) {
                     onOpenCommandCenter={() => setIsSidebarOpen(true)}
                     title={PAGE_TOP_BARS[currentPageName]?.title}
                     action={PAGE_TOP_BARS[currentPageName]?.action}
+                    className={PAGE_TOP_BARS[currentPageName]?.className}
                     showEventTimer={currentPageName === 'Dashboard'}
                   />
                 )}

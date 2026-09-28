@@ -57,7 +57,7 @@ export function TopBarAvatar({ user, onClick }) {
 // `title` ersetzt auf Unterseiten das Logo durch den Seitentitel, `action`
 // ergänzt rechts eine Seitenaktion (siehe pageTopBars.jsx). Die
 // Event-Countdown-Zeile erscheint nur mit `showEventTimer` (Dashboard).
-export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, title = null, action = null, showEventTimer = false }) {
+export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, title = null, action = null, className = '', showEventTimer = false }) {
   const navigate = useNavigate();
   const { triggerHaptic } = useHaptic();
   const { playSound } = useSound();
@@ -100,7 +100,7 @@ export default function AppTopBar({ isRoot, user, isDemo, onOpenCommandCenter, t
   }
 
   return (
-    <header className={`bb-topbar${title ? ' bb-topbar-titled' : ''}`}>
+    <header className={`bb-topbar${title ? ' bb-topbar-titled' : ''}${className ? ` ${className}` : ''}`}>
       <button type="button" onClick={goBack} className="bb-round-btn" aria-label="Zurück">
         <ChevronLeft size={26} aria-hidden="true" />
       </button>

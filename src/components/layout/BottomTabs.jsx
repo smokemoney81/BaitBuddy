@@ -22,6 +22,8 @@ const ARIA_LABELS = {
   Settings: 'Settings',
 };
 
+const BUDDY_PAGES = new Set(['KiBuddyBeta', 'VoiceChat', 'HandsFreeBuddy']);
+
 export default function BottomTabs() {
   const { navigation } = useBuddyPreferences();
   const { switchTab, getTabStack } = useNavigationContext();
@@ -87,7 +89,8 @@ export default function BottomTabs() {
           className="bb-nav-item bb-nav-locked"
           title={`Freischalten über ${tool.requires || 'Premium'}`}
         >
-          <Lock size={26} aria-hidden="true" />
+          <Lock size={24} aria-hidden="true" />
+          <span className="bb-nav-label">{name}</span>
         </div>
       );
     }
@@ -104,19 +107,22 @@ export default function BottomTabs() {
         aria-current={isActive ? 'page' : undefined}
         title={name}
       >
-        {Icon && <Icon size={26} strokeWidth={1.8} aria-hidden="true" />}
+        {Icon && <Icon size={26} strokeWidth={1.7} aria-hidden="true" />}
+        <span className="bb-nav-label">{name}</span>
       </Link>
     );
   };
 
   const split = Math.ceil(navigation.length / 2);
+  // Der mittlere Logo-Button steht für den KI-Buddy und ist auf dessen Seiten aktiv.
+  const buddyActive = BUDDY_PAGES.has(activePage);
 
   return (
     <nav className="bb-navbar" role="tablist" aria-label="Hauptnavigation">
       <div className="bb-navbar-inner">
         {navigation.slice(0, split).map(renderLink)}
 
-        <div className="bb-fab-container">
+        <div className={`bb-fab-container${buddyActive ? ' bb-nav-active' : ''}`}>
           <button
             type="button"
             className={`bb-fab bb-fab-logo${voiceSpeaking || toolPulse ? ' bb-fab-speaking' : ''}`}
@@ -131,7 +137,7 @@ export default function BottomTabs() {
             }}
           >
             <img
-              src="/assets/buddy/fab-logo.webp"
+              src="/assets/buddy/buddy-icon.webp"
               alt=""
               aria-hidden="true"
               draggable="false"
@@ -139,6 +145,7 @@ export default function BottomTabs() {
               height="64"
             />
           </button>
+          <span className="bb-nav-label" aria-hidden="true">{navigationItems.KiBuddyBeta.name}</span>
         </div>
 
         {navigation.slice(split).map(renderLink)}
