@@ -7,7 +7,7 @@ const me = vi.hoisted(() => ({ current: null }));
 
 vi.mock('@/api/auth', () => ({ auth: { me: vi.fn(async () => me.current) } }));
 vi.mock('@/api/frontendClient', () => ({ functions: { invoke: vi.fn(async () => ({})) } }));
-vi.mock('@/lib/BuddyPreferencesContext', () => ({ useBuddyPreferences: () => ({ buddy: { chosen: false } }) }));
+vi.mock('@/lib/BuddyPreferencesContext', () => ({ useBuddyPreferences: () => ({ buddy: { chosen: false }, activeBuddy: { name: 'Marina' } }) }));
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({}) }));
 vi.mock('@/hooks/usePredictivePrefetch', () => ({ usePredictivePrefetch: () => {} }));
 vi.mock('@/hooks/useDashboardData', () => ({
