@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Lock, Map, BookOpen, Calendar, User } from 'lucide-react';
 import { useNavigationContext } from '@/lib/NavigationContext';
@@ -41,6 +41,27 @@ export default function BottomTabs() {
   const activePage = location.pathname.split('/')[1] || 'Dashboard';
   const buddyActivity = useBuddyActivity();
   const voiceSpeaking = useVoiceSpeaking();
+  const [toolPulse, setToolPulse] = useState(false);
+  const toolPulseTimerRef = useRef(null);
+
+  // Jede vom Buddy ausgeführte Tool-Aktion sendet zentral dieses Event.
+  // Das mittlere Logo reagiert mit einem kurzen Bewegungs-/Glow-Impuls, ohne
+  // dass jedes einzelne Tool eigene UI-Logik kennen muss.
+  useEffect(() => {
+    const pulse = () => {
+      clearTimeout(toolPulseTimerRef.current);
+      setToolPulse(false);
+      requestAnimationFrame(() => {
+        setToolPulse(true);
+        toolPulseTimerRef.current = setTimeout(() => setToolPulse(false), 420);
+      });
+    };
+    window.addEventListener('baitbuddy-tool-activity', pulse);
+    return () => {
+      window.removeEventListener('baitbuddy-tool-activity', pulse);
+      clearTimeout(toolPulseTimerRef.current);
+    };
+  }, []);
 
   const pressTimerRef = useRef(null);
   const haptic1Ref = useRef(null);
@@ -199,15 +220,20 @@ export default function BottomTabs() {
         <div className="bb-fab-container bb-fab-compact">
           <button
             type="button"
-            className={`bb-fab bb-fab-logo${activityClass}${speakingClass}`}
+            className={`bb-fab bb-fab-logo${activityClass}${speakingClass}${toolPulse ? ' bb-fab-tool-pulse' : ''}`}
             data-activity={buddyActivity}
             data-speaking={voiceSpeaking ? 'true' : undefined}
+            data-tool-active={toolPulse ? 'true' : undefined}
             aria-label={voiceSpeaking ? 'Buddy-Sprache stoppen' : 'Home / Buddy Voice (3s halten)'}
             onPointerDown={startLongPress}
             onPointerUp={endLongPress}
             onPointerLeave={cancelLongPress}
             onPointerCancel={cancelLongPress}
             onContextMenu={e => e.preventDefault()}
+            style={toolPulse ? {
+              transform: 'scale(1.1) rotate(3deg)',
+              transition: 'transform 180ms cubic-bezier(.2,.8,.2,1)',
+            } : undefined}
           >
             {longPressProgress > 0 && (
               <svg className="bb-fab-progress" viewBox="0 0 52 52" aria-hidden="true">

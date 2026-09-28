@@ -9,6 +9,13 @@ import { createPageUrl } from '@/utils';
 const ACTION_RETRY_ATTEMPTS = 2;
 const ACTION_RETRY_DELAY = 1000;
 
+function signalBuddyToolActivity(type) {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent('baitbuddy-tool-activity', {
+    detail: { type },
+  }));
+}
+
 async function executeWithRetry(fn, maxAttempts = ACTION_RETRY_ATTEMPTS) {
   let lastError;
   for (let i = 0; i < maxAttempts; i++) {
@@ -32,6 +39,10 @@ export async function executeBuddyAction(action, context, options = {}) {
   const { navigate } = context;
   const userLocation = context.userLocation || null;
   const { retryAttempts = ACTION_RETRY_ATTEMPTS } = options;
+
+  // Ein zentraler Impuls für alle Buddy-Tools. BottomTabs hört auf dieses Event
+  // und animiert das mittlere BaitBuddy-Logo kurz, unabhängig vom Aktionstyp.
+  signalBuddyToolActivity(action.type);
 
   try {
     if (action.type === 'navigate') {
