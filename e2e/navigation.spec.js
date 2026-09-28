@@ -6,13 +6,13 @@ import { installApiMocks, dismissSplash } from './fixtures/apiMock.js';
 // INNERHALB der laufenden SPA — also darum, dass der Router die Seiten-Chunks
 // nachlaedt, ohne den Zustand zu verlieren oder abzustuerzen.
 
-// Beschriftungen aus BottomTabs.jsx (aria-label = tab.name).
-// Muss mit den Navigation-Items in der Test-Fixture (apiMock.js) übereinstimmen.
+// Beschriftungen aus BottomTabs.jsx (aria-label = ARIA_LABELS[path]).
+// Muss mit den Navigation-Items in BottomTabs und der Test-Fixture (apiMock.js) übereinstimmen.
 const TABS = [
-  { name: 'Dashboard', url: /Dashboard/i },
-  { name: 'Logbook', url: /Logbook/i },
-  { name: 'Weather', url: /Weather/i },
-  { name: 'Community', url: /Community/i },
+  { name: 'Karte', url: /Map/i },
+  { name: 'Fangbuch', url: /Logbook/i },
+  { name: 'Trip-Planer', url: /TripPlanner/i },
+  { name: 'Profil', url: /Profile/i },
 ];
 
 // Die Tab-Leiste ist `md:hidden` — sie existiert nur im Mobil-Layout. Das ist
@@ -23,7 +23,7 @@ test.use({ viewport: { width: 390, height: 844 } });
 // BottomTabs.jsx setzt auf dem <nav> ein explizites role="tablist"; das
 // ueberschreibt die implizite navigation-Rolle. Deshalb ueber die tablist-Rolle
 // zugreifen, nicht ueber getByRole('navigation').
-const mainNav = (page) => page.getByRole('tablist').filter({ has: page.getByLabel('Dashboard', { exact: true }) });
+const mainNav = (page) => page.getByRole('tablist').filter({ has: page.getByLabel('Karte', { exact: true }) });
 
 async function openDashboard(page) {
   await page.goto('/Dashboard', { waitUntil: 'domcontentloaded', timeout: 30_000 });
