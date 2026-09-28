@@ -107,14 +107,6 @@ function LayoutContent({ children, currentPageName }) {
   const [authLoading, setAuthLoading] = useState(true);
   const scrollPositionsRef = useRef({});
   const [previousPage, setPreviousPage] = useState(null);
-  const [_voiceOverlayOpen, _setVoiceOverlayOpen] = useState(false);
-  const [wakeWordDetector, setWakeWordDetector] = useState(null);
-  const [_voiceStatus, setVoiceStatus] = useState({
-    isActive: false,
-    mode: null,
-    isListening: false,
-    error: null
-  });
 
   const refreshUser = async () => {
     try {
@@ -136,6 +128,18 @@ function LayoutContent({ children, currentPageName }) {
       });
     }
   };
+
+  // Profiländerungen (z. B. neuer Anzeigename) sofort in Kopfzeile und
+  // Command Center übernehmen.
+  useEffect(() => {
+    const onUserUpdated = (event) => {
+      const updated = event?.detail;
+      if (!updated?.id) return;
+      setUser(prev => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    };
+    window.addEventListener('bb-user-updated', onUserUpdated);
+    return () => window.removeEventListener('bb-user-updated', onUserUpdated);
+  }, []);
 
   // Track total online time via UsageSession
   useEffect(() => {
@@ -225,70 +229,6 @@ function LayoutContent({ children, currentPageName }) {
     recordRecentPage(currentPageName);
   }, [currentPageName]);
 
-  useEffect(() => {
-    const handleToggleVoiceControl = () => {
-      // Deaktiviere WakeWordDetector auf VoiceControl Seite
-      if (currentPageName === 'VoiceControl') {
-        return;
-      }
-
-      if (!wakeWordDetector) {
-        const detector = new WakeWordDetector(
-          'Hey Buddy',
-          () => {
-            window.dispatchEvent(new CustomEvent('wake-word-detected'));
-          },
-          (status, error) => {
-            setVoiceStatus({
-              isActive: true,
-              mode: detector.currentMode,
-              isListening: detector.isListening,
-              error: error
-            });
-          },
-          'auto'
-        );
-        setWakeWordDetector(detector);
-        detector.start();
-      } else {
-        if (wakeWordDetector.isListening) {
-          wakeWordDetector.stop();
-          setVoiceStatus({
-            isActive: false,
-            mode: null,
-            isListening: false,
-            error: null
-          });
-          setWakeWordDetector(null);
-        } else {
-          wakeWordDetector.start();
-        }
-      }
-    };
-
-    const handleWakeWordStatusChange = (event) => {
-      if (event.detail) {
-        setVoiceStatus(event.detail);
-      }
-    };
-
-    window.addEventListener('toggle-voice-control', handleToggleVoiceControl);
-    window.addEventListener('wake-word-status-change', handleWakeWordStatusChange);
-
-    // Cleanup wenn auf VoiceControl Seite navigiert wird
-    if (currentPageName === 'VoiceControl' && wakeWordDetector?.isListening) {
-      wakeWordDetector.stop();
-      setWakeWordDetector(null);
-    }
-
-    return () => {
-      window.removeEventListener('toggle-voice-control', handleToggleVoiceControl);
-      window.removeEventListener('wake-word-status-change', handleWakeWordStatusChange);
-      if (wakeWordDetector) {
-        wakeWordDetector.stop();
-      }
-    };
-  }, [wakeWordDetector, currentPageName]);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;

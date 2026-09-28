@@ -174,7 +174,7 @@ export default function Privatsphaere() {
           title="Aktivierungswort"
           word={prefs.wakeWord ? 'an' : 'aus'}
           tone={prefs.wakeWord ? 'on' : 'off'}
-          text={`BaitBuddy lauscht beim App-Start auf „${prefs.wakeWordPhrase}“. Das Aktivierungswort ist unabhängig vom Hands-free-Modus und bleibt lokal auf diesem Gerät.`}
+          text={`Standardmäßig aus. Wenn an, hört BaitBuddy im Vordergrund auf „${prefs.wakeWordPhrase}“ – das Mikrofon bleibt dabei aktiv. Die Einstellung bleibt auf diesem Gerät, die Spracherkennung selbst läuft über den Sprachdienst des Geräts (unter Android über Google).`}
           control={<Switch className="bb-switch" checked={prefs.wakeWord} onCheckedChange={value => setPref('wakeWord', value)} aria-label="Globales Aktivierungswort erlauben" />}
           extra={(
             <div className="mt-3 flex flex-col sm:flex-row gap-2">
