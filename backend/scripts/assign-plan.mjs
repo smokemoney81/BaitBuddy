@@ -19,36 +19,69 @@ async function assignPlan() {
   const durationDays = 1095; // 3 Jahre
 
   console.log(`🔍 Suche nach Nutzer: ${targetName}`);
-  
-  // List all users to find by name/metadata
-  const { data, error } = await supabase.auth.admin.listUsers();
-  
-  if (error) {
-    console.error('❌ Fehler beim Abrufen der Nutzer:', error.message);
-    process.exit(1);
+
+  // List all users (with pagination) to find by name/metadata
+  let allUsers = [];
+  let page = 1;
+  const perPage = 200;
+
+  // Fetch all users across all pages
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+
+    if (error) {
+      console.error('❌ Fehler beim Abrufen der Nutzer:', error.message);
+      process.exit(1);
+    }
+
+    const users = data?.users || [];
+    allUsers.push(...users);
+
+    if (users.length < perPage) break;
+    page++;
   }
-  
-  // Find user by name in metadata or email
-  const users = data?.users || [];
+
+  console.log(`   (${allUsers.length} Nutzer durchsucht)`);
+
+  // Find user by name in metadata or email (with flexible matching)
   let targetUser = null;
-  
-  for (const user of users) {
+
+  for (const user of allUsers) {
     const metadata = user.user_metadata || {};
-    const nickname = metadata.nickname || metadata.full_name || '';
-    
-    if (user.email === targetName || nickname === targetName) {
+    const nickname = metadata.nickname || '';
+    const fullName = metadata.full_name || '';
+    const email = user.email || '';
+
+    // Exact matches
+    if (email === targetName || nickname === targetName || fullName === targetName) {
+      targetUser = user;
+      break;
+    }
+
+    // Flexible matches (case-insensitive, substring)
+    const searchStr = targetName.toLowerCase();
+    if (email.toLowerCase().includes(searchStr) ||
+        nickname.toLowerCase().includes(searchStr) ||
+        fullName.toLowerCase().includes(searchStr)) {
       targetUser = user;
       break;
     }
   }
-  
+
   if (!targetUser) {
     console.error(`❌ Nutzer nicht gefunden: ${targetName}`);
-    console.log('\n📋 Verfügbare Nutzer:');
-    users.slice(0, 10).forEach(u => {
+    console.log('\n📋 Top 20 Nutzer (nach letzter Anmeldung):');
+    const sorted = allUsers
+      .sort((a, b) => new Date(b.last_sign_in_at || 0) - new Date(a.last_sign_in_at || 0))
+      .slice(0, 20);
+    sorted.forEach(u => {
       const meta = u.user_metadata || {};
       const name = meta.nickname || meta.full_name || u.email;
-      console.log(`  - ${u.id}: ${name}`);
+      const lastLogin = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('de-DE') : 'nie';
+      console.log(`  - ${u.id}`);
+      console.log(`    Name: ${name}`);
+      console.log(`    Email: ${u.email}`);
+      console.log(`    Letzter Login: ${lastLogin}\n`);
     });
     process.exit(1);
   }
