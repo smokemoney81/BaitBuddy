@@ -13,7 +13,7 @@ const COMPETITIONS_CACHE_KEY = 'competitions:active';
 const competitionsCache = new MemoryCache({ defaultTtlMs: 30000, maxEntries: 4 });
 
 // Whitelist der erlaubten Felder pro Ressource
-const ALLOWED_POST_FIELDS = ['title', 'content', 'image_url'];
+const ALLOWED_POST_FIELDS = ['text', 'photo_url', 'likes', 'reported'];
 const ALLOWED_VOTING_SUBMIT_FIELDS = ['category', 'title', 'description', 'image_url'];
 const ALLOWED_CLAN_FIELDS = ['name', 'description', 'logo_url', 'competition_id'];
 const ALLOWED_COMPETITION_FIELDS = ['name', 'description', 'start_date', 'end_date', 'is_active'];

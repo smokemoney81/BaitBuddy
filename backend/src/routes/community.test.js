@@ -63,6 +63,31 @@ describe('GET /api/community/comments', () => {
   });
 });
 
+describe('POST /api/community/posts', () => {
+  it('akzeptiert text, photo_url, likes und reported Felder vom Frontend', async () => {
+    supabaseMock.current = createSupabaseMock({
+      authUser: { id: 'u1', email: 'test@example.com' },
+      fromResults: {
+        community_posts: { data: { id: 'p1', text: 'Mein Post', photo_url: 'https://example.com/pic.jpg', likes: 0, reported: false, created_by: 'test@example.com', created_at: '2026-09-26T00:00:00Z' }, error: null },
+      },
+    });
+    const res = await request(app)
+      .post('/api/community/posts')
+      .set('Authorization', 'Bearer tok')
+      .send({ text: 'Mein Post', photo_url: 'https://example.com/pic.jpg', likes: 0, reported: false });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: 'p1', text: 'Mein Post', photo_url: 'https://example.com/pic.jpg', created_by: 'test@example.com' });
+  });
+
+  it('verlangt eine Anmeldung', async () => {
+    supabaseMock.current = createSupabaseMock({ authUser: null });
+    const res = await request(app)
+      .post('/api/community/posts')
+      .send({ text: 'Gast-Post', photo_url: null });
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('POST /api/community/comments', () => {
   it('legt einen Kommentar mit korrekter Autor-Zuordnung an', async () => {
     supabaseMock.current.__builders.community_comments = undefined;
