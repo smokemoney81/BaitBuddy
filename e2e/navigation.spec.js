@@ -26,7 +26,7 @@ test.use({ viewport: { width: 390, height: 844 } });
 const mainNav = (page) => page.getByRole('tablist').filter({ has: page.getByLabel('Karte', { exact: true }) });
 
 async function openDashboard(page) {
-  await page.goto('/Dashboard', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.goto('/Map', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await dismissSplash(page);
   await expect(mainNav(page)).toBeVisible({ timeout: 20_000 });
 }
