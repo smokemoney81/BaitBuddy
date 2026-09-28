@@ -5,7 +5,6 @@ import { useNavigationContext } from '@/lib/NavigationContext';
 import { useTool } from '@/hooks/useTool';
 import { trackFeatureClick } from '@/components/utils/tracker';
 import { useBuddyActivity } from '@/hooks/useBuddyActivity';
-import { isVoiceSpeaking } from '@/lib/voiceActivity';
 import { useVoiceSpeaking } from '@/hooks/useVoiceActivity';
 import { isBuddyHapticEnabled } from '@/lib/buddyActivity';
 import { cancelElevenLabs } from '@/components/utils/elevenLabsTTS';
@@ -97,7 +96,7 @@ export default function BottomTabs() {
     }
   }, []);
 
-  const startLongPress = useCallback((e) => {
+  const startLongPress = useCallback((_e) => {
     if (voiceSpeaking) return;
     cancelledRef.current = false;
     pressStartRef.current = Date.now();
