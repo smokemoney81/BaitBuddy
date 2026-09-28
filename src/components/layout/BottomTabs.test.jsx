@@ -10,10 +10,12 @@ vi.mock('@/hooks/useTool', () => ({ useTool: () => tools.current }));
 vi.mock('@/lib/NavigationContext', () => ({
   useNavigationContext: () => ({ switchTab: vi.fn(), getTabStack: () => [] }),
 }));
-vi.mock('@/lib/BuddyPreferencesContext', () => ({
-  useBuddyPreferences: () => ({ navigation: ['Dashboard', 'Logbook', 'Weather', 'Community'] }),
-}));
 vi.mock('@/components/utils/tracker', () => ({ trackFeatureClick: vi.fn() }));
+vi.mock('@/hooks/useBuddyActivity', () => ({ useBuddyActivity: () => 'idle' }));
+vi.mock('@/lib/voiceActivity', () => ({ isVoiceSpeaking: () => false }));
+vi.mock('@/hooks/useVoiceActivity', () => ({ useVoiceSpeaking: () => false }));
+vi.mock('@/lib/buddyActivity', () => ({ isBuddyHapticEnabled: () => false }));
+vi.mock('@/components/utils/elevenLabsTTS', () => ({ cancelElevenLabs: vi.fn() }));
 
 function setup({ lockedRoutes = [] } = {}) {
   tools.current = {
@@ -22,7 +24,7 @@ function setup({ lockedRoutes = [] } = {}) {
     ),
     isToolAccessible: () => false,
   };
-  render(<MemoryRouter initialEntries={['/Dashboard']}><BottomTabs /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/Map']}><BottomTabs /></MemoryRouter>);
 }
 
 beforeEach(() => {
@@ -35,25 +37,22 @@ describe('BottomTabs', () => {
     setup();
     const nav = screen.getByRole('tablist', { name: 'Hauptnavigation' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Logbook' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Karte' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Fangbuch' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Profil' })).toBeInTheDocument();
   });
 
-  // Regression: Die gesperrte Variante rendert ein <div role="tab"> und hatte
-  // kein aria-label. Ein Screenreader meldete nur "Tab", und Abfragen ueber den
-  // zugaenglichen Namen fanden den Eintrag nicht mehr.
   it('gibt auch einem gesperrten Tab einen zugaenglichen Namen', () => {
-    setup({ lockedRoutes: ['/Weather'] });
+    setup({ lockedRoutes: ['/TripPlanner'] });
 
-    const locked = screen.getByRole('tab', { name: 'Weather' });
+    const locked = screen.getByRole('tab', { name: 'Trip-Planer' });
     expect(locked).toHaveAttribute('aria-disabled', 'true');
-    // Die uebrigen Tabs bleiben erreichbar.
-    expect(screen.getByRole('tab', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Karte' })).toBeInTheDocument();
   });
 
   it('markiert die aktive Seite', () => {
     setup();
-    expect(screen.getByRole('tab', { name: 'Dashboard' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Logbook' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: 'Karte' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Fangbuch' })).toHaveAttribute('aria-selected', 'false');
   });
 });

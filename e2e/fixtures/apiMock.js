@@ -22,7 +22,7 @@ export const FIXTURE_USER = {
   user_metadata: { role: 'user' },
   settings: {
     navigation: {
-      bottomNavigation: ['Dashboard', 'Logbook', 'Weather', 'Community'],
+      bottomNavigation: ['Map', 'Logbook', 'TripPlanner', 'Profile'],
     },
     // Der Fixture-Nutzer ist ein eingerichtetes Konto, kein Neuzugang. Ohne
     // diesen Abschnitt oeffnet OnboardingFlow beim Dashboard-Aufruf seinen

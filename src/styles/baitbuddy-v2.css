@@ -686,7 +686,7 @@
   outline-offset: 3px;
 }
 
-/* ── Bottom navigation (v2 — circular FAB) ──────── */
+/* ── Bottom navigation (v2 — compact, 5 tabs + center Buddy) ──────── */
 .bb-navbar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -695,8 +695,11 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid rgba(0, 229, 255, 0.14);
-  padding: 8px 8px max(10px, env(safe-area-inset-bottom));
+  padding: 4px 8px max(6px, env(safe-area-inset-bottom));
   box-shadow: 0 -6px 28px rgba(0,0,0,.55);
+}
+.bb-navbar-compact {
+  --bb-nav-height: 52px;
 }
 .bb-navbar-inner {
   display: flex;
@@ -707,18 +710,26 @@
   gap: 0;
 }
 
-/* Tab items */
+/* Tab items — compact */
 .bb-nav-item {
   flex: 1;
   min-width: 0;
-  min-height: 56px;
+  min-height: 44px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   color: #a9bccd;
-  border-radius: 14px;
+  border-radius: 10px;
   transition: color var(--bb-motion);
   text-decoration: none;
+}
+.bb-nav-label {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: .02em;
 }
 .bb-nav-item:hover { color: #e3f4fb; }
 .bb-nav-active {
@@ -730,19 +741,20 @@
   cursor: not-allowed;
 }
 
-/* Circular FAB */
+/* Circular FAB — compact */
 .bb-fab-container {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 84px;
-}
-/* Plus as a glowing cyan ring on a dark disc (reference) */
-.bb-fab {
   width: 68px;
-  height: 68px;
+}
+.bb-fab-compact { width: 60px; }
+.bb-fab {
+  position: relative;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: radial-gradient(circle at 50% 40%, #12304a 0%, #0a1a2c 70%);
   color: var(--bb-cyan);
@@ -750,13 +762,13 @@
   place-items: center;
   flex-shrink: 0;
   border: 2px solid var(--bb-cyan);
-  box-shadow: 0 0 22px rgba(0,229,255,.45), inset 0 0 14px rgba(0,229,255,.18), 0 0 0 5px rgba(11,19,36,.9);
-  transition: transform .15s, box-shadow var(--bb-motion);
-  margin-top: -26px;
+  box-shadow: 0 0 16px rgba(0,229,255,.4), inset 0 0 10px rgba(0,229,255,.15), 0 0 0 4px rgba(11,19,36,.9);
+  transition: transform .15s, box-shadow .3s ease;
+  margin-top: -18px;
 }
-.bb-fab:hover  { box-shadow: 0 0 30px rgba(0,229,255,.6), inset 0 0 16px rgba(0,229,255,.25), 0 0 0 5px rgba(11,19,36,.9); }
+.bb-fab:hover  { box-shadow: 0 0 24px rgba(0,229,255,.55), inset 0 0 12px rgba(0,229,255,.2), 0 0 0 4px rgba(11,19,36,.9); }
 .bb-fab:active { transform: scale(.94); }
-/* BaitBuddy-Logo statt Plus: Tippen = Schnellaktionen, Halten = KI-Buddy */
+/* Tap = Home, 3s Hold = Voice */
 .bb-fab-logo {
   overflow: hidden;
   padding: 0;
@@ -765,16 +777,36 @@
   user-select: none;
   touch-action: manipulation;
 }
-/* Leuchten, solange der Buddy spricht (useVoiceSpeaking) */
-.bb-fab-speaking {
-  animation: bb-fab-voice-glow 1.1s ease-in-out infinite;
+
+/* Long-press progress ring */
+.bb-fab-progress {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 0 4px rgba(0,229,255,.6));
 }
-@keyframes bb-fab-voice-glow {
-  0%, 100% { box-shadow: 0 0 22px rgba(0,229,255,.55), inset 0 0 14px rgba(0,229,255,.25), 0 0 0 5px rgba(11,19,36,.9); }
-  50%      { box-shadow: 0 0 44px rgba(0,229,255,.95), inset 0 0 22px rgba(0,229,255,.45), 0 0 0 5px rgba(11,19,36,.9), 0 0 0 9px rgba(0,229,255,.25); }
+
+/* Buddy activity states — same base glow, different speeds */
+.bb-fab-listening {
+  animation: bb-fab-activity-pulse 3s ease-in-out infinite;
+}
+.bb-fab-processing {
+  animation: bb-fab-activity-pulse 1.2s ease-in-out infinite;
+}
+.bb-fab-speaking {
+  animation: bb-fab-activity-pulse .7s ease-in-out infinite;
+}
+@keyframes bb-fab-activity-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(0,229,255,.4), inset 0 0 10px rgba(0,229,255,.15), 0 0 0 4px rgba(11,19,36,.9); }
+  50%      { box-shadow: 0 0 36px rgba(0,229,255,.85), inset 0 0 18px rgba(0,229,255,.35), 0 0 0 4px rgba(11,19,36,.9), 0 0 0 8px rgba(0,229,255,.2); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bb-fab-speaking { animation: none; box-shadow: 0 0 40px rgba(0,229,255,.9), inset 0 0 20px rgba(0,229,255,.4), 0 0 0 5px rgba(11,19,36,.9); }
+  .bb-fab-listening,
+  .bb-fab-processing,
+  .bb-fab-speaking { animation: none; box-shadow: 0 0 32px rgba(0,229,255,.8), inset 0 0 16px rgba(0,229,255,.3), 0 0 0 4px rgba(11,19,36,.9); }
 }
 .bb-fab-logo > img {
   width: 100%;
@@ -782,6 +814,29 @@
   border-radius: 50%;
   object-fit: cover;
   pointer-events: none;
+}
+
+/* First-use tooltip */
+.bb-fab-hint {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 229, 255, .18);
+  border: 1px solid rgba(0, 229, 255, .35);
+  border-radius: 8px;
+  padding: 5px 10px;
+  pointer-events: none;
+  animation: bb-hint-fade 6s ease forwards;
+  backdrop-filter: blur(8px);
+}
+@keyframes bb-hint-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Quick-action sheet (Schnellaktionen der Bottom-Nav), nach Design-Vorlage.
@@ -1418,9 +1473,134 @@
 .bb-dashboard {
   max-width: 1100px;
   margin: auto;
-  padding: 10px 0 calc(120px + env(safe-area-inset-bottom));
+  padding: 10px 0 calc(90px + env(safe-area-inset-bottom));
   display: grid;
   gap: 18px;
+}
+
+/* Buddy input field (Dashboard hero) */
+.bb-buddy-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 30, 50, .7);
+  border: 1px solid rgba(0, 229, 255, .2);
+  border-radius: 16px;
+  padding: 6px 8px 6px 6px;
+  backdrop-filter: blur(12px);
+  transition: border-color .2s, box-shadow .2s;
+}
+.bb-buddy-input-wrapper:focus-within {
+  border-color: rgba(0, 229, 255, .5);
+  box-shadow: 0 0 20px rgba(0, 229, 255, .15);
+}
+.bb-buddy-input-avatar { flex-shrink: 0; }
+.bb-buddy-input-field {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.bb-buddy-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #f0f6fb;
+  padding: 8px 4px;
+  line-height: 1.4;
+}
+.bb-buddy-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 8px 4px;
+  font-size: 14px;
+  color: rgba(169, 188, 205, .6);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bb-suggest-in {
+  animation: bb-suggest-fadein .3s ease;
+}
+.bb-suggest-out {
+  animation: bb-suggest-fadeout .3s ease forwards;
+}
+@keyframes bb-suggest-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bb-suggest-fadeout {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+.bb-buddy-input-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.bb-buddy-voice-btn {
+  background: rgba(0, 229, 255, .1);
+  color: var(--bb-cyan);
+}
+.bb-buddy-voice-btn:hover { background: rgba(0, 229, 255, .2); }
+.bb-buddy-send-btn {
+  background: var(--bb-cyan);
+  color: #0B1324;
+}
+.bb-buddy-send-btn:hover { background: #33e0ff; }
+
+/* Quick actions grid (Dashboard) */
+.bb-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.bb-quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: 14px;
+  background: rgba(15, 30, 50, .5);
+  border: 1px solid rgba(255, 255, 255, .06);
+  text-decoration: none;
+  color: #c5d5e3;
+  transition: background .15s, border-color .15s;
+}
+.bb-quick-action:hover {
+  background: rgba(0, 229, 255, .08);
+  border-color: rgba(0, 229, 255, .2);
+  color: #e8f5fb;
+}
+.bb-quick-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 229, 255, .08);
+  color: var(--bb-cyan);
+}
+.bb-quick-action-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.25;
+  white-space: pre-line;
+}
+@media (max-width: 380px) {
+  .bb-quick-actions { grid-template-columns: repeat(3, 1fr); }
 }
 .bb-dashboard-columns { display: grid; gap: 18px; }
 .bb-stat-grid {

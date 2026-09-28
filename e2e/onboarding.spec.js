@@ -65,7 +65,7 @@ test.describe('Onboarding', () => {
     await installApiMocks(page, { authenticated: true });
     await openDashboard(page);
 
-    const nav = page.getByRole('tablist').filter({ has: page.getByLabel('Dashboard', { exact: true }) });
+    const nav = page.getByRole('tablist').filter({ has: page.getByLabel('Karte', { exact: true }) });
     await expect(nav).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('dialog').filter({ hasText: 'Schritt 1 von' })).toHaveCount(0);
   });

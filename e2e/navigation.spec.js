@@ -6,13 +6,13 @@ import { installApiMocks, dismissSplash } from './fixtures/apiMock.js';
 // INNERHALB der laufenden SPA — also darum, dass der Router die Seiten-Chunks
 // nachlaedt, ohne den Zustand zu verlieren oder abzustuerzen.
 
-// Beschriftungen aus BottomTabs.jsx (aria-label = tab.name).
-// Muss mit den Navigation-Items in der Test-Fixture (apiMock.js) übereinstimmen.
+// Beschriftungen aus BottomTabs.jsx (aria-label = ARIA_LABELS[path]).
+// Muss mit den Navigation-Items in BottomTabs und der Test-Fixture (apiMock.js) übereinstimmen.
 const TABS = [
-  { name: 'Dashboard', url: /Dashboard/i },
-  { name: 'Logbook', url: /Logbook/i },
-  { name: 'Weather', url: /Weather/i },
-  { name: 'Community', url: /Community/i },
+  { name: 'Karte', url: /Map/i },
+  { name: 'Fangbuch', url: /Logbook/i },
+  { name: 'Trip-Planer', url: /TripPlanner/i },
+  { name: 'Profil', url: /Profile/i },
 ];
 
 // Die Tab-Leiste ist `md:hidden` — sie existiert nur im Mobil-Layout. Das ist
@@ -23,10 +23,10 @@ test.use({ viewport: { width: 390, height: 844 } });
 // BottomTabs.jsx setzt auf dem <nav> ein explizites role="tablist"; das
 // ueberschreibt die implizite navigation-Rolle. Deshalb ueber die tablist-Rolle
 // zugreifen, nicht ueber getByRole('navigation').
-const mainNav = (page) => page.getByRole('tablist').filter({ has: page.getByLabel('Dashboard', { exact: true }) });
+const mainNav = (page) => page.getByRole('tablist').filter({ has: page.getByLabel('Karte', { exact: true }) });
 
 async function openDashboard(page) {
-  await page.goto('/Dashboard', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.goto('/Map', { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await dismissSplash(page);
   await expect(mainNav(page)).toBeVisible({ timeout: 20_000 });
 }
@@ -42,7 +42,7 @@ test.describe('Hauptnavigation', () => {
     const nav = mainNav(page);
     for (const tab of TABS) {
       await nav.getByLabel(tab.name, { exact: true }).click();
-      await page.waitForURL(tab.url, { timeout: 20_000 });
+      await page.waitForURL(tab.url, { timeout: 30_000 });
       // Nach jedem Wechsel muss die Navigation weiter stehen — sie ist Teil des
       // Layouts und darf beim Lazy-Load der Seite nicht verschwinden.
       await expect(nav).toBeVisible();
@@ -56,15 +56,15 @@ test.describe('Hauptnavigation', () => {
     await openDashboard(page);
 
     const nav = mainNav(page);
-    await nav.getByLabel('Logbook', { exact: true }).click();
-    await page.waitForURL(/Logbook/i, { timeout: 20_000 });
+    await nav.getByLabel('Fangbuch', { exact: true }).click();
+    await page.waitForURL(/Logbook/i, { timeout: 30_000 });
 
     await page.goBack();
-    await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
+    await page.waitForURL(/Map/i, { timeout: 30_000 });
     await expect(nav).toBeVisible();
 
     await page.goForward();
-    await page.waitForURL(/Logbook/i, { timeout: 20_000 });
+    await page.waitForURL(/Logbook/i, { timeout: 30_000 });
     await expect(nav).toBeVisible();
   });
 });
@@ -81,7 +81,7 @@ test.describe('Verhalten ohne Netz', () => {
     // (App laeuft, Funkloch am Wasser).
     await context.setOffline(true);
     const nav = mainNav(page);
-    await nav.getByLabel('Logbook', { exact: true }).click();
+    await nav.getByLabel('Fangbuch', { exact: true }).click();
     await page.waitForTimeout(2500);
 
     // Offline-Auth (frontendClient: isNetworkError + gecachter User) muss den

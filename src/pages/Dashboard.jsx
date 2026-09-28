@@ -1,4 +1,6 @@
 import DashboardOverview from '@/components/dashboard/DashboardOverview';
+import BuddyInputField from '@/components/dashboard/BuddyInputField';
+import DashboardQuickActions from '@/components/dashboard/DashboardQuickActions';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import React, { useState, useEffect } from "react";
 import { functions } from "@/api/frontendClient";
@@ -104,6 +106,13 @@ export default function Dashboard() {
             <ChevronRight size={22} aria-hidden="true" />
           </Link>
         )}
+        <BuddyInputField
+          weather={dashboardData?.weather?.current}
+          catches={dashboardData?.recent_catches}
+          trips={dashboardData?.next_trip ? [dashboardData.next_trip] : []}
+          targetSpecies={user?.settings?.fishing?.targetSpecies}
+        />
+        <DashboardQuickActions />
         <SuspenseWithErrorBoundary isMinimal={true}><WeatherWarningBanner /></SuspenseWithErrorBoundary>
         <DashboardOverview
           user={user}
