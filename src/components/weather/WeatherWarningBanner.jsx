@@ -71,15 +71,15 @@ export default function WeatherWarningBanner({ lat, lon }) {
   return (
     <Link
       to={createPageUrl("Weather")}
-      className={`flex items-center gap-3 rounded-2xl border ${s.border} ${s.bg} backdrop-blur-sm p-4 transition-colors hover:brightness-110`}
+      className={`flex items-center gap-2.5 rounded-2xl border ${s.border} ${s.bg} backdrop-blur-sm px-3 py-2 transition-colors hover:brightness-110`}
       role="alert"
     >
-      <AlertTriangle className={`w-6 h-6 shrink-0 ${s.accent}`} />
+      <AlertTriangle className={`w-5 h-5 shrink-0 ${s.accent}`} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className={`text-[10px] uppercase tracking-wider font-bold ${s.accent}`}>
           {s.label}
         </div>
-        <div className="text-white font-semibold truncate">
+        <div className="text-white text-sm font-semibold truncate">
           {top.headline || top.event}
         </div>
         {extra > 0 && (

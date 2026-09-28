@@ -77,6 +77,7 @@ const Gear = lazyPage(() => import('./pages/Gear'));
 const Home = lazyPage(() => import('./pages/Home'));
 const Impressum = lazyPage(() => import('./pages/Impressum'));
 const KiBuddyBeta = lazyPage(() => import('./pages/KiBuddyBeta'));
+const KiTools = lazyPage(() => import('./pages/KiTools'));
 const Licenses = lazyPage(() => import('./pages/Licenses'));
 const Logbook = lazyPage(() => import('./pages/Logbook'));
 const LiveTripPage = lazyPage(() => import('./pages/LiveTripPage'));
@@ -142,6 +143,7 @@ export const PAGES = {
     "Home": Home,
     "Impressum": Impressum,
     "KiBuddyBeta": KiBuddyBeta,
+    "KiTools": KiTools,
     "Licenses": Licenses,
     "Logbook": Logbook,
     "LiveTrip": LiveTripPage,

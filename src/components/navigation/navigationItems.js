@@ -1,7 +1,7 @@
 import { Home, Map, Brain, Cloud, BookOpen, Calendar, Users, Wrench, User, Zap } from 'lucide-react';
 export const navigationItems = {
   Dashboard: { name: 'Home', icon: Home }, Map: { name: 'Karte', icon: Map },
-  KiBuddyBeta: { name: 'KI-Buddy', icon: Brain }, Weather: { name: 'Wetter', icon: Cloud },
+  KiBuddyBeta: { name: 'KI-Buddy', icon: Brain }, KiTools: { name: 'KI-Tools', icon: Brain }, Weather: { name: 'Wetter', icon: Cloud },
   Logbook: { name: 'Fangbuch', icon: BookOpen }, TripPlanner: { name: 'Planung', icon: Calendar },
   Community: { name: 'Community', icon: Users }, Gear: { name: 'Ausrüstung', icon: Wrench }, Profile: { name: 'Profil', icon: User },
   PremiumPlans: { name: 'Premium', icon: Zap },

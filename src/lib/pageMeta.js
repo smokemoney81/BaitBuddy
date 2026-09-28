@@ -10,6 +10,7 @@ export const PAGE_META = {
   Dashboard: { title: 'Home', icon: Home },
   Map: { title: 'Karte', icon: Map },
   KiBuddyBeta: { title: 'KI-Buddy', icon: Brain },
+  KiTools: { title: 'KI-Tools', icon: Brain },
   VoiceChat: { title: 'Voice-Buddy', icon: Mic },
   Weather: { title: 'Wetter', icon: CloudSun },
   Logbook: { title: 'Fangbuch', icon: BookOpen },

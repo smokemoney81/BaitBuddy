@@ -1,12 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Trash2, Play, Pause, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { addToOfflineNotesQueue, getOfflineNotesQueue, removeFromOfflineNotesQueue, isOnline } from '@/components/utils/offlineSync';
 import { useHaptic } from '@/components/utils/HapticFeedback';
 import { useSound } from '@/components/utils/SoundManager';
 import { api as apiClient } from '@/api/frontendClient';
+
+const noteKey = note => note.id ?? note.__id;
+
+function formatNoteDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
 
 export default function AudioNotesWidget() {
   const [isRecording, setIsRecording] = useState(false);
@@ -20,15 +27,31 @@ export default function AudioNotesWidget() {
   const { triggerHaptic } = useHaptic();
   const { playSound } = useSound();
 
-  // Load persisted notes on mount
+  // Beim Öffnen laden und erneut, wenn die App wieder in den Vordergrund kommt
+  // oder das Netz zurück ist. Früher lief hier ein 10-Sekunden-Polling gegen
+  // den Server, solange das Dashboard offen war.
   useEffect(() => {
     loadNotes();
-    const interval = setInterval(() => {
-      if (isOnline()) {
-        loadNotes();
+    const onVisible = () => { if (document.visibilityState === 'visible') loadNotes(); };
+    window.addEventListener('online', loadNotes);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('online', loadNotes);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
+  // Beim Verlassen der Seite Aufnahme und Wiedergabe beenden — sonst bliebe das
+  // Mikrofon nach einem Seitenwechsel mitten in der Aufnahme offen.
+  useEffect(() => () => {
+    try {
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
       }
-    }, 10000); // Refresh every 10 seconds when online
-    return () => clearInterval(interval);
+    } catch { /* bereits beendet */ }
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    currentAudioRef.current?.pause();
   }, []);
 
   const loadNotes = async () => {
@@ -66,7 +89,9 @@ export default function AudioNotesWidget() {
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Safari/iOS nimmt audio/mp4 auf — den tatsächlichen Typ übernehmen.
+        const mimeType = (mediaRecorder.mimeType || 'audio/webm').split(';')[0];
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const reader = new FileReader();
 
         reader.onloadend = async () => {
@@ -74,7 +99,7 @@ export default function AudioNotesWidget() {
           const noteData = {
             audio_data: base64,
             duration_ms: mediaRecorderRef.current?.duration || 0,
-            mime_type: 'audio/webm',
+            mime_type: mimeType,
             title: `Notiz ${new Date().toLocaleTimeString('de-DE')}`,
           };
 
@@ -130,7 +155,7 @@ export default function AudioNotesWidget() {
         currentAudioRef.current = null;
       }
 
-      if (playingId === note.id) {
+      if (playingId === noteKey(note)) {
         setPlayingId(null);
         return;
       }
@@ -141,7 +166,7 @@ export default function AudioNotesWidget() {
       audio.onended = () => { currentAudioRef.current = null; setPlayingId(null); };
       audio.onpause = () => setPlayingId(null);
 
-      setPlayingId(note.id);
+      setPlayingId(noteKey(note));
       await audio.play();
     } catch (error) {
       currentAudioRef.current = null;
@@ -155,122 +180,71 @@ export default function AudioNotesWidget() {
     triggerHaptic('light');
     const link = document.createElement('a');
     link.href = `data:${note.mime_type};base64,${note.audio_data}`;
-    link.download = `${note.title}.webm`;
+    link.download = `${note.title}.${String(note.mime_type || '').includes('mp4') ? 'm4a' : 'webm'}`;
     link.click();
   };
 
-  const deleteNote = async (noteId) => {
+  // Server-Notizen tragen `id`, noch nicht synchronisierte Notizen aus der
+  // Offline-Warteschlange `__id` — beide lassen sich löschen.
+  const deleteNote = async (note) => {
     triggerHaptic('light');
     try {
-      if (isOnline()) {
-        await apiClient.del(`/api/dashboard-account-notes/${noteId}`);
-        toast.success('Notiz gelöscht');
-      } else {
-        removeFromOfflineNotesQueue(noteId);
+      if (note.__id) {
+        removeFromOfflineNotesQueue(note.__id);
         toast.success('Notiz lokal gelöscht');
+      } else {
+        await apiClient.del(`/api/dashboard-account-notes/${note.id}`);
+        toast.success('Notiz gelöscht');
       }
     } catch (error) {
       console.error('Fehler beim Löschen der Notiz:', error);
-      removeFromOfflineNotesQueue(noteId);
-      toast.success('Notiz gelöscht');
+      toast.error('Notiz konnte nicht gelöscht werden.');
     }
     loadNotes();
   };
 
   return (
-    <Card className="bb-card p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Mic className="w-5 h-5 text-cyan-300" />
-          <h3 className="font-semibold text-slate-50">Audionotizen</h3>
-          {!isOnline() && (
-            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Offline</span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex gap-2 mb-4">
+    <section className="bb-home-tile bb-home-tile-wide bb-home-notes" aria-label="Audionotizen">
+      <div className="bb-home-tile-row">
+        <span className="bb-home-tile-icon"><Mic size={18} aria-hidden="true" /></span>
+        <span className="flex-1 min-w-0">
+          <span className="bb-home-tile-label">Audionotizen{!isOnline() ? ' · offline' : ''}</span>
+          <span className="bb-home-tile-meta">
+            {isLoading ? 'Wird geladen …' : notes.length ? `${notes.length} Notiz${notes.length !== 1 ? 'en' : ''}` : 'Noch keine Notizen'}
+          </span>
+        </span>
         {!isRecording ? (
-          <Button
-            onClick={startRecording}
-            className="bb-action flex-1 gap-2"
-            size="sm"
-          >
-            <Mic className="w-4 h-4" />
-            Aufnahme starten
-          </Button>
+          <button type="button" onClick={startRecording} className="bb-home-tile-btn">
+            <Mic size={16} aria-hidden="true" />Aufnehmen
+          </button>
         ) : (
-          <Button
-            onClick={stopRecording}
-            className="flex-1 bg-red-500 hover:bg-red-600 text-white gap-2 animate-pulse"
-            size="sm"
-          >
-            <Square className="w-4 h-4" />
-            Aufnahme stoppen
-          </Button>
+          <button type="button" onClick={stopRecording} className="bb-home-tile-btn is-recording">
+            <Square size={16} aria-hidden="true" />Stopp
+          </button>
         )}
       </div>
 
-      <div className="space-y-2 max-h-48 overflow-y-auto">
-        {isLoading ? (
-          <p className="text-sm text-slate-400 text-center py-4">
-            Notizen werden geladen...
-          </p>
-        ) : notes.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-4">
-            Keine Audionotizen vorhanden
-          </p>
-        ) : (
-          notes.map((note) => (
-            <div
-              key={note.id}
-              className="flex items-center gap-2 p-2 rounded-lg bg-slate-900/60 border border-cyan-400/20 hover:border-cyan-400/50"
-            >
-              <button type="button"
-                onClick={() => playNote(note)}
-                className="p-1.5 hover:bg-cyan-400/10 rounded-lg transition"
-              >
-                {playingId === note.id ? (
-                  <Pause className="w-4 h-4 text-cyan-300" />
-                ) : (
-                  <Play className="w-4 h-4 text-cyan-300" />
-                )}
+      {!isLoading && notes.length > 0 && (
+        <ul className="bb-home-notes-list">
+          {notes.map((note) => (
+            <li key={noteKey(note)}>
+              <button type="button" onClick={() => playNote(note)} className="bb-home-icon-btn" aria-label={playingId === noteKey(note) ? `${note.title} pausieren` : `${note.title} abspielen`}>
+                {playingId === noteKey(note) ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
               </button>
-
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-100 truncate">
-                  {note.title}
-                </p>
-                <p className="text-xs text-slate-400">
-                  {new Date(note.created_at).toLocaleTimeString('de-DE')}
-                </p>
-              </div>
-
-              <button type="button"
-                onClick={() => downloadNote(note)}
-                className="p-1 hover:bg-white/5 rounded transition"
-                title="Herunterladen"
-              >
-                <Download className="w-4 h-4 text-slate-300" />
+              <span className="flex-1 min-w-0">
+                <span className="bb-home-notes-title">{note.title}</span>
+                <span className="bb-home-tile-meta">{formatNoteDate(note.created_at || note.__created)}</span>
+              </span>
+              <button type="button" onClick={() => downloadNote(note)} className="bb-home-icon-btn" aria-label={`${note.title} herunterladen`}>
+                <Download size={16} aria-hidden="true" />
               </button>
-
-              <button type="button"
-                onClick={() => deleteNote(note.id)}
-                className="p-1 hover:bg-red-500/10 rounded transition"
-                title="Löschen"
-              >
-                <Trash2 className="w-4 h-4 text-red-400" />
+              <button type="button" onClick={() => deleteNote(note)} className="bb-home-icon-btn is-danger" aria-label={`${note.title} löschen`}>
+                <Trash2 size={16} aria-hidden="true" />
               </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      {notes.length > 0 && (
-        <p className="text-xs text-slate-400 mt-3 text-center">
-          {notes.length} Notiz{notes.length !== 1 ? 'en' : ''}
-        </p>
+            </li>
+          ))}
+        </ul>
       )}
-    </Card>
+    </section>
   );
 }

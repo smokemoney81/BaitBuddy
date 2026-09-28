@@ -41,14 +41,17 @@ export default function OfflineCacheIndicator() {
       }
     };
 
+    // Details braucht nur die Offline-Anzeige. Online lief hier früher alle
+    // 2 Sekunden ein Abgleich von Cache und Warteschlange — ohne Nutzen.
+    if (isOnline) return undefined;
     updateCacheInfo();
-    const interval = setInterval(updateCacheInfo, 2000);
+    const interval = setInterval(updateCacheInfo, 5000);
     return () => clearInterval(interval);
   }, [isOnline]);
 
   if (isOnline) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs" role="status">
         <Wifi className="w-3 h-3" />
         <span>Online</span>
       </div>

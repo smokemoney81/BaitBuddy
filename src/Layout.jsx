@@ -47,9 +47,9 @@ const LazyFallback = () => null;
 
 // Vollflächige Seiten ohne Seefoto-Hintergrund
 const NO_BACKDROP_PAGES = new Set(['Map', 'MapPage', 'ARView', 'ARKnotenAssistent', 'CatchCam']);
-// Voice Buddy (Vorlage): das Seefoto füllt den ganzen Bildschirm, der Buddy
-// schwebt über dem Wasser und der Verlauf liegt direkt auf dem See.
-const FULL_BACKDROP_PAGES = new Set(['KiBuddyBeta', 'VoiceChat', 'HandsFreeBuddy']);
+// Voice Buddy und Dashboard (Vorlagen): das Seefoto füllt den ganzen
+// Bildschirm, der Verlauf liegt direkt auf dem See.
+const FULL_BACKDROP_PAGES = new Set(['KiBuddyBeta', 'VoiceChat', 'HandsFreeBuddy', 'Dashboard']);
 // Seiten mit eigener Kopfzeile (Zurück, Titel, Einstellungen) wie in der Vorlage.
 const OWN_HEADER_PAGES = new Set(['AnglerMode']);
 

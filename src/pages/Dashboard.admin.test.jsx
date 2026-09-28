@@ -6,16 +6,20 @@ import { MemoryRouter } from 'react-router-dom';
 const me = vi.hoisted(() => ({ current: null }));
 
 vi.mock('@/api/auth', () => ({ auth: { me: vi.fn(async () => me.current) } }));
-vi.mock('@/api/frontendClient', () => ({ functions: { invoke: vi.fn(async () => ({})) } }));
-vi.mock('@/lib/BuddyPreferencesContext', () => ({ useBuddyPreferences: () => ({ buddy: { chosen: false }, activeBuddy: { name: 'Marina' } }) }));
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({}) }));
+vi.mock('@/lib/BuddyPreferencesContext', () => ({ useBuddyPreferences: () => ({ buddy: { chosen: false }, fishing: { targetSpecies: [] }, activeBuddy: { name: 'Marina' } }) }));
 vi.mock('@/hooks/usePredictivePrefetch', () => ({ usePredictivePrefetch: () => {} }));
+vi.mock('@/hooks/useFitToViewport', () => ({ useFitToViewport: () => {} }));
 vi.mock('@/hooks/useDashboardData', () => ({
-  useDashboardData: () => ({ data: {}, isLoading: false, error: null, refetch: vi.fn(async () => {}), invalidateCache: vi.fn() }),
+  useDashboardData: () => ({ data: {}, isLoading: false, error: null, refetch: vi.fn(async () => {}) }),
 }));
-vi.mock('@/components/layout/PageContainer', () => ({ default: ({ children }) => <div>{children}</div> }));
+vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: [], isLoading: false, isError: false }) }));
+vi.mock('@/components/location/LocationManager', () => ({ useLocation: () => ({ currentLocation: null, requestGpsLocation: vi.fn() }) }));
+vi.mock('@/hooks/useFishingConditions', () => ({ useFishingConditions: () => ({ hasLocation: false, hours: [] }) }));
 vi.mock('@/components/utils/SuspenseWithErrorBoundary', () => ({ default: ({ children }) => <>{children}</> }));
-vi.mock('@/components/dashboard/DashboardOverview', () => ({ default: () => null }));
+vi.mock('@/components/home/HomeWeatherRail', () => ({ default: () => null }));
+vi.mock('@/components/home/HomeBuddyChat', () => ({ default: () => null }));
+vi.mock('@/components/home/HomeBuddyInput', () => ({ default: () => null }));
+vi.mock('@/components/onboarding/OnboardingFlow', () => ({ default: () => null }));
 vi.mock('@/components/dashboard/SchonzeitWarner', () => ({ default: () => null }));
 vi.mock('@/components/dashboard/OfflineCacheIndicator', () => ({ default: () => null }));
 vi.mock('@/components/dashboard/FishingRecommendationCard', () => ({ default: () => null }));
@@ -42,5 +46,12 @@ describe('Dashboard — Admin-Zugang', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>);
     await screen.findByRole('button', { name: /Erlebnis mit der Community teilen/ });
     expect(screen.queryByRole('link', { name: /Admin-Bereich/ })).toBeNull();
+  });
+
+  it('zeigt die vier Schnellfragen der Vorlage', async () => {
+    me.current = { id: 'u1', email: 'u@test.de' };
+    render(<MemoryRouter><Dashboard /></MemoryRouter>);
+    expect(await screen.findByRole('button', { name: /Beste Angelzeiten morgen/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Analyse meiner letzten Fänge/ })).toBeInTheDocument();
   });
 });

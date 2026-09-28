@@ -1,5 +1,10 @@
-export const DEFAULT_NAVIGATION = ['Dashboard', 'Map', 'Community', 'Weather'];
-export const NAVIGATION_OPTIONS = ['Dashboard', 'Map', 'KiBuddyBeta', 'Weather', 'Logbook', 'TripPlanner', 'Community', 'Gear', 'Profile', 'PremiumPlans'];
+// Standard nach der Dashboard-Vorlage (2026-09): Home, Karte | KI-Buddy | KI-Tools, Wetter.
+// Der KI-Buddy sitzt fest in der Mitte der Leiste und ist deshalb keine
+// wählbare Seitenposition mehr — früher gespeicherte 'KiBuddyBeta'-Einträge
+// zeigten ihn doppelt an und werden auf 'KiTools' umgestellt.
+export const DEFAULT_NAVIGATION = ['Dashboard', 'Map', 'KiTools', 'Weather'];
+export const NAVIGATION_OPTIONS = ['Dashboard', 'Map', 'KiTools', 'Weather', 'Logbook', 'TripPlanner', 'Community', 'Gear', 'Profile', 'PremiumPlans'];
+const LEGACY_NAVIGATION = { KiBuddyBeta: 'KiTools' };
 export const BUDDIES = {
   female_default: { gender: 'female', name: 'Marina', avatar: '/assets/buddy/marina-avatar.png', portrait: '/assets/buddy/marina.png', description: 'Freundlich, modern und aufmerksam.' },
 };
@@ -22,7 +27,8 @@ export function normalizeBuddy(value = {}) {
 }
 export function normalizeNavigation(value) {
   if (!Array.isArray(value)) return [...DEFAULT_NAVIGATION];
-  const valid = [...new Set(value)].filter(key => NAVIGATION_OPTIONS.includes(key)).slice(0, 4);
+  const mapped = value.map(key => LEGACY_NAVIGATION[key] || key);
+  const valid = [...new Set(mapped)].filter(key => NAVIGATION_OPTIONS.includes(key)).slice(0, 4);
   return valid.length ? valid : [...DEFAULT_NAVIGATION];
 }
 

@@ -13,14 +13,20 @@ import { useLayoutEffect } from 'react';
 // Die Oberkante wird über die offsetTop-Kette gemessen, nicht über
 // getBoundingClientRect — die Seitenübergänge verschieben die Seite per
 // transform, das würde die Messung während der Animation verfälschen.
-export function useFitToViewport(ref) {
+//
+// `lockScroll: false` misst nur die Höhe und lässt die Seite scrollbar — für
+// Seiten, deren erster Abschnitt genau den Bildschirm füllt und unter dem es
+// weitergeht (Dashboard: Buddy-Startseite, darunter die Übersicht).
+export function useFitToViewport(ref, { lockScroll = true } = {}) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
 
     const root = document.documentElement;
-    root.classList.add('bb-no-page-scroll');
-    if (window.scrollY > 0) window.scrollTo(0, 0);
+    if (lockScroll) {
+      root.classList.add('bb-no-page-scroll');
+      if (window.scrollY > 0) window.scrollTo(0, 0);
+    }
 
     let frame = 0;
     const measure = () => {
@@ -51,7 +57,7 @@ export function useFitToViewport(ref) {
       window.removeEventListener('resize', schedule);
       window.removeEventListener('orientationchange', schedule);
       observer?.disconnect();
-      root.classList.remove('bb-no-page-scroll');
+      if (lockScroll) root.classList.remove('bb-no-page-scroll');
     };
-  }, [ref]);
+  }, [ref, lockScroll]);
 }
