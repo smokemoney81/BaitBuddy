@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Crown, Star, Trophy, ChevronRight, Info, Fish, Lock } from "lucide-react";
+import { ChevronLeft, Crown, Trophy, ChevronRight, Info, Fish, Lock } from "lucide-react";
 import { auth } from "@/api/auth";
 import { api } from "@/api/frontendClient";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";

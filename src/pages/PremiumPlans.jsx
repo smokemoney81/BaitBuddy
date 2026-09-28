@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Crown, Zap, Star, Sparkles, ChevronLeft, Loader2,
-  RefreshCw, AlertTriangle, Smartphone, User, Fish, Check
+  Crown, Star, ChevronLeft, Loader2,
+  RefreshCw, AlertTriangle, Smartphone, User, Fish
 } from "lucide-react";
 import { functions, premium } from "@/api/frontendClient";
 import { auth } from "@/api/auth";

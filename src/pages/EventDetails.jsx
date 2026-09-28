@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import {
   Trophy, Users, Clock, Target, ChevronLeft, Camera,
   CheckCircle2, AlertCircle, Loader2, Fish, MapPin,
-  Calendar, Send, ChevronRight, Award, Crown
+  Calendar, Send, Crown
 } from 'lucide-react';
 
 const SCORE_CATS = [

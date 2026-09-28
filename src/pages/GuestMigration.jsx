@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, MapPin, Fish, Map, Briefcase, SlidersHorizontal,
-  GraduationCap, CheckCircle, Shield, ChevronRight, Loader2
+  GraduationCap, CheckCircle, Shield, Loader2
 } from 'lucide-react';
-import { auth } from '@/api/auth';
 import { toast } from 'sonner';
 
 const STEPS = ['Konto erstellen', 'Daten prüfen', 'Übernehmen', 'Fertig'];
