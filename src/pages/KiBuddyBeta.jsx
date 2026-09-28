@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Mic, BrainCircuit, Volume2, VolumeX, User as UserIcon, MapPin, Fish, PlusCircle, Send, Square, ChevronDown, CheckCheck } from 'lucide-react';
+import { Mic, BrainCircuit, Volume2, VolumeX, UserRound, MapPin, Fish, PlusCircle, Navigation, Square, ChevronDown, CheckCheck } from 'lucide-react';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { useState, useRef, useEffect } from "react";
 import { catchgbtChat } from "@/functions/catchgbtChat";
@@ -31,6 +31,36 @@ const SOURCE_LABELS = {
 };
 
 const VALID_MODES = ["text", "live", "handsfree"];
+
+// Schallwellen links und rechts vom Buddy (Vorlage). `levels` kommt aus der
+// Sprech-/Zuhör-Animation (startWave); im Ruhezustand bleibt die Grundform.
+const ORB_WAVE = [0.22, 0.38, 0.28, 0.58, 0.44, 0.82, 1, 0.68, 0.9, 0.5, 0.64, 0.34, 0.26];
+function VoiceWave({ levels, side }) {
+  const bars = side === "left" ? [...ORB_WAVE].reverse() : ORB_WAVE;
+  return (
+    <span className={`bb-voice-wave is-${side}`} aria-hidden="true">
+      <span className="bb-voice-wave-dots" />
+      <span className="bb-voice-wave-bars">
+        {bars.map((h, i) => {
+          const level = Math.min(1, Math.max(0, (levels[i % levels.length] - 4) / 18));
+          return <i key={i} style={{ height: `${Math.round(h * (60 + level * 40))}%` }} />;
+        })}
+      </span>
+      <span className="bb-voice-wave-dots is-short" />
+    </span>
+  );
+}
+
+// Kleine Wellen neben dem Mikrofon in der Eingabeleiste; bewegen sich, solange
+// das Mikrofon offen ist.
+const INPUT_WAVE = [0.35, 0.6, 0.85, 1, 0.75, 0.55, 0.3];
+function InputWave({ live }) {
+  return (
+    <span className={`bb-voice-input-wave${live ? " is-live" : ""}`} aria-hidden="true">
+      {INPUT_WAVE.map((h, i) => <i key={i} style={{ height: `${Math.round(h * 100)}%` }} />)}
+    </span>
+  );
+}
 
 export default function KiBuddyBeta() {
   return (
@@ -746,7 +776,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   const lastAnswerText = [...messages].reverse().find(m => m.role === "assistant" && !m.streaming)?.text || null;
 
   const formatTime = at => (at ? new Date(at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null);
-  const buddyLogo = <img src="/assets/buddy/fab-logo.webp" alt="" aria-hidden="true" />;
+  const buddyIcon = <img src="/assets/buddy/buddy-icon.webp" alt="" aria-hidden="true" />;
   const micLive = recording || conversationActive;
 
   return (
@@ -813,94 +843,97 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
       {mode === "text" && (
       <>
       <div className={`bb-voice-orb is-${phase}`}>
-        <div className="bb-voice-waves" aria-hidden="true">
-          {[...waveBars].reverse().map((h, i) => <i key={i} style={{ height: Math.max(8, h * 3) }} />)}
-        </div>
+        <VoiceWave levels={waveBars} side="left" />
         <div className="bb-voice-orb-core">
-          <span className="bb-voice-ripples" aria-hidden="true"><i /><i /><i /></span>
-          <img src="/assets/buddy/fab-logo.webp" alt={`${activeBuddy.name}, dein KI-Buddy`} />
+          <span className="bb-voice-orb-ring" aria-hidden="true" />
+          <span className="bb-voice-sparkles" aria-hidden="true"><i /><i /><i /><i /><i /></span>
+          <img className="bb-voice-emblem" src="/assets/buddy/buddy-emblem.webp" alt={`${activeBuddy.name}, dein KI-Buddy`} />
+          <span className="bb-voice-splash is-left" aria-hidden="true"><i /><i /><i /><i /></span>
+          <span className="bb-voice-splash is-right" aria-hidden="true"><i /><i /><i /><i /></span>
         </div>
-        <div className="bb-voice-waves" aria-hidden="true">
-          {waveBars.map((h, i) => <i key={i} style={{ height: Math.max(8, h * 3) }} />)}
-        </div>
+        <VoiceWave levels={waveBars} side="right" />
+        <span className="bb-voice-ripples" aria-hidden="true"><i /><i /><i /><i /><i /></span>
       </div>
 
       <div ref={chatRef} className="bb-voice-chat">
         {status === "thinking" && (
           <div className="bb-voice-row">
-            <span className="bb-voice-avatar">{buddyLogo}</span>
-            <span className="bb-voice-bubble bb-voice-typing" aria-label="Buddy denkt nach"><i /><i /><i /></span>
+            <span className="bb-voice-avatar">{buddyIcon}</span>
+            <div className="bb-voice-msg">
+              <span className="bb-voice-typing" aria-label="Buddy denkt nach"><i /><i /><i /></span>
+            </div>
           </div>
         )}
         {interimTranscript && (
           <div className="bb-voice-row is-user">
-            <span className="bb-voice-bubble is-user is-interim">{interimTranscript}</span>
+            <div className="bb-voice-msg">
+              <p className="bb-voice-bubble is-user is-interim">{interimTranscript}</p>
+            </div>
+            <span className="bb-voice-avatar is-user"><UserRound size={24} aria-hidden="true" /></span>
           </div>
         )}
         {messages.map((m, i) => ({ m, i })).reverse().map(({ m, i }) => (
-          m.role === "system" ? (
-            <p key={i} className="bb-voice-system">
-              {m.text}
-              {m.retryQuestion && (
-                <button type="button" className="bb-voice-retry" onClick={() => ask(m.retryQuestion)}>
-                  Nochmal versuchen
-                </button>
-              )}
-            </p>
-          ) : m.role === "user" ? (
+          m.role === "user" ? (
             <div key={i} className="bb-voice-row is-user">
-              <span className="bb-voice-bubble is-user">
-                {m.text}
-                {m.at && <span className="bb-voice-meta">{formatTime(m.at)}<CheckCheck size={16} aria-hidden="true" /></span>}
-              </span>
-              <span className="bb-voice-avatar is-user"><UserIcon size={22} aria-hidden="true" /></span>
+              <div className="bb-voice-msg">
+                <p className="bb-voice-bubble is-user">{m.text}</p>
+                {m.at && <span className="bb-voice-meta">{formatTime(m.at)}<CheckCheck size={18} aria-hidden="true" /></span>}
+              </div>
+              <span className="bb-voice-avatar is-user"><UserRound size={24} aria-hidden="true" /></span>
             </div>
           ) : (
-            <div key={i} className="bb-voice-row">
-              <span className="bb-voice-avatar">{buddyLogo}</span>
-              <span className="bb-voice-bubble">
-                {m.text}
+            <div key={i} className={`bb-voice-row${m.role === "system" ? " is-system" : ""}`}>
+              <span className="bb-voice-avatar">{buddyIcon}</span>
+              <div className="bb-voice-msg">
+                <p className={m.role === "system" ? "bb-voice-system" : "bb-voice-bubble"}>{m.text}</p>
                 {m.source && (
                   <span className="bb-voice-source">
                     <span>{SOURCE_LABELS[m.source] || SOURCE_LABELS.instant}</span>
                     {m.page && <Link to={`/${m.page}`}>{faqPageLabel(m.page)} öffnen</Link>}
                   </span>
                 )}
+                {m.retryQuestion && (
+                  <button type="button" className="bb-voice-retry" onClick={() => ask(m.retryQuestion)}>
+                    Nochmal versuchen
+                  </button>
+                )}
                 {m.at && !m.streaming && <span className="bb-voice-meta">{formatTime(m.at)}</span>}
-              </span>
+              </div>
             </div>
           )
         ))}
       </div>
 
       <div className="bb-voice-input">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && sendText()}
-          placeholder="Frage stellen..."
-          aria-label="Frage an den Buddy"
-        />
-        <button type="button" onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-icon-btn is-speaker" aria-pressed={tonAn} aria-label={`Lautsprecher ${tonAn ? "aus" : "an"}schalten`}>
-          {tonAn ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
-        </button>
-        <span className={`bb-voice-input-wave${micLive ? " is-live" : ""}`} aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
-        <button
-          type="button"
-          onClick={conversationActive ? endConversation : (recording ? toggleMic : startConversation)}
-          className={`bb-voice-icon-btn is-mic${micLive ? " is-on" : ""}`}
-          aria-label={conversationActive ? "Freisprechen beenden" : "Freisprechen starten"}
-        >
-          <Mic size={20} aria-hidden="true" />
-        </button>
-        <span className={`bb-voice-input-wave${micLive ? " is-live" : ""}`} aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
-        <button type="button" onClick={stopSpeaking} className="bb-voice-icon-btn is-stop" aria-label="Buddy stoppen">
-          <Square size={14} aria-hidden="true" />
-        </button>
-        <span className="bb-voice-input-divider" aria-hidden="true" />
-        <button type="button" onClick={sendText} disabled={!input.trim() || status === "thinking"} className="bb-voice-icon-btn is-send" aria-label="Senden">
-          <Send size={20} aria-hidden="true" />
-        </button>
+        <div className="bb-voice-input-inner">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && sendText()}
+            placeholder="Frage stellen..."
+            aria-label="Frage an den Buddy"
+          />
+          <button type="button" onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-icon-btn is-speaker" aria-pressed={tonAn} aria-label={`Lautsprecher ${tonAn ? "aus" : "an"}schalten`}>
+            {tonAn ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
+          </button>
+          <InputWave live={micLive} />
+          <button
+            type="button"
+            onClick={conversationActive ? endConversation : (recording ? toggleMic : startConversation)}
+            className={`bb-voice-icon-btn is-mic${micLive ? " is-on" : ""}`}
+            aria-label={conversationActive ? "Freisprechen beenden" : "Freisprechen starten"}
+          >
+            <Mic size={20} aria-hidden="true" />
+          </button>
+          <InputWave live={micLive} />
+          <button type="button" onClick={stopSpeaking} className="bb-voice-icon-btn is-stop" aria-label="Buddy stoppen">
+            <Square size={13} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+          <span className="bb-voice-input-divider" aria-hidden="true" />
+          <button type="button" onClick={sendText} disabled={!input.trim() || status === "thinking"} className="bb-voice-icon-btn is-send" aria-label="Senden">
+            <Navigation size={20} fill="currentColor" aria-hidden="true" />
+          </button>
+        </div>
       </div>
       </>
       )}

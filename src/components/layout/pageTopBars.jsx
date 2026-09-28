@@ -6,6 +6,8 @@ import { AudioLines, SlidersHorizontal } from 'lucide-react';
 // Voice Buddy. `action` sitzt rechts vor dem Avatar.
 export const PAGE_TOP_BARS = {
   KiBuddyBeta: {
+    // Vorlage des Voice Buddys: helle Ringe um Zurück, Regler und Avatar.
+    className: 'bb-topbar-voice',
     title: (
       <>
         <AudioLines size={22} aria-hidden="true" />
