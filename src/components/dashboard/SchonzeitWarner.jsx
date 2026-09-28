@@ -1,168 +1,111 @@
-import React, { useState, useEffect } from "react";
-import { entities } from "@/api/frontendClient";
+import React from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { ShieldAlert, LocateFixed } from "lucide-react";
+import { entities } from "@/api/frontendClient";
 import { createPageUrl } from "@/utils";
 import { isInClosedSeason, nextClosedSeasonStart } from "@/lib/closedSeason";
+import { useLocation } from "@/components/location/LocationManager";
+import { placeCacheKey, reverseGeocode } from "@/lib/placeName";
 
-export default function SchonzeitWarner() {
-  const [bundesland, setBundesland] = useState(null);
-  const [rules, setRules] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [noLocation, setNoLocation] = useState(false);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-  useEffect(() => {
-    init();
-  }, []);
+/** Regeln der Region (Bundesland) plus bundesweite Regeln. */
+export function relevantRules(rules, bundesland) {
+  const state = bundesland ? bundesland.toLowerCase() : null;
+  return (Array.isArray(rules) ? rules : []).filter((rule) => {
+    const region = String(rule?.region || "").toLowerCase();
+    return region.includes("deutschland") || (state ? region.includes(state) : false);
+  });
+}
 
-  const init = async () => {
-    const savedLocation = localStorage.getItem("fm_current_location");
-    if (!savedLocation) {
-      setNoLocation(true);
-      setLoading(false);
-      return;
-    }
-
-    let location = null;
-    try {
-      location = JSON.parse(savedLocation);
-    } catch {
-      setNoLocation(true);
-      setLoading(false);
-      return;
-    }
-
-    if (!location?.lat || !location?.lon) {
-      setNoLocation(true);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${location.lat}&lon=${location.lon}&format=json`,
-        { headers: { "Accept-Language": "de" } }
-      );
-      const geoData = await geoRes.json();
-      const state = geoData?.address?.state || null;
-      setBundesland(state);
-
-      const allRules = await entities.RuleEntry.list("-created_date", 500);
-      setRules(allRules);
-    } catch (e) {
-      console.error("SchonzeitWarner Fehler:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const today = new Date();
+/** Aktive und in 14 Tagen beginnende Schonzeiten. */
+export function splitClosedSeasons(rules, now = new Date()) {
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
-  const in14Days = new Date(today);
-  in14Days.setDate(today.getDate() + 14);
-
-  const isInSchonzeit = (rule) => isInClosedSeason(rule.closed_from, rule.closed_to, today);
-
-  const startsSchonzeitSoon = (rule) => {
-    if (!rule.closed_from || isInSchonzeit(rule)) return false;
+  const in14Days = new Date(today.getTime() + 14 * DAY_MS);
+  const active = rules.filter((rule) => isInClosedSeason(rule.closed_from, rule.closed_to, today));
+  const upcoming = rules.filter((rule) => {
+    if (!rule.closed_from || isInClosedSeason(rule.closed_from, rule.closed_to, today)) return false;
     const from = nextClosedSeasonStart(rule.closed_from, today);
-    if (!from) return false;
-    return from > today && from <= in14Days;
-  };
+    return Boolean(from) && from > today && from <= in14Days;
+  });
+  return { active, upcoming };
+}
 
-  const relevantRules = rules.filter((rule) => {
-    if (!bundesland) return rule.region?.toLowerCase().includes("deutschland");
-    return (
-      rule.region?.toLowerCase().includes(bundesland.toLowerCase()) ||
-      rule.region?.toLowerCase().includes("deutschland")
-    );
+const fishNames = (rules) => [...new Set(rules.map((rule) => rule.fish).filter(Boolean))].join(", ");
+
+// Schonzeit-Wächter als kompakte Kachel der Dashboard-Übersicht. Standort aus
+// dem LocationManager (reagiert sofort, wenn GPS erlaubt wird), Bundesland per
+// gecachtem Reverse-Geocoding, Regeln aus rule_entries.
+export default function SchonzeitWarner() {
+  const { currentLocation, requestGpsLocation, loading: locating } = useLocation();
+  const hasLocation = currentLocation?.lat != null && currentLocation?.lon != null;
+
+  const region = useQuery({
+    queryKey: ["place-name", hasLocation ? placeCacheKey(currentLocation.lat, currentLocation.lon) : null],
+    enabled: hasLocation,
+    queryFn: ({ signal }) => reverseGeocode(currentLocation.lat, currentLocation.lon, { signal }),
+    staleTime: Infinity,
+    retry: 1,
+  });
+  const rules = useQuery({
+    queryKey: ["rule-entries-dashboard"],
+    enabled: hasLocation,
+    queryFn: () => entities.RuleEntry.list("-created_date", 500),
+    staleTime: 60 * 60 * 1000,
   });
 
-  const active = relevantRules.filter(isInSchonzeit);
-  const upcoming = relevantRules.filter(startsSchonzeitSoon);
+  const header = (
+    <span className="bb-home-tile-label is-gold"><ShieldAlert size={14} aria-hidden="true" />Schonzeiten</span>
+  );
 
-  if (loading) {
+  if (!hasLocation) {
     return (
-      <div className="rounded-2xl bg-gray-900/50 border border-gray-800/50 p-5">
-        <div className="text-xs text-gray-500">Schonzeiten werden geladen...</div>
-      </div>
+      <section className="bb-home-tile" aria-label="Schonzeit-Wächter">
+        {header}
+        <p className="bb-home-tile-meta">Für lokale Schonzeiten wird dein Standort benötigt.</p>
+        <button type="button" className="bb-home-tile-btn" onClick={requestGpsLocation} disabled={locating}>
+          <LocateFixed size={15} aria-hidden="true" />{locating ? "Suche …" : "Standort verwenden"}
+        </button>
+      </section>
     );
   }
 
-  if (noLocation) {
+  if (rules.isLoading || region.isLoading) {
     return (
-      <div className="rounded-2xl bg-gray-900/50 border border-gray-800/50 p-5">
-        <div className="text-sm font-semibold text-amber-400/80 uppercase tracking-wider mb-2">Schonzeit-Waechter</div>
-        <p className="text-sm text-gray-400">
-          Kein Standort verfuegbar. Bitte Standort aktivieren um lokale Schonzeiten zu sehen.
-        </p>
-      </div>
+      <section className="bb-home-tile" aria-label="Schonzeit-Wächter" aria-busy="true">
+        {header}
+        <span className="bb-home-tile-meta">Wird geprüft …</span>
+      </section>
     );
   }
 
-  if (active.length === 0 && upcoming.length === 0) {
+  if (rules.isError) {
     return (
-      <div className="rounded-2xl bg-gray-900/50 border border-gray-800/50 p-5">
-        <div className="text-xs font-semibold text-green-400/70 uppercase tracking-wider mb-2">
-          Schonzeit-Waechter {bundesland ? `- ${bundesland}` : ""}
-        </div>
-        <p className="text-sm text-green-300">
-          Aktuell keine aktiven Schonzeiten fuer deine Region.
-        </p>
-      </div>
+      <section className="bb-home-tile" aria-label="Schonzeit-Wächter">
+        {header}
+        <p className="bb-home-tile-meta">Regeln konnten nicht geladen werden.</p>
+        <button type="button" className="bb-home-tile-btn" onClick={() => rules.refetch()}>Erneut versuchen</button>
+      </section>
     );
   }
+
+  const bundesland = region.data?.state || null;
+  const { active, upcoming } = splitClosedSeasons(relevantRules(rules.data, bundesland));
 
   return (
-    <div className="rounded-2xl bg-gray-900/50 border border-gray-800/50 p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold text-amber-400/80 uppercase tracking-wider">
-          Schonzeit-Waechter {bundesland ? `- ${bundesland}` : ""}
-        </div>
-        <Link
-          to={createPageUrl("AngelscheinPruefungSchonzeiten")}
-          className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
-        >
-          Alle Regeln
-        </Link>
-      </div>
-
-      {active.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-xs text-red-400 font-medium uppercase tracking-wide">Jetzt Schonzeit</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {active.map((rule) => (
-              <div
-                key={rule.id}
-                className="flex items-center justify-between bg-red-900/20 border border-red-500/20 rounded-xl px-4 py-2"
-              >
-                <span className="text-sm font-semibold text-red-300">{rule.fish}</span>
-                <span className="text-xs text-gray-400">
-                  bis {new Date(rule.closed_to).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+    <Link to={createPageUrl("AngelscheinPruefungSchonzeiten")} className="bb-home-tile" aria-label="Schonzeit-Wächter, alle Regeln öffnen">
+      {header}
+      {bundesland && <span className="bb-home-tile-meta">{bundesland}</span>}
+      {active.length === 0 && upcoming.length === 0 ? (
+        <p className="bb-home-tile-text is-ok">Aktuell keine Schonzeiten.</p>
+      ) : (
+        <>
+          {active.length > 0 && <p className="bb-home-tile-text is-alert">Jetzt: {fishNames(active)}</p>}
+          {upcoming.length > 0 && <p className="bb-home-tile-text is-warn">Bald: {fishNames(upcoming)}</p>}
+        </>
       )}
-
-      {upcoming.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-xs text-amber-400 font-medium uppercase tracking-wide">Bald Schonzeit (14 Tage)</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {upcoming.map((rule) => (
-              <div
-                key={rule.id}
-                className="flex items-center justify-between bg-amber-900/20 border border-amber-500/20 rounded-xl px-4 py-2"
-              >
-                <span className="text-sm font-semibold text-amber-300">{rule.fish}</span>
-                <span className="text-xs text-gray-400">
-                  ab {new Date(rule.closed_from).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </Link>
   );
 }

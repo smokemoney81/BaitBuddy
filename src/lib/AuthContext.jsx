@@ -16,6 +16,18 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => { checkAppState(); }, []);
 
+  // Profiländerungen (auth.updateMe) sofort übernehmen — sonst zeigten
+  // Buddy-Begrüßung, Einstellungen und Avatar bis zum Neuladen den alten Stand.
+  useEffect(() => {
+    const onUserUpdated = (event) => {
+      const updated = event?.detail;
+      if (!updated?.id) return;
+      setUser(prev => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    };
+    window.addEventListener('bb-user-updated', onUserUpdated);
+    return () => window.removeEventListener('bb-user-updated', onUserUpdated);
+  }, []);
+
   // Login per E-Mail/Passwort läuft über den eigenen Backend-Proxy (auth.login)
   // und betrifft nur bb_token/bb_refresh — der Browser-Supabase-Client hat dabei
   // gar keine eigene Session. Bei OAuth/Passwort-Reset entsteht die Session

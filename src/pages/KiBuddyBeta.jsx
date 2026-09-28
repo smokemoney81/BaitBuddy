@@ -12,6 +12,7 @@ import { createSpeechQueue } from "@/components/utils/elevenLabsTTS";
 import { stripActionMarker } from "@/lib/streamingReply";
 import { resolveLocalAnswer, getOfflineFallback, faqPageLabel } from "@/lib/buddyFaq";
 import { buildGreeting } from "@/lib/buddyGreetings";
+import { saveRecentBuddyChat } from "@/lib/buddyRecentChat";
 import { executeBuddyAction } from "@/utils/buddyActions";
 import { useLocalBuddy } from "@/hooks/useLocalBuddy";
 import { isQuotaExceeded } from "@/lib/aiQuota";
@@ -76,7 +77,7 @@ export default function KiBuddyBeta() {
 // Screen mit vorausgewähltem Modus rendern, statt eine eigene Sitzung mit
 // eigenem Verlauf zu führen ("Buddy Live" — Punkt 5: ein gemeinsamer Screen).
 export function KiBuddyBetaInner({ initialMode } = {}) {
-  const { buddy, activeBuddy } = useBuddyPreferences();
+  const { buddy, activeBuddy, userId } = useBuddyPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   useFeatureTracking("ai_buddy");
@@ -732,13 +733,18 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   // Der globale Wake-Word-Listener übergibt eine Frage oder fordert direktes
   // Zuhören an. Query-Parameter nur einmal verarbeiten, damit ein erneutes
   // Rendern keine zweite Anfrage oder zweite Mikrofon-Sitzung startet.
+  // `ask=1` ist derselbe Einstieg für Fragen von der Startseite (Eingabeleiste,
+  // Schnellfragen, Mikrofon) — die Frage wird sofort gestellt statt nur
+  // vorbefüllt.
+  const autoStartParam = searchParams.get("wake") === "1" || searchParams.get("ask") === "1";
   useEffect(() => {
-    if (searchParams.get("wake") !== "1") return;
+    if (!autoStartParam) return;
     const question = searchParams.get("question")?.trim();
     const shouldListen = searchParams.get("listen") === "1";
     setSearchParams(previous => {
       const next = new URLSearchParams(previous);
       next.delete("wake");
+      next.delete("ask");
       next.delete("question");
       next.delete("listen");
       return next;
@@ -753,7 +759,15 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
     // Parameter werden einmalig konsumiert; die aktiven Helfer gehören zum
     // selben Mount und dürfen durch deren Zustand nicht erneut auslösen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.get("wake")]);
+  }, [autoStartParam]);
+
+  // Letzten vollständigen Wortwechsel für die Startseite merken (Dashboard
+  // zeigt Frage + Antwort wie in der Vorlage). Streamende Antworten zählen
+  // erst, wenn sie fertig sind.
+  useEffect(() => {
+    if (messages[messages.length - 1]?.streaming) return;
+    saveRecentBuddyChat(userId, messages);
+  }, [userId, messages]);
 
   useEffect(() => {
     // Beim (Re-)Mount wieder als aktiv markieren — sonst bliebe die Ref nach dem

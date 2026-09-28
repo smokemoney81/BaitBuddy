@@ -208,6 +208,91 @@ export function buildGreeting({ hour = new Date().getHours(), event = null, rank
   return parts.join(' ');
 }
 
+// Kurze, persönliche Begrüßung für die Startseite (Dashboard-Vorlage:
+// „Hey Basti! Schön, dass du da bist. Wie war dein Tag?"). Bewusst kürzer als
+// buildGreeting, weil die Blase neben der Wetterspalte wenig Platz hat.
+const HOME_GREETINGS = {
+  morgen: [
+    'Schön, dass du da bist. Was hast du heute vor?',
+    'Guten Morgen! Schon einen Plan fürs Wasser?',
+    'Schön, dich zu sehen. Wie ist der Morgen bei dir?',
+  ],
+  tag: [
+    'Schön, dass du da bist. Wie läuft dein Tag?',
+    'Schön, dich zu sehen. Was kann ich für dich tun?',
+    'Na, wie sieht es aus? Lust auf einen Ansitz?',
+  ],
+  abend: [
+    'Schön, dass du da bist. Wie war dein Tag?',
+    'Schön, dich zu sehen. Lust auf einen Abendansitz?',
+    'Feierabend? Dann lass uns übers Angeln reden.',
+  ],
+  nacht: [
+    'Schön, dass du da bist. Noch wach und am Planen?',
+    'Nachtschicht? Frag mich ruhig, ich bin da.',
+    'Schön, dich zu sehen. Was geht dir durch den Kopf?',
+  ],
+};
+
+/** Vorname für die Anrede: Anzeigename vor dem ersten Wort des vollen Namens. */
+export function greetingName(user) {
+  const nickname = typeof user?.nickname === 'string' ? user.nickname.trim() : '';
+  if (nickname) return nickname;
+  const full = typeof user?.full_name === 'string' ? user.full_name.trim() : '';
+  return full ? full.split(/\s+/)[0] : '';
+}
+
+/** Wählt die Begrüßungszeile passend zur Tageszeit (mit Anti-Wiederholung). */
+export function pickHomeGreetingLine(hour = new Date().getHours()) {
+  return pickVaried(`home_${getTimeSlot(hour)}`, HOME_GREETINGS[getTimeSlot(hour)]);
+}
+
+/** „Hey Basti! <Zeile>" bzw. „Hey! <Zeile>" ohne bekannten Namen. */
+export function formatHomeGreeting(name, line) {
+  const cleanName = String(name || '').trim();
+  return `${cleanName ? `Hey ${cleanName}!` : 'Hey!'} ${line}`;
+}
+
+// Die Startseiten-Begrüßung bleibt stehen, solange der Nutzer die Startseite
+// innerhalb des Cooldowns wieder aufruft (z. B. Frage stellen → Antwort lesen
+// → zurück): Dann passt ihre Uhrzeit vor die folgende Frage, wie in der
+// Vorlage. Wer länger weg war, bekommt eine neue Begrüßung.
+export const HOME_GREETING_KEY = 'bb_home_greeting';
+
+/**
+ * @param {number} [now]
+ * @returns {{ line: string, at: number }}
+ */
+export function currentHomeGreeting(now = Date.now()) {
+  let stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(HOME_GREETING_KEY) || 'null');
+  } catch {
+    stored = null;
+  }
+  const fresh = stored && typeof stored.line === 'string' && Number.isFinite(stored.at)
+    && Number.isFinite(stored.seenAt) && now - stored.seenAt <= GREETING_COOLDOWN_MS && stored.at <= now;
+  const greeting = fresh
+    ? { line: stored.line, at: stored.at }
+    : { line: pickHomeGreetingLine(new Date(now).getHours()), at: now };
+  try {
+    localStorage.setItem(HOME_GREETING_KEY, JSON.stringify({ ...greeting, seenAt: now }));
+  } catch {
+    /* localStorage optional — dann gilt die Begrüßung nur für diesen Aufruf */
+  }
+  return greeting;
+}
+
+/**
+ * Begrüßung für die Startseite, z. B. „Hey Basti! Schön, dass du da bist. Wie war dein Tag?"
+ * @param {object} opts
+ * @param {string} [opts.name] Anrede (leer → „Hey!")
+ * @param {number} [opts.hour] Stunde 0–23 (Default: jetzt)
+ */
+export function buildHomeGreeting({ name = '', hour = new Date().getHours() } = {}) {
+  return formatHomeGreeting(name, pickHomeGreetingLine(hour));
+}
+
 // Abwechslungsreiche, stimmungsvolle Rückfragen für die Seiten-Blase — damit
 // der Buddy nicht auf jeder Seite immer denselben festen Satz zeigt.
 const VARIED_QUESTIONS = [

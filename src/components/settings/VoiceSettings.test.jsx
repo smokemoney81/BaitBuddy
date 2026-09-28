@@ -92,3 +92,37 @@ describe('VoiceSettings – KI-Buddy-Stimme (Pro-Gate, eine Stimme für alle)', 
     );
   });
 });
+
+describe('VoiceSettings – Aktivierungswort', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    planState.planLevel = 0;
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('ist standardmäßig aus und lässt sich einschalten', async () => {
+    const changed = vi.fn();
+    window.addEventListener('privacy-prefs-changed', changed);
+    renderSettings();
+
+    const toggle = await screen.findByRole('switch', { name: /Aktivierungswort/ });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(JSON.parse(localStorage.getItem('bb_privacy_prefs')).wakeWord).toBe(true);
+    // Der globale Listener startet über dieses Ereignis sofort, ohne Speichern-Knopf.
+    expect(changed).toHaveBeenCalled();
+    window.removeEventListener('privacy-prefs-changed', changed);
+  });
+});

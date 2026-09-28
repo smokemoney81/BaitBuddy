@@ -9,7 +9,6 @@ import { UploadFile } from '@/integrations/Core';
 import { Camera, Copy, Check, Edit3, Calendar, Clock, MessageSquare, Crown, Link as LinkIcon, Mail, AlertTriangle } from 'lucide-react';
 import { toast } from "sonner";
 import RatingWidget from "@/components/feedback/RatingWidget";
-import { useOptimisticMutation } from "@/lib/useOptimisticMutation";
 import DeleteAccountDialog from "@/components/settings/DeleteAccountDialog";
 import { Trash2 } from "lucide-react";
 import { useFeatureTracking } from "@/hooks/useFeatureTracking";
@@ -22,7 +21,7 @@ export default function ProfilePage() {
    const [isEditing, setIsEditing] = useState(false);
    const [nickname, setNickname] = useState('');
    const [isUploading, setIsUploading] = useState(false);
-   const [_isSaving, _setIsSaving] = useState(false);
+   const [isSaving, setIsSaving] = useState(false);
    const [copiedReferral, setCopiedReferral] = useState(false);
    const [postsCount, setPostsCount] = useState(0);
    const [currentPlan, setCurrentPlan] = useState(null);
@@ -36,7 +35,7 @@ export default function ProfilePage() {
     try {
       const currentUser = await auth.me();
       setUser(currentUser);
-      setNickname(currentUser.nickname || '');
+      setNickname(currentUser.nickname || currentUser.full_name || '');
       
       // Referral-Code vergibt ausschließlich der Server (eindeutig, im
       // Reverse-Lookup registriert). Ein clientseitig gewürfelter Code konnte
@@ -143,32 +142,34 @@ export default function ProfilePage() {
     setIsUploading(false);
   };
 
-  const saveProfileMutation = useOptimisticMutation({
-    mutationFn: async (data) => {
-      const updatedUser = await auth.updateMe(data);
-      return updatedUser;
-    },
-    optimisticUpdate: (oldUser, newData) => ({
-      ...oldUser,
-      ...newData
-    }),
-    onSuccess: (updatedUser) => {
-      setUser(updatedUser);
-      setIsEditing(false);
-      toast.success('Profil erfolgreich aktualisiert!');
-    },
-    onError: () => {
-      toast.error('Fehler beim Speichern des Profils.');
-    },
-    invalidateOnSettle: false
-  });
-
+  // Nickname speichern. Früher lief das über useOptimisticMutation ohne
+  // queryKey und die Seite referenzierte ein nicht deklariertes `isSaving` —
+  // schon das Öffnen des Bearbeiten-Modus warf einen ReferenceError, der Name
+  // war dadurch gar nicht änderbar.
   const handleSaveProfile = async () => {
-    if (!nickname.trim()) {
-      toast.error('Nickname darf nicht leer sein.');
+    const trimmed = nickname.trim().replace(/\s+/g, ' ');
+    if (!trimmed) {
+      toast.error('Der Name darf nicht leer sein.');
       return;
     }
-    saveProfileMutation.mutate({ nickname: nickname.trim() });
+    if (trimmed.length > 40) {
+      toast.error('Der Name darf höchstens 40 Zeichen lang sein.');
+      return;
+    }
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const updatedUser = await auth.updateMe({ nickname: trimmed });
+      setUser(prev => ({ ...prev, ...updatedUser }));
+      setNickname(updatedUser?.nickname || trimmed);
+      setIsEditing(false);
+      toast.success('Name gespeichert.');
+    } catch (error) {
+      console.error('Profil speichern fehlgeschlagen:', error);
+      toast.error(error?.message ? `Name konnte nicht gespeichert werden: ${error.message}` : 'Name konnte nicht gespeichert werden.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const copyReferralLink = async () => {
@@ -265,13 +266,22 @@ export default function ProfilePage() {
           <div className="grid gap-2 w-full">
             {isEditing ? (
               <div className="grid gap-3">
-                <Label style={{ color: 'var(--bb-text-secondary)' }}>Nickname</Label>
-                <Input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Dein Nickname" className="bg-black/25 border-white/10 text-white" />
+                <Label htmlFor="profile-nickname" style={{ color: 'var(--bb-text-secondary)' }}>Anzeigename</Label>
+                <Input
+                  id="profile-nickname"
+                  value={nickname}
+                  maxLength={40}
+                  autoFocus
+                  onChange={(e) => setNickname(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveProfile(); } }}
+                  placeholder="Dein Name"
+                  className="bg-black/25 border-white/10 text-white"
+                />
                 <div className="flex gap-2 justify-center">
-                  <button onClick={handleSaveProfile} disabled={isSaving} className="bb-action">
+                  <button type="button" onClick={handleSaveProfile} disabled={isSaving} className="bb-action">
                     {isSaving ? 'Speichern...' : 'Speichern'}
                   </button>
-                  <button className="bb-secondary" onClick={() => { setIsEditing(false); setNickname(user?.nickname || ''); }}>
+                  <button type="button" className="bb-secondary" onClick={() => { setIsEditing(false); setNickname(user?.nickname || user?.full_name || ''); }}>
                     Abbrechen
                   </button>
                 </div>
@@ -279,8 +289,8 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div className="flex items-center gap-3 justify-center">
-                  <h2 className="text-2xl font-bold text-white">{user?.nickname || 'Unbenannt'}</h2>
-                  <button onClick={() => setIsEditing(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--bb-muted)' }}>
+                  <h2 className="text-2xl font-bold text-white">{user?.nickname || user?.full_name || 'Unbenannt'}</h2>
+                  <button type="button" onClick={() => setIsEditing(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--bb-muted)' }} aria-label="Name bearbeiten">
                     <Edit3 size={16} />
                   </button>
                 </div>

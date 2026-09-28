@@ -40,3 +40,19 @@ export function weatherDescription(code) {
   if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Schnee';
   return Number.isFinite(code) ? 'Regen' : 'Wetterdaten fehlen';
 }
+
+/** Bissindex der laufenden Stunde samt Tendenz (steigt/fällt) oder null. */
+export function currentBiteIndex(hours, now = Date.now()) {
+  if (!Array.isArray(hours)) return null;
+  const row = hours.find(entry => entry.time <= now && now < entry.time + 3600000);
+  if (!row || row.index == null) return null;
+  const next = hours.find(entry => entry.time === row.time + 3600000);
+  return { value: row.index, rising: next?.index != null ? next.index > row.index : null };
+}
+
+export function biteLabel(value) {
+  if (value >= 70) return 'Sehr gut';
+  if (value >= 55) return 'Gut';
+  if (value >= 40) return 'Mittel';
+  return 'Schwach';
+}

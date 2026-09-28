@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Zap } from "lucide-react";
+import { Database, Plus } from "lucide-react";
 import { ai } from "@/api/frontendClient";
 import { subscribeAiUsageChanged } from "@/lib/aiUsageBus";
 import { formatTokens } from "@/lib/planAiCapabilities";
@@ -78,15 +78,21 @@ export default function AiCreditBadge({ user }) {
 
   return (
     <>
-      <button
-        type="button"
-        className={`bb-ai-credit-badge ${modifier}`.trim()}
-        onClick={() => setOpen(true)}
-        aria-label={`KI-Guthaben: ${unlimited ? "unbegrenzt" : `${formatTokens(usage.remaining)} Tokens übrig`}. Verbrauchsübersicht öffnen`}
-      >
-        <Zap size={15} aria-hidden="true" />
-        <span>{unlimited ? "∞" : formatTokens(usage.remaining)}</span>
-      </button>
+      {/* Guthaben-Pille der Vorlage: Münzstapel + Stand, rechts „+" zum Aufstocken. */}
+      <span className={`bb-ai-credit-pill ${modifier}`.trim()}>
+        <button
+          type="button"
+          className={`bb-ai-credit-badge ${modifier}`.trim()}
+          onClick={() => setOpen(true)}
+          aria-label={`KI-Guthaben: ${unlimited ? "unbegrenzt" : `${formatTokens(usage.remaining)} Tokens übrig`}. Verbrauchsübersicht öffnen`}
+        >
+          <Database size={17} aria-hidden="true" />
+          <span>{unlimited ? "∞" : formatTokens(usage.remaining)}</span>
+        </button>
+        <Link to="/PremiumPlans" className="bb-ai-credit-plus" aria-label="KI-Guthaben aufstocken">
+          <Plus size={15} strokeWidth={3} aria-hidden="true" />
+        </Link>
+      </span>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="bb-ai-credit-sheet">

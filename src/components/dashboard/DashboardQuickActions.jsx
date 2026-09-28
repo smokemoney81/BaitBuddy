@@ -12,7 +12,7 @@ const ACTIONS = [
   { path: '/KiBuddyBeta', icon: Brain, label: 'KI-\nBuddy' },
 ];
 
-export default function DashboardQuickActions() {
+export default function DashboardQuickActions({ onNavigate } = {}) {
   return (
     <div className="bb-quick-actions" role="list" aria-label="Schnellzugriffe">
       {ACTIONS.map(({ path, icon: Icon, label }) => (
@@ -21,7 +21,10 @@ export default function DashboardQuickActions() {
           to={path}
           className="bb-quick-action"
           role="listitem"
-          onClick={() => trackFeatureClick(path.split('/')[1] || path, { source: 'dashboard_quick' })}
+          onClick={() => {
+            trackFeatureClick(path.split('/')[1] || path, { source: 'dashboard_quick' });
+            onNavigate?.();
+          }}
         >
           <div className="bb-quick-action-icon">
             <Icon size={20} strokeWidth={1.6} />

@@ -17,6 +17,7 @@ export const ALLOWED_PAGES = [
   "FishRecipes", "GearRecognition", "NotificationCenter",
   "GearMaintenance", "OfflineFishingPack", "RuleAssistant",
   "HandsFreeBuddy", "LevelRewards", "Vereinsprofil", "Privatsphaere", "GastdatenUebernehmen",
+  "KiTools",
 ];
 
 // Aliase (immer kleingeschrieben) kanonischer Key.
@@ -65,6 +66,9 @@ const PAGE_ALIASES = {
   // Navigation dorthin landete auf der 404-Seite. Kanonisch ist KiBuddyBeta.
   chat: "KiBuddyBeta", assistent: "KiBuddyBeta", aiassistant: "KiBuddyBeta",
   ki: "KiBuddyBeta", kibuddy: "KiBuddyBeta", buddy: "KiBuddyBeta",
+
+  "ki tools": "KiTools", "ki-tools": "KiTools", kitools: "KiTools",
+  "ki werkzeuge": "KiTools", "ki-werkzeuge": "KiTools", werkzeuge: "KiTools",
 
   sprachchat: "VoiceChat", voicechat: "VoiceChat", telefonat: "VoiceChat",
   livegespräch: "VoiceChat", livegespraech: "VoiceChat",

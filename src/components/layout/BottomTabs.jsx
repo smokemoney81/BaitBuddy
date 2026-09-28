@@ -22,6 +22,7 @@ const ARIA_LABELS = {
   Community: 'Community',
   Map: 'Map',
   KiBuddyBeta: 'AI Buddy',
+  KiTools: 'KI-Tools',
   TripPlanner: 'Trip Planner',
   Gear: 'Gear',
   Profile: 'Profile',
@@ -118,7 +119,7 @@ export default function BottomTabs() {
       longPressTriggeredRef.current = true;
       if (isBuddyHapticEnabled()) vibrate(30);
       trackFeatureClick('KiBuddyBeta', { source: 'bottom_tabs_longpress_voice' });
-      navigate('/KiBuddyBeta?voice=1');
+      navigate('/KiBuddyBeta?mode=text&ask=1&listen=1');
       clearPressTimers();
     }, LONG_PRESS_MS);
   }, [voiceSpeaking, animateProgress, navigate, clearPressTimers]);

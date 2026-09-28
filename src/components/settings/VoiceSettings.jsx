@@ -14,6 +14,7 @@ import { getPlanLevel } from "@/components/premium/planHierarchy";
 import { speakWithFallback } from "@/components/utils/elevenLabsTTS";
 import { isVoiceGuideEnabled, setVoiceGuideEnabled } from "@/lib/voicePageGuide";
 import { isBuddyHapticEnabled, setBuddyHapticEnabled } from "@/lib/buddyActivity";
+import { readPrivacyPrefs, writePrivacyPrefs } from "@/lib/privacyPrefs";
 
 const VOICE_SAMPLE_TEXT = 'Hallo, ich bin dein KI-Buddy. Petri Heil und ab ans Wasser!';
 
@@ -27,6 +28,15 @@ export default function VoiceSettings() {
   const [isSampling, setIsSampling] = useState(false);
   const [voiceGuide, setVoiceGuide] = useState(() => isVoiceGuideEnabled());
   const [buddyHaptic, setBuddyHaptic] = useState(() => isBuddyHapticEnabled());
+  // Aktivierungswort teilt sich den Speicher mit der Privatsphäre-Seite
+  // (bb_privacy_prefs), damit beide Schalter immer denselben Stand zeigen.
+  const [wakePrefs, setWakePrefs] = useState(() => readPrivacyPrefs());
+
+  useEffect(() => {
+    const sync = (event) => setWakePrefs(event.detail || readPrivacyPrefs());
+    window.addEventListener('privacy-prefs-changed', sync);
+    return () => window.removeEventListener('privacy-prefs-changed', sync);
+  }, []);
 
   const playSample = async () => {
     if (isSampling) return;
@@ -127,6 +137,25 @@ export default function VoiceSettings() {
             id="voice-guide"
             checked={voiceGuide}
             onCheckedChange={(v) => { setVoiceGuide(v); setVoiceGuideEnabled(v); }}
+          />
+        </div>
+
+        {/* Aktivierungswort: Standard aus, weil die Erkennung sonst dauerhaft das
+            Mikrofon offen hält. Greift sofort (GlobalWakeWordListener hört auf
+            privacy-prefs-changed), kein Speichern-Knopf nötig. */}
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="wake-word" className="text-gray-300">
+            Aktivierungswort „{wakePrefs.wakeWordPhrase}“
+            <span className="block text-xs text-gray-500 font-normal">
+              Wenn an, hört die App im Vordergrund auf das Aktivierungswort und öffnet den KI-Buddy.
+              Solange es an ist, bleibt das Mikrofon aktiv. Die Spracherkennung läuft über den
+              Sprachdienst deines Geräts (unter Android über Google). Das Wort änderst du unter Privatsphäre.
+            </span>
+          </Label>
+          <Switch
+            id="wake-word"
+            checked={wakePrefs.wakeWord}
+            onCheckedChange={(v) => setWakePrefs(writePrivacyPrefs({ wakeWord: v }))}
           />
         </div>
 

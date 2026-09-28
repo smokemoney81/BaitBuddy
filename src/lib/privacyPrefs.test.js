@@ -9,9 +9,23 @@ describe('privacyPrefs', () => {
     expect(readPrivacyPrefs()).toEqual(DEFAULT_PRIVACY_PREFS);
   });
 
+  it('hat das Aktivierungswort standardmäßig aus', () => {
+    expect(readPrivacyPrefs().wakeWord).toBe(false);
+  });
+
   it('merkt einzelne Schalter und behält die übrigen', () => {
-    writePrivacyPrefs({ wakeWord: false });
-    expect(readPrivacyPrefs()).toEqual({ handsFree: true, wakeWord: false, wakeWordPhrase: 'Hey Buddy' });
+    writePrivacyPrefs({ wakeWord: true });
+    expect(readPrivacyPrefs()).toEqual({ handsFree: true, wakeWord: true, wakeWordPhrase: 'Hey Buddy' });
+    writePrivacyPrefs({ handsFree: false });
+    expect(readPrivacyPrefs()).toEqual({ handsFree: false, wakeWord: true, wakeWordPhrase: 'Hey Buddy' });
+  });
+
+  // Bis Version 1 war das Aktivierungswort an und wurde bei jeder Änderung
+  // eines anderen Schalters mitgeschrieben. Solche Altwerte gelten nicht als
+  // bewusste Wahl — das Mikrofon soll nach dem Update nicht weiter lauschen.
+  it('setzt ein altes gespeichertes Aktivierungswort (ohne Version) auf aus', () => {
+    localStorage.setItem('bb_privacy_prefs', JSON.stringify({ handsFree: false, wakeWord: true, wakeWordPhrase: 'Hallo Angelbuddy' }));
+    expect(readPrivacyPrefs()).toEqual({ handsFree: false, wakeWord: false, wakeWordPhrase: 'Hallo Angelbuddy' });
   });
 
   it('behält ein eigenes Aktivierungswort beim Ändern anderer Schalter', () => {

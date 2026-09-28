@@ -3,6 +3,7 @@ import { getFishingRecommendation } from "@/functions/getFishingRecommendation";
 import { toast } from "sonner";
 import SpeakButton from "@/components/ai/SpeakButton";
 import { useLocation as useGeoLocation } from "@/components/location/LocationManager";
+import { Sparkles } from "lucide-react";
 
 export default function FishingRecommendationCard() {
   const [loading, setLoading] = useState(false);
@@ -10,9 +11,9 @@ export default function FishingRecommendationCard() {
   const { ensureLocation } = useGeoLocation();
 
   const ratingColor = {
-    "Gut": "text-emerald-700",
-    "Mittel": "text-amber-700",
-    "Schlecht": "text-red-700"
+    "Gut": "text-emerald-300",
+    "Mittel": "text-amber-300",
+    "Schlecht": "text-red-300"
   };
 
   const analyze = async () => {
@@ -43,30 +44,31 @@ export default function FishingRecommendationCard() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900/80 to-gray-900/40 border border-gray-800/50 p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-cyan-400/70 uppercase tracking-wider">KI Angelempfehlung</h3>
-          <p className="text-xs text-gray-500 mt-0.5">Basierend auf Wetter + deinem Fangbuch</p>
-        </div>
+    <section className="bb-home-tile bb-home-tile-wide" aria-label="KI-Angelempfehlung">
+      <div className="bb-home-tile-row">
+        <span className="bb-home-tile-icon"><Sparkles size={18} aria-hidden="true" /></span>
+        <span className="flex-1 min-w-0">
+          <span className="bb-home-tile-label">KI-Angelempfehlung</span>
+          <span className="bb-home-tile-meta">Wetter + dein Fangbuch</span>
+        </span>
         <button type="button"
           onClick={analyze}
           disabled={loading}
-          className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+          className="bb-home-tile-btn is-primary"
         >
           {loading ? "Analysiere..." : data ? "Neu laden" : "Analysieren"}
         </button>
       </div>
 
       {loading && (
-        <div className="flex items-center gap-3 text-gray-400 text-sm py-4">
+        <div className="flex items-center gap-3 text-gray-400 text-sm pt-2" role="status">
           <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
           KI analysiert dein Fangbuch und das aktuelle Wetter...
         </div>
       )}
 
       {!loading && data && (
-        <div className="space-y-4">
+        <div className="space-y-3 pt-2">
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500 uppercase tracking-wider">Wetterbewertung</span>
             <span className={`font-bold ${ratingColor[data.recommendation.weather_rating] || 'text-gray-300'}`}>
@@ -130,11 +132,6 @@ export default function FishingRecommendationCard() {
         </div>
       )}
 
-      {!loading && !data && (
-        <p className="text-sm text-gray-500 py-2">
-          Klicke auf Analysieren, um personalisierte Empfehlungen basierend auf deinen Faengen und dem aktuellen Wetter zu erhalten.
-        </p>
-      )}
-    </div>
+    </section>
   );
 }

@@ -4,12 +4,18 @@
 
 const KEY = 'bb_privacy_prefs';
 const DEFAULT_WAKE_WORD = 'Hey Buddy';
+// Version 2: Das Aktivierungswort ist standardmäßig AUS. Bis Version 1 stand
+// es auf an, und jede Änderung eines anderen Schalters schrieb dieses „an“
+// ausdrücklich mit — ein gespeichertes wakeWord ohne Version ist also keine
+// bewusste Wahl und wird ignoriert (einmaliges Zurücksetzen auf aus).
+const PREFS_VERSION = 2;
 
 export const DEFAULT_PRIVACY_PREFS = {
   // Hands-free Buddy darf gestartet werden.
   handsFree: true,
-  // Globales Aktivierungswort darf beim App-Start lauschen.
-  wakeWord: true,
+  // Globales Aktivierungswort lauscht nur nach ausdrücklichem Einschalten:
+  // Solange es an ist, hält die Spracherkennung dauerhaft das Mikrofon offen.
+  wakeWord: false,
   // Nutzerdefiniertes Aktivierungswort; bleibt lokal auf diesem Gerät.
   wakeWordPhrase: DEFAULT_WAKE_WORD,
 };
@@ -26,9 +32,10 @@ export function sanitizeWakeWord(value) {
 export function readPrivacyPrefs() {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const wakeWordChosen = raw.version >= PREFS_VERSION && typeof raw.wakeWord === 'boolean';
     return {
       handsFree: typeof raw.handsFree === 'boolean' ? raw.handsFree : DEFAULT_PRIVACY_PREFS.handsFree,
-      wakeWord: typeof raw.wakeWord === 'boolean' ? raw.wakeWord : DEFAULT_PRIVACY_PREFS.wakeWord,
+      wakeWord: wakeWordChosen ? raw.wakeWord : DEFAULT_PRIVACY_PREFS.wakeWord,
       wakeWordPhrase: sanitizeWakeWord(raw.wakeWordPhrase || DEFAULT_PRIVACY_PREFS.wakeWordPhrase),
     };
   } catch {
@@ -44,7 +51,7 @@ export function writePrivacyPrefs(next) {
     wakeWordPhrase: sanitizeWakeWord(next?.wakeWordPhrase ?? current.wakeWordPhrase),
   };
   try {
-    localStorage.setItem(KEY, JSON.stringify(merged));
+    localStorage.setItem(KEY, JSON.stringify({ ...merged, version: PREFS_VERSION }));
   } catch {
     // Speicher gesperrt (Private Mode): Schalter gilt nur für diese Sitzung.
   }

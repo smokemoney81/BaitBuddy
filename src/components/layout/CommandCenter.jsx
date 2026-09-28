@@ -15,12 +15,13 @@ import { useFishingConditions } from '@/hooks/useFishingConditions';
 import { formatForecastTime } from '@/lib/fishingConditions';
 import { PAGE_META, readRecentPages } from '@/lib/pageMeta';
 import { AvatarCircle } from '@/components/layout/AppTopBar';
+import { KI_TOOL_LINKS } from '@/components/navigation/kiTools';
 
 // Hauptbereiche der Vorlage. Bereiche mit mehreren Zielen klappen auf,
 // damit jede bisherige Funktion aus dem alten Menü erreichbar bleibt.
 const AREAS = [
   { name: 'KI-Buddy', icon: Bot, items: [['KI-Buddy Chat', 'KiBuddyBeta'], ['Hands-free Buddy', 'HandsFreeBuddy'], ['Voice-Buddy', 'VoiceChat'], ['BaitBuddy kennt dich', 'BuddyKnowsYou']] },
-  { name: 'KI-Tools', icon: Wrench, items: [['Fischbestimmung & Biss', 'AI'], ['Fang-Analyse', 'Analysis'], ['Gewässeranalyse', 'WaterAnalysis'], ['Satellitenanalyse', 'SatelliteAnalysis'], ['Köderempfehlung', 'BaitMixer'], ['3D-Köderführung', 'Koeder3D'], ['AR-Gewässer', 'ARView'], ['AR Knoten AI', 'ARKnotenAssistent'], ['Ausrüstung erkennen', 'GearRecognition'], ['Fischrezepte', 'FishRecipes']] },
+  { name: 'KI-Tools', icon: Wrench, items: [['Alle KI-Tools', 'KiTools'], ...KI_TOOL_LINKS] },
   { name: 'Karte & Gewässer', icon: MapIcon, items: [['Karte, Gewässer & Favoriten', 'Map'], ['Tiefenkarten', 'BathymetricCrowdsourcing'], ['Offline-Paket', 'OfflineFishingPack']] },
   { name: 'Community', icon: Users, items: [['Feed, Gruppen & Freunde', 'Community'], ['Ranglisten', 'Rank'], ['Angelvereine', 'Vereinsprofil'], ['Level & Rewards', 'LevelRewards']] },
   { name: 'Trips & Planung', icon: CalendarDays, items: [['Ausflüge & Touren', 'TripPlanner'], ['Neuer Ausflug', 'TripPlanner?new=1'], ['Anglermodus', 'AnglerMode'], ['Live-Trip', 'LiveTrip']] },

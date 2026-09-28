@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Trophy } from "lucide-react";
+import { Trophy, ChevronRight } from "lucide-react";
 import { events } from "@/api/frontendClient";
 import { auth } from "@/api/auth";
 
@@ -67,9 +67,10 @@ function EventTimer() {
       aria-label={`Event ${name} endet in ${time}`}
       title={`${name} – endet am ${new Date(event.end_date).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}`}
     >
-      <Trophy size={14} aria-hidden="true" />
+      <Trophy size={18} aria-hidden="true" />
       <span className="bb-event-timer-name">{name}</span>
       <span className="bb-event-timer-time">· endet in {time}</span>
+      <ChevronRight size={18} aria-hidden="true" className="bb-event-timer-chevron" />
     </Link>
   );
 }

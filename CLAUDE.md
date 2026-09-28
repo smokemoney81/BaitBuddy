@@ -653,6 +653,17 @@ Die reine Timeout-/Backoff-/Retry-Logik liegt in `src/lib/bleConnection.js`
 
 ---
 
+## 🏠 Dashboard (Vorlage 2026-09) & verbindliche Regeln gegen Rückfälle
+
+- **Seite 1** (`src/pages/Dashboard.jsx`, `src/components/home/*`): füllt genau den Bildschirm (`useFitToViewport(ref, { lockScroll: false })`) — Wetterspalte links (`HomeWeatherRail`, Ort per `src/lib/placeName.js` mit Cache), Buddy-Gespräch (`HomeBuddyChat`: Begrüßung via `currentHomeGreeting` + letzter echter Wortwechsel aus `src/lib/buddyRecentChat.js`, den `KiBuddyBeta` speichert), vier Schnellfragen (`HomePromptChips`), Eingabeleiste (`HomeBuddyInput`). **Seite 2** (`HomeOverview`): alle übrigen Karten als kompakte Kacheln. Neue Dashboard-Inhalte gehören auf Seite 2, nie in Seite 1 (Höhenrechnung!).
+- **Fragen an den Buddy** immer über `buddyAskUrl(question)` (`/KiBuddyBeta?mode=text&ask=1&question=…`); Voice-Start über `?ask=1&listen=1`. **Keine neuen URL-Parameter erfinden**, die `KiBuddyBeta` nicht auswertet (so war `?voice=1` monatelang wirkungslos) — neue Parameter nur zusammen mit Auswertung + Test.
+- **Bottom-Nav:** Standard Home · Karte · [KI-Buddy] · KI-Tools · Wetter. Der KI-Buddy sitzt fest in der Mitte und ist **keine** wählbare Seitenposition (`NAVIGATION_OPTIONS`); Altwerte migriert `normalizeNavigation`. Keine Nav-Einträge doppelt.
+- **Mikrofon nie ungefragt offen:** Das Aktivierungswort (`bb_privacy_prefs.wakeWord`) ist **standardmäßig aus** und nur per Schalter (Einstellungen → Audio / Privatsphäre) einschaltbar. Jede Komponente, die `getUserMedia`/SpeechRecognition startet, beendet sie beim Unmount.
+- **Kein Hintergrund-Polling** auf dem Dashboard (früher 2 s/10 s). Aktualisieren bei `visibilitychange`/`online` oder über React Query `staleTime`.
+- **Profil-/Nutzeränderungen** laufen über `auth.updateMe`, das `bb-user-updated` feuert (Layout, AuthContext, Dashboard übernehmen sofort). Keine eigenen User-Kopien ohne diesen Listener.
+- **Vor jedem Commit** geänderte Seiten mindestens einmal rendern (Komponententest oder Playwright-Screenshot mit `e2e/fixtures/apiMock.js`) — ein nicht deklarierter Bezeichner (`isSaving` im Profil) hat die Namensänderung komplett blockiert, ohne dass Lint oder Build anschlugen.
+- **Vorlagen-Treue:** Maße aus Screenshots messen, Ergebnis per Screenshot vergleichen; bewusste Abweichungen (Lesbarkeit, keine dekorativen Emojis, nur echte Daten) im PR benennen.
+
 ## 🧭 App-Hülle (BaitBuddy 2.0, nach Referenz-Screenshots)
 
 Die Hülle um jede Seite folgt den Vorlagen aus Issue #386:
