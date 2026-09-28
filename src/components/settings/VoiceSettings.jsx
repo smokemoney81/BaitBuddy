@@ -13,6 +13,7 @@ import { usePlan } from "@/components/premium/PlanContext";
 import { getPlanLevel } from "@/components/premium/planHierarchy";
 import { speakWithFallback } from "@/components/utils/elevenLabsTTS";
 import { isVoiceGuideEnabled, setVoiceGuideEnabled } from "@/lib/voicePageGuide";
+import { isBuddyHapticEnabled, setBuddyHapticEnabled } from "@/lib/buddyActivity";
 
 const VOICE_SAMPLE_TEXT = 'Hallo, ich bin dein KI-Buddy. Petri Heil und ab ans Wasser!';
 
@@ -25,6 +26,7 @@ export default function VoiceSettings() {
   const [initialState, setInitialState] = useState({ audioEnabled: true, speechSpeed: 1.0 });
   const [isSampling, setIsSampling] = useState(false);
   const [voiceGuide, setVoiceGuide] = useState(() => isVoiceGuideEnabled());
+  const [buddyHaptic, setBuddyHaptic] = useState(() => isBuddyHapticEnabled());
 
   const playSample = async () => {
     if (isSampling) return;
@@ -203,6 +205,21 @@ export default function VoiceSettings() {
             <Play className="w-4 h-4 mr-2" />
             {isSampling ? 'Spielt ab...' : 'Stimme probehören'}
           </Button>
+        </div>
+
+        {/* Haptisches Buddy-Feedback */}
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="buddy-haptic" className="text-gray-300">
+            Haptisches Buddy-Feedback
+            <span className="block text-xs text-gray-500 font-normal">
+              Kleine Vibrationen geben dir Rückmeldung, wenn Buddy zuhört, nachdenkt oder spricht.
+            </span>
+          </Label>
+          <Switch
+            id="buddy-haptic"
+            checked={buddyHaptic}
+            onCheckedChange={(v) => { setBuddyHaptic(v); setBuddyHapticEnabled(v); }}
+          />
         </div>
 
         {/* Hinweis */}
