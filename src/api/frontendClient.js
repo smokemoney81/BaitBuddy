@@ -539,6 +539,17 @@ function applySession(res) {
   return res;
 }
 
+// Meldet ein geändertes Profil app-weit (Kopfzeile, AuthContext). Ohne das
+// behielten Layout und Kontext bis zum Neuladen den alten Namen/Avatar.
+function announceUserUpdated(user) {
+  if (typeof window === 'undefined' || !user) return;
+  try {
+    window.dispatchEvent(new CustomEvent('bb-user-updated', { detail: user }));
+  } catch {
+    // Umgebung ohne CustomEvent (SSR/Test) — nichts zu melden.
+  }
+}
+
 export const auth = {
   // Liefert das aktuelle Profil. Offline (Netzwerkfehler) wird — sofern ein Token
   // vorliegt — das zwischengespeicherte Profil zurückgegeben, damit ein zuvor
@@ -561,6 +572,7 @@ export const auth = {
   updateMe: async (data) => {
     const user = await api.patch('/api/auth/me', data);
     setCachedUser(user);
+    announceUserUpdated(user);
     return user;
   },
 
@@ -568,6 +580,7 @@ export const auth = {
   updateMyUserData: async (data) => {
     const user = await api.patch('/api/auth/me', data);
     setCachedUser(user);
+    announceUserUpdated(user);
     return user;
   },
 
