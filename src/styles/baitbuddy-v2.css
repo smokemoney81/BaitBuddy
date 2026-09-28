@@ -2444,6 +2444,153 @@ html.bb-no-page-scroll body { overflow: hidden; overscroll-behavior: none; }
   .bb-voice-controls { display: none; }
 }
 
+/* Voice Buddy nach Vorlage (2026-09): zwei Dropdowns oben, großer Logo-Orb mit
+   Schallwellen und Wasserringen, schlichter Verlauf (neueste Nachricht oben,
+   Uhrzeit + Häkchen) und eine einzige Eingabeleiste mit Lautsprecher, Mikrofon,
+   Stopp und Senden. */
+.bb-page.bb-voice { --bb-voice-orb: clamp(96px, 24vh, 230px); gap: 10px; }
+.bb-voice-menus { position: relative; z-index: 5; display: grid; grid-template-columns: 1fr 1px 1fr; gap: 16px; align-items: center; }
+.bb-voice-menus-divider { width: 1px; height: 44px; background: linear-gradient(180deg, transparent, rgba(0,229,255,.5), transparent); }
+.bb-voice-menu { position: relative; min-width: 0; }
+.bb-voice-menu-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 15px;
+  color: #dce8f2;
+  background: rgba(8, 20, 34, .55);
+  border: 1px solid rgba(0,229,255,.55);
+  box-shadow: 0 0 10px rgba(0,229,255,.15);
+}
+.bb-voice-menu-toggle > span, .bb-voice-menu-toggle { white-space: nowrap; }
+.bb-voice-menu-toggle svg { flex-shrink: 0; margin-left: auto; color: var(--bb-cyan); transition: transform var(--bb-motion); }
+.bb-voice-menu-toggle { justify-content: flex-start; padding-left: 20%; }
+.bb-voice-menu.is-open .bb-voice-menu-toggle svg { transform: rotate(180deg); }
+.bb-voice-menu-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  width: min(92vw, 360px);
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(8, 18, 32, .96);
+  border: 1px solid rgba(0,229,255,.4);
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  gap: 8px;
+}
+.bb-voice-menu:first-child .bb-voice-menu-panel { left: 0; }
+.bb-voice-menu:last-child .bb-voice-menu-panel { right: 0; }
+.bb-voice-menu.is-open .bb-voice-menu-panel { display: grid; }
+.bb-voice-menu-panel .bb-voice-actions { grid-template-columns: 1fr; }
+.bb-voice-menu-panel .bb-voice-action small { display: block; }
+.bb-voice-menu-panel .bb-voice-quick { flex-wrap: wrap; }
+.bb-voice-menu-panel .bb-voice-mode { justify-content: flex-start; }
+
+.bb-voice-orb { display: flex; align-items: center; justify-content: center; gap: 10px; height: calc(var(--bb-voice-orb) + 40px); }
+.bb-voice-orb .bb-voice-waves { position: static; inset: auto; padding: 0; gap: 4px; justify-content: center; width: 70px; }
+.bb-voice-orb .bb-voice-waves i { width: 2px; opacity: .9; background: var(--bb-cyan); box-shadow: 0 0 6px var(--bb-cyan); }
+.bb-voice-orb-core { position: relative; display: grid; place-items: center; width: var(--bb-voice-orb); height: var(--bb-voice-orb); }
+.bb-voice-orb-core::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  border: 1px solid rgba(0,229,255,.35);
+  box-shadow: 0 0 40px rgba(0,229,255,.25), inset 0 0 30px rgba(0,229,255,.12);
+}
+.bb-voice-orb .bb-voice-orb-core img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(0,229,255,.8);
+  box-shadow: 0 0 36px rgba(0,229,255,.55);
+}
+.bb-voice-orb.is-listening .bb-voice-orb-core img { border-color: var(--bb-green); box-shadow: 0 0 36px rgba(34,224,122,.6); }
+.bb-voice-orb.is-speaking .bb-voice-orb-core img { animation: bb-pulse-cyan 1.6s ease-in-out infinite; }
+.bb-voice-ripples { position: absolute; left: 50%; bottom: -18%; width: 180%; height: 40%; transform: translateX(-50%); pointer-events: none; }
+.bb-voice-ripples i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0,229,255,.45);
+  box-shadow: 0 0 12px rgba(0,229,255,.3);
+}
+.bb-voice-ripples i:nth-child(2) { inset: 18% 16%; }
+.bb-voice-ripples i:nth-child(3) { inset: 34% 32%; border-color: rgba(0,229,255,.7); }
+.bb-voice-orb.is-speaking .bb-voice-ripples i,
+.bb-voice-orb.is-listening .bb-voice-ripples i { animation: bb-live-ripple 2.2s ease-out infinite; }
+
+.bb-voice > .bb-voice-chat { gap: 14px; padding: 4px 2px; }
+.bb-voice-row { align-items: flex-start; gap: 12px; }
+.bb-voice-avatar { width: 46px; height: 46px; border: 1.5px solid rgba(0,229,255,.8); box-shadow: 0 0 10px rgba(0,229,255,.35); background: #07121f; }
+.bb-voice-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.bb-voice-avatar.is-user { color: var(--bb-cyan); border-color: rgba(0,229,255,.8); background: rgba(8,20,34,.6); }
+.bb-voice-bubble {
+  max-width: 78%;
+  padding: 2px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font-size: 15px;
+  line-height: 1.45;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+}
+.bb-voice-bubble.is-user {
+  padding: 2px 0 8px;
+  background: none;
+  border: none;
+  text-align: right;
+  border-image: linear-gradient(90deg, transparent, rgba(0,229,255,.7)) 0 0 1 0;
+  border-bottom: 1px solid;
+}
+.bb-voice-bubble.is-interim { border-style: none; }
+.bb-voice-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: #9fb3c6; }
+.bb-voice-bubble.is-user .bb-voice-meta { justify-content: flex-end; }
+.bb-voice-meta svg { color: var(--bb-cyan); }
+
+.bb-voice-input {
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 18px;
+  border-radius: 999px;
+  background: rgba(6, 16, 28, .8);
+  border: 1px solid rgba(0,229,255,.6);
+  box-shadow: 0 0 0 4px rgba(0,229,255,.08), 0 0 18px rgba(0,229,255,.25);
+}
+.bb-voice-input input { flex: 1 1 auto; min-width: 0; padding: 8px 0; border: none; background: none; font-size: 17px; }
+.bb-voice-input input:focus { border: none; }
+.bb-voice-input .bb-voice-icon-btn { width: 36px; height: 36px; border-radius: 50%; background: none; border: 1px solid rgba(160,190,215,.4); color: #dce8f2; }
+.bb-voice-input .bb-voice-icon-btn.is-mic { width: 44px; height: 44px; color: var(--bb-cyan); border: 2px solid var(--bb-cyan); box-shadow: 0 0 12px rgba(0,229,255,.5); }
+.bb-voice-input .bb-voice-icon-btn.is-mic.is-on { color: #04111a; background: var(--bb-cyan); animation: bb-pulse-cyan 1.6s ease-in-out infinite; }
+.bb-voice-input .bb-voice-icon-btn.is-stop { color: #ff4560; border: 2px solid #ff4560; box-shadow: 0 0 10px rgba(255,69,96,.4); }
+.bb-voice-input .bb-voice-icon-btn.is-send { width: 46px; height: 46px; color: #04111a; background: var(--bb-cyan); border: none; box-shadow: 0 0 14px rgba(0,229,255,.6); }
+.bb-voice-input .bb-voice-icon-btn.is-send:disabled { opacity: .7; }
+.bb-voice-input-wave { display: flex; align-items: center; gap: 2px; height: 24px; }
+.bb-voice-input-wave i { width: 2px; height: 8px; border-radius: 1px; background: var(--bb-cyan); }
+.bb-voice-input-wave i:nth-child(2), .bb-voice-input-wave i:nth-child(5) { height: 16px; }
+.bb-voice-input-wave i:nth-child(3), .bb-voice-input-wave i:nth-child(4) { height: 22px; }
+.bb-voice-input-wave.is-live i { animation: bb-live-bar .9s ease-in-out infinite; }
+.bb-voice-input-wave.is-live i:nth-child(even) { animation-delay: .3s; }
+.bb-voice-input-divider { width: 1px; height: 28px; margin: 0 4px; background: rgba(160,190,215,.35); }
+/* Schmale Phones: Wellen neben dem Mikrofon zuerst weglassen. */
+@media (max-width: 400px) {
+  .bb-voice-input-wave, .bb-voice-input-divider { display: none; }
+  .bb-voice-menu-toggle { padding-left: 14px; font-size: 14px; }
+  .bb-voice-orb .bb-voice-waves { width: 40px; }
+}
+@media (max-height: 680px) { .bb-voice-orb { display: none; } }
+/* Einstellungs-Regler in der Kopfzeile als runde Taste wie in der Vorlage. */
+.bb-topbar-icon[href^="/Settings"] { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(220,232,242,.7); display: grid; place-items: center; }
+.bb-voice-input-wave { gap: 2px; }
+.bb-voice-input input { font-size: 16px; }
+
 /* ── Live-Gespräch (VoiceChat) ──
    Nutzt die Höhenlogik von .bb-voice (useFitToViewport, kein Seiten-Scroll).
    Kopf, Buddy-Bühne und Bedienleiste sind fix, nur .bb-live-chat scrollt.

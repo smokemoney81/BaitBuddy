@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Mic, BrainCircuit, Volume2, VolumeX, User as UserIcon, MapPin, Fish, PlusCircle, Send, Square } from 'lucide-react';
+import { Mic, BrainCircuit, Volume2, VolumeX, User as UserIcon, MapPin, Fish, PlusCircle, Send, Square, ChevronDown, CheckCheck } from 'lucide-react';
 import { useBuddyPreferences } from '@/lib/BuddyPreferencesContext';
 import { useState, useRef, useEffect } from "react";
 import { catchgbtChat } from "@/functions/catchgbtChat";
@@ -19,7 +19,6 @@ import { getBuddyDataSource, setBuddyDataSource } from "@/lib/buddyDataSource";
 import BuddyDataSourceSwitch from "@/components/ai/BuddyDataSourceSwitch";
 
 import PremiumGuard from "@/components/premium/PremiumGuard";
-import BuddyAvatar from "@/components/ai/BuddyAvatar";
 import BuddyLiveModeSwitcher from "@/components/ai/BuddyLiveModeSwitcher";
 import BuddyLiveHandsFreeView from "@/components/ai/BuddyLiveHandsFreeView";
 import BuddyLiveCallView from "@/components/ai/BuddyLiveCallView";
@@ -67,6 +66,7 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   const [confidence, setConfidence] = useState(null);
   const [activeEventId, setActiveEventId] = useState(null);
   const [conversationActive, setConversationActive] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
   const chatRef = useRef();
   // Seite passt ohne Scrollen in den Bildschirm; nur der Chatverlauf scrollt.
   const pageRef = useRef(null);
@@ -143,7 +143,8 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   // unterbindet Updates nach dem Unmount.
   function appendMessages(...items) {
     if (!isMountedRef.current || items.length === 0) return;
-    messagesRef.current = [...messagesRef.current, ...items];
+    const at = Date.now();
+    messagesRef.current = [...messagesRef.current, ...items.map(m => ({ at, ...m }))];
     setMessages(messagesRef.current);
   }
 
@@ -154,8 +155,8 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
     const arr = messagesRef.current;
     const last = arr[arr.length - 1];
     const next = last && last.role === "assistant" && last.streaming
-      ? [...arr.slice(0, -1), { role: "assistant", text, streaming: true }]
-      : [...arr, { role: "assistant", text, streaming: true }];
+      ? [...arr.slice(0, -1), { ...last, text }]
+      : [...arr, { role: "assistant", text, streaming: true, at: Date.now() }];
     messagesRef.current = next;
     setMessages(next);
   }
@@ -167,8 +168,8 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
     const arr = messagesRef.current;
     const last = arr[arr.length - 1];
     const next = last && last.role === "assistant" && last.streaming
-      ? [...arr.slice(0, -1), { role: "assistant", text, ...extra }]
-      : [...arr, { role: "assistant", text, ...extra }];
+      ? [...arr.slice(0, -1), { role: "assistant", text, at: last.at, ...extra }]
+      : [...arr, { role: "assistant", text, at: Date.now(), ...extra }];
     messagesRef.current = next;
     setMessages(next);
   }
@@ -188,7 +189,8 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   }, []);
 
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    // Neueste Nachricht steht oben (Vorlage) — nach jeder Änderung dorthin.
+    if (chatRef.current) chatRef.current.scrollTop = 0;
   }, [messages]);
 
   function startWave() {
@@ -743,12 +745,50 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
   const quickQuestions = ['Was ist die beste Tiefe jetzt?', 'Zeig mir gute Spots', 'Wetter heute?', 'Welche Köder passen?'];
   const lastAnswerText = [...messages].reverse().find(m => m.role === "assistant" && !m.streaming)?.text || null;
 
+  const formatTime = at => (at ? new Date(at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null);
+  const buddyLogo = <img src="/assets/buddy/fab-logo.webp" alt="" aria-hidden="true" />;
+  const micLive = recording || conversationActive;
+
   return (
     <div ref={pageRef} className="bb-page bb-voice">
-      <BuddyLiveModeSwitcher mode={mode} onChange={setMode} />
-      {mode !== "live" && (
-        <BuddyDataSourceSwitch value={dataSource} onChange={setDataSource} />
-      )}
+      <div className="bb-voice-menus">
+        <div className={`bb-voice-menu${openMenu === "info" ? " is-open" : ""}`}>
+          <button type="button" className="bb-voice-menu-toggle" aria-expanded={openMenu === "info"} onClick={() => setOpenMenu(m => (m === "info" ? null : "info"))}>
+            Modus &amp; Infos <ChevronDown size={20} aria-hidden="true" />
+          </button>
+          <div className="bb-voice-menu-panel">
+            <BuddyLiveModeSwitcher mode={mode} onChange={m => { setMode(m); setOpenMenu(null); }} />
+            {mode !== "live" && <BuddyDataSourceSwitch value={dataSource} onChange={setDataSource} />}
+            <div className="bb-voice-states" role="status" aria-live="polite">
+              <span className={phase === "listening" ? "is-active is-green" : ""}><Mic size={16} aria-hidden="true" />Ich höre …</span>
+              <span className={phase === "thinking" ? "is-active" : ""}><BrainCircuit size={16} aria-hidden="true" />Verarbeite …</span>
+              <span className={phase === "speaking" ? "is-active" : ""}><Volume2 size={16} aria-hidden="true" />Buddy spricht …</span>
+            </div>
+            {confidence !== null && <p className="bb-voice-confidence">Spracherkennung: {confidence}%</p>}
+            <p className={`bb-voice-mode${conversationActive ? " is-active" : ""}`}>
+              <i aria-hidden="true" />{conversationActive ? "Freisprechen aktiv" : "Tippe aufs Mikrofon für Freisprechen"}
+            </p>
+          </div>
+        </div>
+        <span className="bb-voice-menus-divider" aria-hidden="true" />
+        <div className={`bb-voice-menu${openMenu === "actions" ? " is-open" : ""}`}>
+          <button type="button" className="bb-voice-menu-toggle" aria-expanded={openMenu === "actions"} onClick={() => setOpenMenu(m => (m === "actions" ? null : "actions"))}>
+            Aktionen <ChevronDown size={20} aria-hidden="true" />
+          </button>
+          <div className="bb-voice-menu-panel">
+            <div className="bb-voice-actions">
+              <Link to="/TripPlanner" className="bb-voice-action"><MapPin size={20} aria-hidden="true" /><span><strong>Trip öffnen</strong><small>Planen & starten</small></span></Link>
+              <Link to="/Koeder3D" className="bb-voice-action"><Fish size={20} aria-hidden="true" /><span><strong>Köder wechseln</strong><small>Führung & Setups</small></span></Link>
+              <button type="button" onClick={() => { setOpenMenu(null); window.dispatchEvent(new CustomEvent('openCatchDialog')); }} className="bb-voice-action"><PlusCircle size={20} aria-hidden="true" /><span><strong>Fang eintragen</strong><small>Schnell & einfach</small></span></button>
+            </div>
+            <div className="bb-voice-quick">
+              {quickQuestions.map(question => (
+                <button type="button" key={question} onClick={() => { setInput(question); setOpenMenu(null); }}>{question}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {mode === "live" && (
         <BuddyLiveCallView
@@ -774,21 +814,30 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
       <>
       <div className={`bb-voice-orb is-${phase}`}>
         <div className="bb-voice-waves" aria-hidden="true">
-          {waveBars.map((h, i) => <i key={i} style={{ height: Math.max(6, h * 2) }} />)}
+          {[...waveBars].reverse().map((h, i) => <i key={i} style={{ height: Math.max(8, h * 3) }} />)}
         </div>
-        <img src={activeBuddy.portrait} alt={`${activeBuddy.name}, dein KI-Buddy`} />
-        <p className="bb-script bb-voice-script" aria-hidden="true">„Mehr als nur Antworten.“</p>
+        <div className="bb-voice-orb-core">
+          <span className="bb-voice-ripples" aria-hidden="true"><i /><i /><i /></span>
+          <img src="/assets/buddy/fab-logo.webp" alt={`${activeBuddy.name}, dein KI-Buddy`} />
+        </div>
+        <div className="bb-voice-waves" aria-hidden="true">
+          {waveBars.map((h, i) => <i key={i} style={{ height: Math.max(8, h * 3) }} />)}
+        </div>
       </div>
-
-      <div className="bb-voice-states" role="status" aria-live="polite">
-        <span className={phase === "listening" ? "is-active is-green" : ""}><Mic size={16} aria-hidden="true" />Ich höre …</span>
-        <span className={phase === "thinking" ? "is-active" : ""}><BrainCircuit size={16} aria-hidden="true" />Verarbeite …</span>
-        <span className={phase === "speaking" ? "is-active" : ""}><Volume2 size={16} aria-hidden="true" />Buddy spricht …</span>
-      </div>
-      {confidence !== null && <p className="bb-voice-confidence">Spracherkennung: {confidence}%</p>}
 
       <div ref={chatRef} className="bb-voice-chat">
-        {messages.map((m, i) => (
+        {status === "thinking" && (
+          <div className="bb-voice-row">
+            <span className="bb-voice-avatar">{buddyLogo}</span>
+            <span className="bb-voice-bubble bb-voice-typing" aria-label="Buddy denkt nach"><i /><i /><i /></span>
+          </div>
+        )}
+        {interimTranscript && (
+          <div className="bb-voice-row is-user">
+            <span className="bb-voice-bubble is-user is-interim">{interimTranscript}</span>
+          </div>
+        )}
+        {messages.map((m, i) => ({ m, i })).reverse().map(({ m, i }) => (
           m.role === "system" ? (
             <p key={i} className="bb-voice-system">
               {m.text}
@@ -800,12 +849,15 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
             </p>
           ) : m.role === "user" ? (
             <div key={i} className="bb-voice-row is-user">
-              <span className="bb-voice-bubble is-user">{m.text}</span>
-              <span className="bb-voice-avatar is-user"><UserIcon size={16} aria-hidden="true" /></span>
+              <span className="bb-voice-bubble is-user">
+                {m.text}
+                {m.at && <span className="bb-voice-meta">{formatTime(m.at)}<CheckCheck size={16} aria-hidden="true" /></span>}
+              </span>
+              <span className="bb-voice-avatar is-user"><UserIcon size={22} aria-hidden="true" /></span>
             </div>
           ) : (
             <div key={i} className="bb-voice-row">
-              <span className="bb-voice-avatar"><BuddyAvatar speaking={false} listening={false} showHints={false} size={32} /></span>
+              <span className="bb-voice-avatar">{buddyLogo}</span>
               <span className="bb-voice-bubble">
                 {m.text}
                 {m.source && (
@@ -814,32 +866,10 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
                     {m.page && <Link to={`/${m.page}`}>{faqPageLabel(m.page)} öffnen</Link>}
                   </span>
                 )}
+                {m.at && !m.streaming && <span className="bb-voice-meta">{formatTime(m.at)}</span>}
               </span>
             </div>
           )
-        ))}
-        {interimTranscript && (
-          <div className="bb-voice-row is-user">
-            <span className="bb-voice-bubble is-user is-interim">{interimTranscript}</span>
-          </div>
-        )}
-        {status === "thinking" && (
-          <div className="bb-voice-row">
-            <span className="bb-voice-avatar"><BuddyAvatar speaking={false} listening={false} showHints={false} size={32} /></span>
-            <span className="bb-voice-bubble bb-voice-typing" aria-label="Buddy denkt nach"><i /><i /><i /></span>
-          </div>
-        )}
-      </div>
-
-      <div className="bb-voice-actions">
-        <Link to="/TripPlanner" className="bb-voice-action"><MapPin size={20} aria-hidden="true" /><span><strong>Trip öffnen</strong><small>Planen & starten</small></span></Link>
-        <Link to="/Koeder3D" className="bb-voice-action"><Fish size={20} aria-hidden="true" /><span><strong>Köder wechseln</strong><small>Führung & Setups</small></span></Link>
-        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('openCatchDialog'))} className="bb-voice-action"><PlusCircle size={20} aria-hidden="true" /><span><strong>Fang eintragen</strong><small>Schnell & einfach</small></span></button>
-      </div>
-
-      <div className="bb-voice-quick">
-        {quickQuestions.map(question => (
-          <button type="button" key={question} onClick={() => setInput(question)}>{question}</button>
         ))}
       </div>
 
@@ -851,35 +881,27 @@ export function KiBuddyBetaInner({ initialMode } = {}) {
           placeholder="Frage stellen..."
           aria-label="Frage an den Buddy"
         />
-        <button type="button" onClick={toggleMic} disabled={conversationActive} className={`bb-voice-icon-btn${recording ? ' is-on' : ''}`} aria-label={recording ? 'Aufnahme beenden' : 'Einzelne Frage einsprechen'}>
-          <Mic size={18} aria-hidden="true" />
+        <button type="button" onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-icon-btn is-speaker" aria-pressed={tonAn} aria-label={`Lautsprecher ${tonAn ? "aus" : "an"}schalten`}>
+          {tonAn ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
         </button>
-        <button type="button" onClick={sendText} disabled={!input.trim() || status === "thinking"} className="bb-voice-icon-btn is-send" aria-label="Senden">
-          <Send size={18} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="bb-voice-controls">
-        <button type="button" onClick={() => { setTonAn(t => !t); if (tonAn) stopSpeaking(); }} className="bb-voice-ctrl" aria-pressed={tonAn}>
-          <span className="bb-voice-ctrl-circle">{tonAn ? <Volume2 size={20} aria-hidden="true" /> : <VolumeX size={20} aria-hidden="true" />}</span>
-          <small>Lautsprecher {tonAn ? 'an' : 'aus'}</small>
-        </button>
+        <span className={`bb-voice-input-wave${micLive ? " is-live" : ""}`} aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
         <button
           type="button"
-          onClick={conversationActive ? endConversation : startConversation}
-          className={`bb-voice-mic${conversationActive ? ' is-active' : ''}`}
-          aria-label={conversationActive ? 'Freisprechen beenden' : 'Freisprechen starten'}
+          onClick={conversationActive ? endConversation : (recording ? toggleMic : startConversation)}
+          className={`bb-voice-icon-btn is-mic${micLive ? " is-on" : ""}`}
+          aria-label={conversationActive ? "Freisprechen beenden" : "Freisprechen starten"}
         >
-          <Mic size={30} aria-hidden="true" />
+          <Mic size={20} aria-hidden="true" />
         </button>
-        <button type="button" onClick={stopSpeaking} className="bb-voice-ctrl is-stop">
-          <span className="bb-voice-ctrl-circle"><Square size={18} aria-hidden="true" /></span>
-          <small>Buddy stoppen</small>
+        <span className={`bb-voice-input-wave${micLive ? " is-live" : ""}`} aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
+        <button type="button" onClick={stopSpeaking} className="bb-voice-icon-btn is-stop" aria-label="Buddy stoppen">
+          <Square size={14} aria-hidden="true" />
+        </button>
+        <span className="bb-voice-input-divider" aria-hidden="true" />
+        <button type="button" onClick={sendText} disabled={!input.trim() || status === "thinking"} className="bb-voice-icon-btn is-send" aria-label="Senden">
+          <Send size={20} aria-hidden="true" />
         </button>
       </div>
-      <p className={`bb-voice-mode${conversationActive ? ' is-active' : ''}`}>
-        <i aria-hidden="true" />{conversationActive ? 'Freisprechen aktiv' : 'Tippe aufs Mikrofon für Freisprechen'}
-      </p>
       </>
       )}
     </div>
