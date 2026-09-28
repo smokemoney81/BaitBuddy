@@ -56,11 +56,11 @@ test.describe('Hauptnavigation', () => {
     await openDashboard(page);
 
     const nav = mainNav(page);
-    await nav.getByLabel('Logbook', { exact: true }).click();
+    await nav.getByLabel('Fangbuch', { exact: true }).click();
     await page.waitForURL(/Logbook/i, { timeout: 20_000 });
 
     await page.goBack();
-    await page.waitForURL(/Dashboard/i, { timeout: 20_000 });
+    await page.waitForURL(/Map/i, { timeout: 20_000 });
     await expect(nav).toBeVisible();
 
     await page.goForward();
@@ -81,7 +81,7 @@ test.describe('Verhalten ohne Netz', () => {
     // (App laeuft, Funkloch am Wasser).
     await context.setOffline(true);
     const nav = mainNav(page);
-    await nav.getByLabel('Logbook', { exact: true }).click();
+    await nav.getByLabel('Fangbuch', { exact: true }).click();
     await page.waitForTimeout(2500);
 
     // Offline-Auth (frontendClient: isNetworkError + gecachter User) muss den
