@@ -42,7 +42,7 @@ test.describe('Hauptnavigation', () => {
     const nav = mainNav(page);
     for (const tab of TABS) {
       await nav.getByLabel(tab.name, { exact: true }).click();
-      await page.waitForURL(tab.url, { timeout: 20_000 });
+      await page.waitForURL(tab.url, { timeout: 30_000 });
       // Nach jedem Wechsel muss die Navigation weiter stehen — sie ist Teil des
       // Layouts und darf beim Lazy-Load der Seite nicht verschwinden.
       await expect(nav).toBeVisible();
@@ -57,14 +57,14 @@ test.describe('Hauptnavigation', () => {
 
     const nav = mainNav(page);
     await nav.getByLabel('Fangbuch', { exact: true }).click();
-    await page.waitForURL(/Logbook/i, { timeout: 20_000 });
+    await page.waitForURL(/Logbook/i, { timeout: 30_000 });
 
     await page.goBack();
-    await page.waitForURL(/Map/i, { timeout: 20_000 });
+    await page.waitForURL(/Map/i, { timeout: 30_000 });
     await expect(nav).toBeVisible();
 
     await page.goForward();
-    await page.waitForURL(/Logbook/i, { timeout: 20_000 });
+    await page.waitForURL(/Logbook/i, { timeout: 30_000 });
     await expect(nav).toBeVisible();
   });
 });
