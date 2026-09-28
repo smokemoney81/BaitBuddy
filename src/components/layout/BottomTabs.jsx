@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { useNavigationContext } from '@/lib/NavigationContext';
@@ -30,6 +30,27 @@ export default function BottomTabs() {
   const { getToolByRoute, isToolAccessible } = useTool();
   const activePage = location.pathname.split('/')[1] || 'Dashboard';
   const voiceSpeaking = useVoiceSpeaking();
+  const [toolPulse, setToolPulse] = useState(false);
+  const toolPulseTimerRef = useRef(null);
+
+  // Jede vom Buddy ausgeführte Tool-Aktion sendet zentral dieses Event.
+  // Das mittlere Logo reagiert mit einem kurzen Bewegungs-/Glow-Impuls, ohne
+  // dass jedes einzelne Tool eigene UI-Logik kennen muss.
+  useEffect(() => {
+    const pulse = () => {
+      clearTimeout(toolPulseTimerRef.current);
+      setToolPulse(false);
+      requestAnimationFrame(() => {
+        setToolPulse(true);
+        toolPulseTimerRef.current = setTimeout(() => setToolPulse(false), 420);
+      });
+    };
+    window.addEventListener('baitbuddy-tool-activity', pulse);
+    return () => {
+      window.removeEventListener('baitbuddy-tool-activity', pulse);
+      clearTimeout(toolPulseTimerRef.current);
+    };
+  }, []);
 
   const openBuddyChat = () => {
     const tool = getToolByRoute('/KiBuddyBeta');
@@ -98,11 +119,16 @@ export default function BottomTabs() {
         <div className="bb-fab-container">
           <button
             type="button"
-            className={`bb-fab bb-fab-logo${voiceSpeaking ? ' bb-fab-speaking' : ''}`}
+            className={`bb-fab bb-fab-logo${voiceSpeaking || toolPulse ? ' bb-fab-speaking' : ''}`}
             data-speaking={voiceSpeaking ? 'true' : undefined}
+            data-tool-active={toolPulse ? 'true' : undefined}
             aria-label="KI-Buddy öffnen"
             title="KI-Buddy öffnen"
             onClick={openBuddyChat}
+            style={{
+              transform: toolPulse ? 'scale(1.1) rotate(3deg)' : 'scale(1) rotate(0deg)',
+              transition: 'transform 180ms cubic-bezier(.2,.8,.2,1)',
+            }}
           >
             <img
               src="/assets/buddy/fab-logo.webp"
