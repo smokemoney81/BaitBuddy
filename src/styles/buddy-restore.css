@@ -1,0 +1,164 @@
+/* Restored additive Buddy features from PR #468.
+   Kept separate so newer #469/#470 layout rules are not overwritten. */
+
+.bb-buddy-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 30, 50, .7);
+  border: 1px solid rgba(0, 229, 255, .2);
+  border-radius: 16px;
+  padding: 6px 8px 6px 6px;
+  backdrop-filter: blur(12px);
+  transition: border-color .2s, box-shadow .2s;
+}
+.bb-buddy-input-wrapper:focus-within {
+  border-color: rgba(0, 229, 255, .5);
+  box-shadow: 0 0 20px rgba(0, 229, 255, .15);
+}
+.bb-buddy-input-avatar { flex-shrink: 0; }
+.bb-buddy-input-field {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.bb-buddy-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #f0f6fb;
+  padding: 8px 4px;
+  line-height: 1.4;
+}
+.bb-buddy-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 8px 4px;
+  font-size: 14px;
+  color: rgba(169, 188, 205, .6);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bb-suggest-in { animation: bb-suggest-fadein .3s ease; }
+.bb-suggest-out { animation: bb-suggest-fadeout .3s ease forwards; }
+@keyframes bb-suggest-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes bb-suggest-fadeout {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+.bb-buddy-input-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.bb-buddy-voice-btn {
+  background: rgba(0, 229, 255, .1);
+  color: var(--bb-cyan);
+}
+.bb-buddy-voice-btn:hover { background: rgba(0, 229, 255, .2); }
+.bb-buddy-send-btn {
+  background: var(--bb-cyan);
+  color: #0B1324;
+}
+.bb-buddy-send-btn:hover { background: #33e0ff; }
+
+.bb-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.bb-quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: 14px;
+  background: rgba(15, 30, 50, .5);
+  border: 1px solid rgba(255, 255, 255, .06);
+  text-decoration: none;
+  color: #c5d5e3;
+  transition: background .15s, border-color .15s;
+}
+.bb-quick-action:hover {
+  background: rgba(0, 229, 255, .08);
+  border-color: rgba(0, 229, 255, .2);
+  color: #e8f5fb;
+}
+.bb-quick-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 229, 255, .08);
+  color: var(--bb-cyan);
+}
+.bb-quick-action-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.25;
+  white-space: pre-line;
+}
+@media (max-width: 380px) {
+  .bb-quick-actions { grid-template-columns: repeat(3, 1fr); }
+}
+
+.bb-fab-progress {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 0 4px rgba(0,229,255,.6));
+}
+.bb-fab-listening { animation: bb-fab-restore-pulse 3s ease-in-out infinite; }
+.bb-fab-processing { animation: bb-fab-restore-pulse 1.2s ease-in-out infinite; }
+.bb-fab-speaking { animation: bb-fab-restore-pulse .7s ease-in-out infinite; }
+@keyframes bb-fab-restore-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(0,229,255,.35)); }
+  50% { filter: drop-shadow(0 0 18px rgba(0,229,255,.9)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-fab-listening,
+  .bb-fab-processing,
+  .bb-fab-speaking { animation: none; }
+}
+.bb-fab-hint {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 229, 255, .18);
+  border: 1px solid rgba(0, 229, 255, .35);
+  border-radius: 8px;
+  padding: 5px 10px;
+  pointer-events: none;
+  animation: bb-hint-fade 6s ease forwards;
+  backdrop-filter: blur(8px);
+}
+@keyframes bb-hint-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
