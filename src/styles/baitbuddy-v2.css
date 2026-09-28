@@ -737,7 +737,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: 11.5px;
   line-height: 1;
   font-weight: 500;
   letter-spacing: -.02em;
@@ -763,7 +763,7 @@
   cursor: not-allowed;
 }
 @media (max-width: 380px) {
-  .bb-nav-label { font-size: 11px; }
+  .bb-nav-label { font-size: 10.5px; }
 }
 
 /* Mitte: Buddy-Emblem in einer Ausbuchtung des Kartenrahmens */
