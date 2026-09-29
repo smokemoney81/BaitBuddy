@@ -446,7 +446,12 @@ ausschließlich serverseitig (`CHECKOUT_PLANS`); der Client sendet nur die
   (öffentlich) meldet, welche Zahlungswege konfiguriert sind
   (`STRIPE_SECRET_KEY` / `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`). Fehlt das Secret,
   sperrt die UI den Kauf-Button — sonst zahlt der Nutzer erst und bekommt danach
-  einen 501. Schlägt die Abfrage fehl, wird **nicht** gesperrt (fail-open).
+  einen 501. Bei **unbekannter** Config (Netzfehler, 5xx, altes Backend ohne
+  `/premium/config` → 404) gilt je Weg: **Stripe bleibt kaufbar**, weil
+  `/premium/checkout` ohne `STRIPE_SECRET_KEY` selbst vor der Zahlung mit 501
+  abbricht (die UI sperrt dann über `onUnavailable`); **Google Play nur bei
+  ausdrücklichem `true`**, weil dort nativ bezahlt und sofort bestätigt wird,
+  bevor der Server prüfen kann.
 - **Replay-Schutz über alle Zahlungen:** Webhook und `/premium/activate` führen
   `premium_processed_transactions` (letzte 50 Session-IDs/Play-Tokens). Eine
   bereits verbuchte Transaktion ist ein No-op — außer Play bestätigt ein

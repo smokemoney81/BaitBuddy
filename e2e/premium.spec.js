@@ -4,8 +4,9 @@ import { installApiMocks, dismissSplash } from './fixtures/apiMock.js';
 // E2E fuer den Kaufpfad. Abgesichert wird die dokumentierte Regel "vor dem Kauf
 // pruefen, ob der Server verifizieren kann": ohne konfiguriertes Zahlungs-Secret
 // muss die UI den Kauf sperren, sonst zahlt der Nutzer erst und bekommt danach
-// einen 501. Ein Ausfall der Config-Abfrage sperrt den Checkout, bis die
-// Verifikationsfähigkeit des Servers bestätigt ist.
+// einen 501. Ist die Config unbekannt (5xx, Netz, altes Backend ohne
+// /premium/config), bleibt der Stripe-Kauf moeglich: /premium/checkout bricht
+// ohne Stripe-Secret selbst vor der Zahlung mit 501 ab, dann sperrt die UI.
 //
 // Die Tests laufen im Browser, also greift der Stripe-Zweig (kein
 // window.AndroidBilling).
@@ -57,15 +58,35 @@ test.describe('Premium-Kaufpfad', () => {
     }
   });
 
-  test('sperrt den Kauf, wenn die Config-Abfrage fehlschlaegt', async ({ page }) => {
+  for (const status of [500, 404]) {
+    test(`laesst den Stripe-Kauf zu, wenn die Config-Abfrage mit ${status} scheitert`, async ({ page }) => {
+      await installApiMocks(page, {
+        authenticated: true,
+        handlers: { '/api/premium/config': { status, body: { error: 'Config nicht ladbar' } } },
+      });
+      await openPremium(page);
+
+      await expect(page.getByText('Kauf derzeit nicht moeglich')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: CHECKOUT_BUTTON }).first()).toBeEnabled();
+    });
+  }
+
+  test('sperrt den Kauf, wenn der Checkout mit 501 abgelehnt wird', async ({ page }) => {
     await installApiMocks(page, {
       authenticated: true,
-      handlers: { '/api/premium/config': { status: 500, body: { error: 'Config nicht ladbar' } } },
+      handlers: {
+        '/api/premium/config': { status: 404, body: { error: 'Not found' } },
+        'POST /api/premium/checkout': { status: 501, body: { error: 'Stripe checkout nicht konfiguriert' } },
+      },
     });
     await openPremium(page);
 
+    const buyButton = page.getByRole('button', { name: CHECKOUT_BUTTON }).first();
+    await expect(buyButton).toBeEnabled();
+    await buyButton.click();
+
     await expect(page.getByText('Kauf derzeit nicht moeglich')).toBeVisible();
-    await expect(page.getByRole('button', { name: CHECKOUT_BUTTON }).first()).toBeDisabled();
+    await expect(buyButton).toBeDisabled();
   });
 
   test('startet den Stripe-Checkout serverseitig und sendet nur die plan_id', async ({ page }) => {
