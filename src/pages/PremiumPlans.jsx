@@ -151,16 +151,22 @@ export default function PremiumPlans() {
     }
   };
 
-  // Käufe erst erlauben, wenn der Server die Verifikation des jeweiligen
-  // Zahlungswegs ausdrücklich bestätigt. Ein fehlgeschlagener Config-Request
-  // darf keinen Bezahlvorgang mit unklarer Freischaltung starten.
+  // Welche Zahlungswege der Server verifizieren kann. 'unknown' = Abfrage
+  // fehlgeschlagen (Netz, 5xx oder ein Backend ohne /premium/config).
   const loadPaymentMethods = async () => {
     try {
       const config = await premium.config();
-      if (config?.payment_methods) setPaymentMethods(config.payment_methods);
+      setPaymentMethods(config?.payment_methods || 'unknown');
     } catch (error) {
       console.error('[PremiumPlans] Zahlungswege konnten nicht geladen werden:', error);
+      setPaymentMethods('unknown');
     }
+  };
+
+  // /premium/checkout meldet 501, wenn Stripe serverseitig fehlt — ab dann
+  // wie eine ausdrückliche "nicht konfiguriert"-Antwort behandeln.
+  const markStripeUnavailable = () => {
+    setPaymentMethods(prev => ({ ...(prev && prev !== 'unknown' ? prev : {}), stripe: false }));
   };
 
   // KI-Volumen (Monatsstand + Volumen je Plan). Ein Fehler blendet nur die
@@ -382,9 +388,18 @@ export default function PremiumPlans() {
   ];
 
   // Kann der Server den hier angebotenen Zahlungsweg überhaupt verifizieren?
-  // Wenn nicht, würde der Nutzer erst bezahlen und danach eine Fehlermeldung
-  // bekommen. null = noch unbekannt oder Abfrage fehlgeschlagen.
-  const purchasesEnabled = Boolean(billingAvailable ? paymentMethods?.google_play : paymentMethods?.stripe);
+  // - Google Play: nur bei ausdrücklichem true. Die Zahlung läuft dort nativ
+  //   VOR jeder Serverprüfung und wird sofort bestätigt — ohne Verifikation
+  //   wäre das Geld weg und der Plan nicht aktiv.
+  // - Stripe: gesperrt nur bei ausdrücklichem false. Ist die Config unbekannt,
+  //   bleibt der Kauf möglich, weil /premium/checkout ohne Stripe-Secret schon
+  //   vor der Zahlung mit 501 abbricht (dann markStripeUnavailable). Sonst
+  //   sperrte jeder Wackler der Config-Abfrage alle Web-Verkäufe.
+  const configLoading = paymentMethods === null;
+  const configUnknown = paymentMethods === 'unknown';
+  const purchasesEnabled = billingAvailable
+    ? paymentMethods?.google_play === true
+    : configUnknown || paymentMethods?.stripe === true;
 
   const tierPlans = PLAN_TIERS.map(({ planId }) => plans.find(plan => plan.id === planId));
   const friendsPlan = plans.find(plan => plan.id === 'friends');
@@ -565,7 +580,7 @@ export default function PremiumPlans() {
         )}
 
         {/* Hinweise zum Zahlungsweg */}
-        {!purchasesEnabled && (
+        {!configLoading && !purchasesEnabled && (
           <div className="bb-card bb-card-warn flex items-start gap-3" role="alert">
             <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="text-sm text-amber-100">
@@ -633,7 +648,11 @@ export default function PremiumPlans() {
                 </button>
               ) : (
                 <>
-                  <WebCheckoutButton planId={selected.id} disabled={isProcessing || !purchasesEnabled} />
+                  <WebCheckoutButton
+                    planId={selected.id}
+                    disabled={isProcessing || configLoading || !purchasesEnabled}
+                    onUnavailable={markStripeUnavailable}
+                  />
                   <p className="text-xs" style={{ color: 'var(--bb-muted)' }}>
                     Einmalzahlung ohne automatische Verlängerung.
                   </p>
