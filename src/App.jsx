@@ -35,6 +35,7 @@ const EventCreate = lazyPage(() => import('@/pages/EventCreate'));
 const MonthlyLeaderboard = lazyPage(() => import('@/pages/MonthlyLeaderboard'));
 const Koeder3D = lazyPage(() => import('@/pages/Koeder3D'));
 const AnglerMode = lazyPage(() => import('@/pages/AnglerMode'));
+const LegacyClubProfile = lazyPage(() => import('@/pages/ClubProfile'));
 import PageViewTracker from '@/components/utils/PageViewTracker';
 
 const LazyPageFallback = () => (
@@ -129,6 +130,12 @@ const AnimatedRoutes = () => {
           } />
           <Route path="/AnglerMode" element={
             <ErrorBoundary><AnglerMode /></ErrorBoundary>
+          } />
+          {/* Legacy aliases from PR #477. Keep one implementation per feature. */}
+          <Route path="/KITools" element={<Navigate to="/KiTools" replace />} />
+          <Route path="/GuestMigration" element={<Navigate to="/GastdatenUebernehmen" replace />} />
+          <Route path="/clubs/:clubId" element={
+            <ErrorBoundary><LegacyClubProfile /></ErrorBoundary>
           } />
           <Route path="*" element={<PageNotFound />} />
         </Routes>
