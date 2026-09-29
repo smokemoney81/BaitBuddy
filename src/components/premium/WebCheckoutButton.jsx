@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { functions } from "@/api/frontendClient";
 
 // Web-Checkout via Stripe: Karte, PayPal, SEPA Lastschrift, Klarna
-export default function WebCheckoutButton({ planId, disabled }) {
+export default function WebCheckoutButton({ planId, disabled, onUnavailable }) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
@@ -24,6 +24,15 @@ export default function WebCheckoutButton({ planId, disabled }) {
 
       window.location.href = checkoutUrl;
     } catch (error) {
+      // 501: Der Server kann Stripe nicht abwickeln. Es wurde nichts bezahlt.
+      if (error?.status === 501) {
+        onUnavailable?.();
+        toast.error('Bezahlung im Browser derzeit nicht verfügbar', {
+          description: 'Es wurde nichts abgebucht. Bitte versuche es später erneut oder kontaktiere den Support.'
+        });
+        setLoading(false);
+        return;
+      }
       toast.error('Checkout fehlgeschlagen', {
         description: error?.message || 'Unbekannter Fehler'
       });
