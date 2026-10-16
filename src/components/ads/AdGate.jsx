@@ -58,7 +58,13 @@ export function AdGateProvider({ children }) {
   }, []);
 
   const capabilities = React.useMemo(
-    () => getAdCapabilities(plan?.id ?? 'free', isAuthenticated, { adsEnabled }),
+    () => {
+      const allowed = getAdCapabilities(plan?.id ?? 'free', isAuthenticated, { adsEnabled });
+      // Web supports display inventory only. Never put ordinary AdSense in a
+      // timed overlay or grant rewards for an unverified countdown.
+      return { ...allowed, bannerAds: allowed.bannerAds || allowed.interstitialAds,
+        interstitialAds: false, rewardedAds: false };
+    },
     [plan?.id, isAuthenticated, adsEnabled]
   );
 

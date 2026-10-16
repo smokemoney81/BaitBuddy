@@ -22,7 +22,7 @@ export function trackAdEvent(eventName, meta = {}) {
     ...meta,
   };
   // Fire-and-forget — kein await, kein Fehler nach außen
-  fetch('/api/ads/event', {
+  fetch(`${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api/ads/event`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

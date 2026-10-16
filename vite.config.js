@@ -1,10 +1,30 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { resolve } from 'path'
+import { ADSENSE_CLIENT } from './src/lib/adPublisher.js'
+
+function adsPublisherAssets() {
+  let publisher;
+  return {
+    name: 'ads-publisher-assets',
+    configResolved(config) {
+      const env = loadEnv(config.mode, config.envDir, 'VITE_');
+      const client = (env.VITE_ADSENSE_CLIENT ?? ADSENSE_CLIENT).trim();
+      publisher = /^ca-pub-\d{16}$/.test(client) ? client : null;
+    },
+    transformIndexHtml() {
+      return publisher ? [{ tag: 'meta', attrs: { name: 'google-adsense-account', content: publisher }, injectTo: 'head' }] : [];
+    },
+    generateBundle() {
+      if (publisher) this.emitFile({ type: 'asset', fileName: 'ads.txt',
+        source: `google.com, ${publisher.slice(3)}, DIRECT, f08c47fec0942fa0\n` });
+    },
+  };
+}
 
 export default defineConfig({
   logLevel: 'error',
-  plugins: [react()],
+  plugins: [react(), adsPublisherAssets()],
   publicDir: 'public',
   resolve: {
     alias: {

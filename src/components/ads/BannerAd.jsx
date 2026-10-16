@@ -1,3 +1,4 @@
+import WebAdSlot from './WebAdSlot';
 import React, { useEffect, useRef } from 'react';
 import { trackAdEvent } from '@/lib/adAnalytics';
 
@@ -15,7 +16,7 @@ export default function BannerAd({ ad, placement, userPlan = 'free' }) {
   const tracked = useRef(false);
 
   useEffect(() => {
-    if (!ref.current || tracked.current) return;
+    if (!ad?.title || !ad?.ctaUrl || !ref.current || tracked.current) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !tracked.current) {
@@ -28,7 +29,7 @@ export default function BannerAd({ ad, placement, userPlan = 'free' }) {
     );
     observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [placement, userPlan]);
+  }, [ad?.title, ad?.ctaUrl, placement, userPlan]);
 
   const handleClick = () => {
     trackAdEvent('banner_clicked', { placement, user_plan: userPlan });
@@ -36,6 +37,8 @@ export default function BannerAd({ ad, placement, userPlan = 'free' }) {
   };
 
   const label = ad?.title ?? 'Partner-Anzeige';
+
+  if (!ad?.title || !ad?.ctaUrl) return <WebAdSlot placement={placement} userPlan={userPlan} />;
 
   return (
     <button

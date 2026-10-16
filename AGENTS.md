@@ -417,3 +417,16 @@ Vor jedem Commit prüfen:
 ## 📝 Dokumentation Updaten
 
 Diese AGENTS.md ist das **Source of Truth** für Entwicklungsregeln. Bei signifikanten Änderungen (neue Auth-Systeme, Device-Features, KI-Buddy-Architektur) **sofort hier updaten**, damit alle Codex-Sessions konsistent arbeiten.
+
+## Web-Werbung
+
+Banner und NativeAdCard ohne explizite Partnerdaten verwenden `WebAdSlot`.
+`VITE_ADSENSE_CLIENT` und `VITE_ADSENSE_SLOT` sind öffentliche AdSense-IDs.
+Der Build erzeugt aus einer gültigen Publisher-ID das Account-Meta-Tag und
+`ads.txt`. Ohne IDs oder freigegebene TCF-CMP-Entscheidung bleibt der Slot leer.
+Die zertifizierte CMP muss separat eingerichtet und ihr Original-Tag eingebunden
+werden. WebAdSlot lädt erst nach Zustimmung zu Speicherung und Google-Vendor
+755; verweigerte Einwilligung entfernt den Slot. Werbefreie Pläne und Kontext-
+/Route-Sperren bleiben zentral in AdGate. Im Web sind künstliche Countdown-
+Interstitials und ungeprüfte Rewarded-Ads gesperrt; Gäste erhalten Display-Slots.
+Kein gewöhnlicher AdSense-Banner darf als Rewarded-/Interstitial-Inventar dienen.

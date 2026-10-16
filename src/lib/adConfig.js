@@ -67,7 +67,7 @@ export async function loadAdConfig() {
 
   _fetchPromise = (async () => {
     try {
-      const res = await fetch('/api/ads/config', {
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api/ads/config`, {
         signal: timeoutSignal(4000),
       });
       if (res.ok) {

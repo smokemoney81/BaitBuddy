@@ -1,3 +1,4 @@
+import WebAdSlot from './WebAdSlot';
 import React, { useEffect, useRef } from 'react';
 import { trackAdEvent } from '@/lib/adAnalytics';
 
@@ -16,7 +17,7 @@ export default function NativeAdCard({ ad, placement, userPlan = 'free' }) {
   const tracked = useRef(false);
 
   useEffect(() => {
-    if (!ref.current || tracked.current) return;
+    if (!ad?.title || !ad?.ctaUrl || !ref.current || tracked.current) return;
     // Impression tracken sobald sichtbar
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -34,17 +35,19 @@ export default function NativeAdCard({ ad, placement, userPlan = 'free' }) {
     );
     observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [placement, userPlan]);
+  }, [ad?.title, ad?.ctaUrl, placement, userPlan]);
 
   const handleClick = () => {
     trackAdEvent('native_ad_clicked', { placement, user_plan: userPlan });
     if (ad?.ctaUrl) window.open(ad.ctaUrl, '_blank', 'noopener,noreferrer');
   };
 
-  // Fallback-Placeholder wenn kein Ad-Content geladen
-  const title = ad?.title ?? 'BaitBuddy Partner';
-  const body = ad?.body ?? 'Entdecke die besten Angelprodukte';
+  // Partnerdaten nur anzeigen, wenn ein echtes Klickziel vorhanden ist.
+  const title = ad?.title;
+  const body = ad?.body;
   const cta = ad?.cta ?? 'Mehr erfahren';
+
+  if (!ad?.title || !ad?.ctaUrl) return <WebAdSlot placement={placement} userPlan={userPlan} />;
 
   return (
     <div ref={ref} className="mx-0 my-1">
